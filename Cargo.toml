@@ -3,6 +3,7 @@ members = [
     "bitinfinity-tools",
     "bitinfinity-btcrpc",
     "bitinfinity-token",
+    "bitinfinity-neard",
     "near-account-id",
 ]
 
