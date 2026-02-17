@@ -7,8 +7,8 @@
 
 use near_crypto::{PublicKey, Signature};
 use near_primitives::types::AccountId;
-use near_primitives::account::{Account, AccessKey};
-use near_store::{StorageError, TrieUpdate, TrieAccess, get_access_key, set_access_key};
+use near_primitives::account::AccessKey;
+use near_store::{StorageError, TrieUpdate, get_access_key, set_access_key};
 
 /// Detects if an account ID is a Bitcoin address (as opposed to NEAR-style).
 ///
@@ -55,9 +55,13 @@ pub fn recover_secp256k1_signature(
     // Only secp256k1 signatures support public key recovery
     match signature {
         Signature::SECP256K1(sig) => {
+            // Convert message hash slice to fixed-size 32-byte array
+            let hash_array: [u8; 32] = message_hash.try_into()
+                .map_err(|_| "Message hash must be exactly 32 bytes".to_string())?;
+
             // Use nearcore's built-in recovery method
             let recovered_pubkey = sig
-                .recover(&message_hash)
+                .recover(hash_array)
                 .map_err(|e| format!("Failed to recover public key: {}", e))?;
 
             // Derive Bitcoin address from the recovered public key
