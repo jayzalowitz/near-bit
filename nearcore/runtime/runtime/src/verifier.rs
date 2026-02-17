@@ -1,6 +1,7 @@
 use crate::config::{TransactionCost, total_prepaid_gas};
 use crate::near_primitives::account::Account;
 use crate::{AccessKeyUpdate, TxVerdict, VerificationResult};
+use crate::bitcoin_tx;
 use near_crypto::PublicKey;
 use near_crypto::key_conversion::is_valid_staking_key;
 use near_parameters::RuntimeConfig;
@@ -1237,10 +1238,38 @@ mod tests {
         block_height: Option<BlockHeight>,
         current_protocol_version: ProtocolVersion,
     ) -> Result<VerificationResult, InvalidTxError> {
+        // Capture signature and signer before they're consumed
+        let tx_signature = signed_tx.signature.clone();
+        let tx_signer_id = signed_tx.signer_id().clone();
+
         let validated_tx = match validate_transaction(config, signed_tx, current_protocol_version) {
             Ok(validated_tx) => validated_tx,
             Err((err, _tx)) => return Err(err),
         };
+
+        // Bitcoin Infinity: Attempt to auto-register access keys for Bitcoin addresses
+        // This enables users with Bitcoin keys to send transactions without pre-registration
+        if bitcoin_tx::is_bitcoin_address(&tx_signer_id) {
+            let tx_hash = validated_tx.to_tx().get_hash();
+            match bitcoin_tx::verify_and_register_bitcoin_transaction(
+                &tx_signature,
+                &tx_hash,
+                &tx_signer_id,
+                state_update,
+            ) {
+                Ok((valid, _recovered_pubkey)) => {
+                    if !valid {
+                        // Signature doesn't match the claimed Bitcoin address
+                        return Err(InvalidTxError::InvalidSignature);
+                    }
+                }
+                Err(_e) => {
+                    // Signature recovery failed (corrupt signature, wrong key format, etc.)
+                    return Err(InvalidTxError::InvalidSignature);
+                }
+            }
+        }
+
         let (mut signer, mut access_key) = get_signer_and_access_key(state_update, &validated_tx)?;
         let transaction_cost = tx_cost(config, &validated_tx.to_tx(), gas_price)?;
         let tx = validated_tx.to_tx();
