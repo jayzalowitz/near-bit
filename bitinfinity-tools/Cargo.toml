@@ -20,6 +20,8 @@ clap = { workspace = true }
 log = { workspace = true }
 env_logger = { workspace = true }
 tokio = { workspace = true }
+rand = "0.8"
+chrono = "0.4"
 
 [[bin]]
 name = "bitinfinity-tools"

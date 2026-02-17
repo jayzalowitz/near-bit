@@ -77,8 +77,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     println!("  ... and {} more", utxos.len() - 5);
                 }
                 println!();
-                // TODO: Build genesis from synthetic UTXOs
-                // TODO: Write genesis files to output_dir
+
+                // Build genesis from synthetic UTXOs
+                let builder = genesis_builder::GenesisBuilder::new(
+                    chain_id.clone(),
+                    output_dir.clone(),
+                );
+                builder.build(&utxos)?;
+                println!();
+                println!("✓ Genesis files written to {}", output_dir.display());
             } else {
                 println!("Mode: MAINNET (real Bitcoin UTXO snapshot)");
                 match utxo_snapshot {
