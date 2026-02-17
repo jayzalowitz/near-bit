@@ -12,4 +12,6 @@ serde_json = { workspace = true }
 bs58 = { workspace = true }
 sha2 = { workspace = true }
 ripemd = { workspace = true }
+bitcoin = { workspace = true }
+bech32 = "0.11"
 regex = "1.10"
