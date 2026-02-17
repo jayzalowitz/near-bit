@@ -1,8 +1,8 @@
 [workspace]
 members = [
-    "sydney-tools",
-    "sydney-btcrpc",
-    "sydney-token",
+    "bitinfinity-tools",
+    "bitinfinity-btcrpc",
+    "bitinfinity-token",
     "near-account-id",
 ]
 
@@ -11,7 +11,7 @@ resolver = "2"
 [workspace.package]
 version = "0.1.0"
 edition = "2021"
-authors = ["Sydney Contributors"]
+authors = ["Bitcoin Infinity Contributors"]
 license = "MIT"
 
 # When we add nearcore as a subtree, this workspace will expand to include it:
@@ -26,7 +26,7 @@ license = "MIT"
 # ]
 
 [workspace.dependencies]
-# Common dependencies for Sydney crates
+# Common dependencies for Bitcoin Infinity crates
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio = { version = "1", features = ["full"] }
