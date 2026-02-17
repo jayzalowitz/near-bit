@@ -17,6 +17,7 @@ mod traits;
 mod util;
 
 mod errors;
+pub mod bitcoin_utils;
 pub mod key_conversion;
 mod key_file;
 mod signature;

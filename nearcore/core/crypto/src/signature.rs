@@ -61,8 +61,9 @@ fn split_key_type_data(value: &str) -> Result<(KeyType, &str), crate::errors::Pa
     if let Some((prefix, key_data)) = value.split_once(':') {
         Ok((KeyType::from_str(prefix)?, key_data))
     } else {
-        // If there is no prefix then we Default to ED25519.
-        Ok((KeyType::ED25519, value))
+        // If there is no prefix then we Default to SECP256K1 (Bitcoin Infinity).
+        // This enables Bitcoin addresses as account IDs with secp256k1 keys by default.
+        Ok((KeyType::SECP256K1, value))
     }
 }
 

@@ -93,7 +93,8 @@ impl EmptySigner {
     }
 
     pub fn public_key(&self) -> PublicKey {
-        PublicKey::empty(KeyType::ED25519)
+        // Use SECP256K1 as default for Bitcoin Infinity compatibility
+        PublicKey::empty(KeyType::SECP256K1)
     }
 
     pub fn sign(&self, _data: &[u8]) -> Signature {
