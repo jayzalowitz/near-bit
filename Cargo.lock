@@ -273,6 +273,7 @@ dependencies = [
  "anyhow",
  "axum",
  "bitcoin 0.32.8",
+ "chrono",
  "clap",
  "env_logger",
  "hex",

@@ -26,6 +26,9 @@ tower-http = { version = "0.5", features = ["cors"] }
 anyhow = "1.0"
 thiserror = "1.0"
 
+# Time
+chrono = "0.4"
+
 [[bin]]
 name = "bitinfinity-btcrpc"
 path = "src/main.rs"
