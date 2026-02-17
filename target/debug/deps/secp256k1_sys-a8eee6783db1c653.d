@@ -1,0 +1,10 @@
+/Users/infinitoshi/conductor/workspaces/near-bit/sydney/target/debug/deps/secp256k1_sys-a8eee6783db1c653.d: /Users/infinitoshi/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.10.1/src/lib.rs /Users/infinitoshi/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.10.1/src/macros.rs /Users/infinitoshi/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.10.1/src/types.rs /Users/infinitoshi/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.10.1/src/recovery.rs
+
+/Users/infinitoshi/conductor/workspaces/near-bit/sydney/target/debug/deps/libsecp256k1_sys-a8eee6783db1c653.rlib: /Users/infinitoshi/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.10.1/src/lib.rs /Users/infinitoshi/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.10.1/src/macros.rs /Users/infinitoshi/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.10.1/src/types.rs /Users/infinitoshi/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.10.1/src/recovery.rs
+
+/Users/infinitoshi/conductor/workspaces/near-bit/sydney/target/debug/deps/libsecp256k1_sys-a8eee6783db1c653.rmeta: /Users/infinitoshi/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.10.1/src/lib.rs /Users/infinitoshi/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.10.1/src/macros.rs /Users/infinitoshi/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.10.1/src/types.rs /Users/infinitoshi/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.10.1/src/recovery.rs
+
+/Users/infinitoshi/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.10.1/src/lib.rs:
+/Users/infinitoshi/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.10.1/src/macros.rs:
+/Users/infinitoshi/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.10.1/src/types.rs:
+/Users/infinitoshi/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.10.1/src/recovery.rs:
