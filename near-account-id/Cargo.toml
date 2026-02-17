@@ -1,0 +1,15 @@
+[package]
+name = "near-account-id"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+description = "NEAR account ID types with Bitcoin address support (forked)"
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+bs58 = { workspace = true }
+sha2 = { workspace = true }
+ripemd = { workspace = true }
+regex = "1.10"
