@@ -107,6 +107,7 @@ mod actions;
 #[cfg(test)]
 mod actions_test_utils;
 pub mod adapter;
+mod bitcoin_tx;
 mod bandwidth_scheduler;
 pub mod config;
 mod congestion_control;
