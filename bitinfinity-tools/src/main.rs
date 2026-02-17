@@ -6,6 +6,9 @@ mod patoshi;
 mod genesis_builder;
 mod keygen;
 mod testnet;
+mod signature_recovery;
+mod account_manager;
+mod transaction;
 
 #[derive(Parser)]
 #[command(name = "bitinfinity-tools")]
