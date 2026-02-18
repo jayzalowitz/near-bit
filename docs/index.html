@@ -98,11 +98,47 @@
       grid-template-columns: 1fr 1fr;
       gap: 24px;
     }
-    @media (max-width: 700px) {
+    @media (max-width: 900px) {
       .two-col { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 700px) {
+      .hero { padding: 48px 16px 40px; }
+      .hero-logo { font-size: 48px; }
       .hero h1 { font-size: 32px; }
-      .hero .tagline { font-size: 18px; }
+      .hero .tagline { font-size: 17px; }
+      .hero-badges { gap: 8px; }
+      .badge { font-size: 12px; padding: 5px 10px; }
+      section { padding: 40px 16px; }
       section h2 { font-size: 24px; }
+      section .subtitle { font-size: 16px; margin-bottom: 28px; }
+      .problem-card, .solution-card { padding: 20px; }
+      .problem-card h3, .solution-card h3 { font-size: 17px; }
+      .feature { padding: 20px; }
+      .feature .icon { font-size: 26px; }
+      .feature h3 { font-size: 16px; }
+      .feature p { font-size: 14px; }
+      .step { padding: 24px 16px; }
+      .step .num { width: 40px; height: 40px; font-size: 18px; }
+      .step h3 { font-size: 16px; }
+      .step p { font-size: 14px; }
+      .diagram-wrap { padding: 24px 12px; }
+      .diagram .box { min-width: 120px; padding: 14px 16px; font-size: 13px; }
+      .diagram .arrow { font-size: 20px; padding: 0 6px; }
+      .comparison th, .comparison td { padding: 10px 8px; font-size: 13px; }
+      .cta { padding: 40px 16px 56px; }
+      .cta p { font-size: 16px; }
+      .btn { padding: 12px 20px; font-size: 14px; }
+      .btn-secondary { margin-left: 0; margin-top: 12px; }
+    }
+    @media (max-width: 480px) {
+      .hero h1 { font-size: 26px; }
+      .hero .tagline { font-size: 15px; }
+      section h2 { font-size: 20px; }
+      .diagram { flex-direction: column; }
+      .diagram .arrow { transform: rotate(90deg); padding: 4px 0; }
+      .diagram .box { min-width: 100%; }
+      .cta .btn { display: block; width: 100%; text-align: center; }
+      .cta .btn-secondary { margin-left: 0; }
     }
     .problem-card, .solution-card {
       padding: 32px;
@@ -143,7 +179,7 @@
       grid-template-columns: repeat(3, 1fr);
       gap: 24px;
     }
-    @media (max-width: 700px) {
+    @media (max-width: 900px) {
       .steps { grid-template-columns: 1fr; }
     }
     .step {
@@ -200,7 +236,7 @@
       gap: 24px;
     }
     @media (max-width: 700px) {
-      .features { grid-template-columns: 1fr; }
+      .features { grid-template-columns: 1fr !important; }
     }
     .feature {
       padding: 28px;
