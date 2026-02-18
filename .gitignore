@@ -1,3 +1,6 @@
+# Archive (phase logs, status reports)
+.archive/
+
 # Build artifacts
 /target/
 **/target/
