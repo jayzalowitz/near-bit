@@ -1,0 +1,24 @@
+# Build artifacts
+/target/
+**/target/
+
+# Node data (keep genesis config, ignore runtime data)
+genesis-testnet/data/
+genesis-testnet/node_key.json
+genesis-testnet/validator_key.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Wallet (NEVER commit private keys)
+wallet.json
+tx_cache.json
+.cookie

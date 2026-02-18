@@ -27,16 +27,16 @@
   - `1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa` (Satoshi's address!)
   - `1FP5gk4z7mDdSb3m3YvUwFb1BDUvcLYe1F`
   - ... 8 more Bitcoin P2PKH addresses
-- **Chain ID**: sydney-mainnet
+- **Chain ID**: bitinfinity-mainnet
 - **Genesis Height**: 0
 - **Total Supply**: 501,926 SYD (5.01926e+29 yoctosyd)
 - **Validators**: Empty (will be initialized with node)
 
 ### ✅ Step 4a: Prepare Testnet Home Directory
-- **Directory created**: `~/.sydney-testnet/`
+- **Directory created**: `~/.bitinfinity-testnet/`
 - **Genesis files copied**: ✅ Complete
-  - genesis_config.json → ~/.sydney-testnet/
-  - records.json → ~/.sydney-testnet/
+  - genesis_config.json → ~/.bitinfinity-testnet/
+  - records.json → ~/.bitinfinity-testnet/
 
 ---
 
@@ -66,8 +66,8 @@ Estimated: 5 minutes once dependencies ready
 Once compilation completes:
 ```bash
 cargo run -p bitinfinity-neard -- init \
-    --home ~/.sydney-testnet \
-    --chain-id sydney-testnet
+    --home ~/.bitinfinity-testnet \
+    --chain-id bitinfinity-testnet
 ```
 **Expected output**:
 - config.json created
@@ -78,7 +78,7 @@ cargo run -p bitinfinity-neard -- init \
 ### ⏳ Step 5: Start Testnet Node
 ```bash
 cargo run -p bitinfinity-neard -- run \
-    --home ~/.sydney-testnet \
+    --home ~/.bitinfinity-testnet \
     2>&1 | tee node.log
 ```
 **Expected behavior**:
@@ -107,8 +107,8 @@ Once node is running:
 |------|------|--------|---------|
 | genesis-testnet/genesis_config.json | 244B | ✅ Ready | Chain config, params |
 | genesis-testnet/records.json | 1.2K | ✅ Ready | Account state records |
-| ~/.sydney-testnet/genesis_config.json | 244B | ✅ Copied | Testnet config |
-| ~/.sydney-testnet/records.json | 1.2K | ✅ Copied | Testnet accounts |
+| ~/.bitinfinity-testnet/genesis_config.json | 244B | ✅ Copied | Testnet config |
+| ~/.bitinfinity-testnet/records.json | 1.2K | ✅ Copied | Testnet accounts |
 | /tmp/phase5_3_testing_script.sh | 1.5K | ✅ Created | Helper testing script |
 
 ---

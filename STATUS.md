@@ -1,7 +1,7 @@
 # Bitcoin Infinity - Project Status
 
 **Last Updated**: February 16, 2026
-**Project**: Bitcoin Infinity (formerly Sydney Chain)
+**Project**: Bitcoin Infinity (formerly Bitcoin Infinity Chain)
 **Status**: Foundation Complete ✅ | Implementation in Progress 🔄
 
 ## Executive Summary
@@ -230,7 +230,7 @@ Bitcoin → Bitcoin Infinity
 
 ### File Structure
 ```
-sydney/
+bitinfinity/
 ├── Cargo.toml (workspace root)
 ├── nearcore/ (NEAR Protocol git subtree)
 ├── bitinfinity-tools/ (Genesis, keygen, UTXO parsing)

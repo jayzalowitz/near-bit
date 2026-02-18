@@ -753,7 +753,8 @@ impl CheckStateRootCmd {
         trie_key: &CryptoHash,
     ) -> std::io::Result<Option<near_store::db::DBSlice<'a>>> {
         let mapped_shard_uid = get_shard_uid_mapping(&store, *shard_uid);
-        let cold_state_key = [mapped_shard_uid.to_bytes().as_ref(), trie_key.as_bytes()].concat();
+        let shard_bytes = mapped_shard_uid.to_bytes();
+        let cold_state_key = [shard_bytes.as_slice(), trie_key.as_bytes()].concat();
         Ok(store.get(DBCol::State, &cold_state_key))
     }
 }

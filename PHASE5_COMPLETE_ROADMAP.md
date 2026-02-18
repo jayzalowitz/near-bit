@@ -70,7 +70,7 @@ Phase 5 is the **critical integration phase** that bridges from foundation work 
 │  └─ Output genesis.json + records.json
 │
 ├─ Step 4: Initialize Node (1 hour)
-│  ├─ Create ~/.sydney-testnet/
+│  ├─ Create ~/.bitinfinity-testnet/
 │  ├─ Copy genesis files
 │  └─ Initialize config
 │
@@ -246,7 +246,7 @@ Total: ~2-3 weeks
 User perspective during Phase 5.3 testing:
 ```
 1. User takes Bitcoin private key
-2. Points wallet at Sydney RPC endpoint
+2. Points wallet at Bitcoin Infinity RPC endpoint
 3. Sends transaction with Bitcoin address
 4. Chain recovers pubkey from signature ← [Signature recovery]
 5. Chain registers access key ← [Auto-registration, TRANSPARENT]

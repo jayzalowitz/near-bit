@@ -22,6 +22,19 @@ axum = "0.7"
 tower = "0.4"
 tower-http = { version = "0.5", features = ["cors"] }
 
+# HTTP client for nearcore RPC
+reqwest = { version = "0.12", features = ["json"] }
+
+# Address encoding
+bs58 = { workspace = true }
+ripemd = { workspace = true }
+
+# Random number generation
+rand = "0.8"
+
+# Base64 encoding for NEAR transaction submission
+base64 = "0.22"
+
 # Error handling
 anyhow = "1.0"
 thiserror = "1.0"

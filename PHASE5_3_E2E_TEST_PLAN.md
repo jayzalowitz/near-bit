@@ -1,9 +1,9 @@
 # Phase 5.3: End-to-End Bitcoin Address Transaction Testing
 
 ## Overview
-This document describes the detailed end-to-end testing procedure to validate Bitcoin address support in Sydney.
+This document describes the detailed end-to-end testing procedure to validate Bitcoin address support in Bitcoin Infinity.
 
-**Objective**: Verify that a Bitcoin address can send transactions on Sydney using secp256k1 signatures without any pre-registration or claiming.
+**Objective**: Verify that a Bitcoin address can send transactions on Bitcoin Infinity using secp256k1 signatures without any pre-registration or claiming.
 
 ---
 
@@ -13,7 +13,7 @@ Before starting tests, verify:
 1. ✅ nearcore/runtime/runtime compiles
 2. ✅ bitcoin_utils unit tests pass  
 3. ✅ Testnet genesis generated (10 Bitcoin addresses)
-4. ✅ Testnet initialized (~/.sydney-testnet/)
+4. ✅ Testnet initialized (~/.bitinfinity-testnet/)
 5. ✅ Testnet node running (RPC on 127.0.0.1:3030)
 
 ---
@@ -121,7 +121,7 @@ const signedTx = {
 
 ## Test 3: Submit Transaction to Testnet
 
-**Purpose**: Send a Bitcoin-signed transaction to the Sydney testnet.
+**Purpose**: Send a Bitcoin-signed transaction to the Bitcoin Infinity testnet.
 
 ```bash
 # Get latest block hash
@@ -408,13 +408,13 @@ Expected metrics from Phase 5.3:
 
 ### RPC Not Responding
 - **Cause**: Node not running or RPC not initialized
-- **Fix**: Start node: `cargo run -p bitinfinity-neard -- run --home ~/.sydney-testnet`
+- **Fix**: Start node: `cargo run -p bitinfinity-neard -- run --home ~/.bitinfinity-testnet`
 - **Check**: `curl http://127.0.0.1:3030/status | jq .`
 
 ### Access Key Not Found
 - **Cause**: First transaction hasn't been processed yet
 - **Fix**: Wait for block to finalize
-- **Check**: Monitor logs: `tail -f ~/.sydney-testnet/logs/*`
+- **Check**: Monitor logs: `tail -f ~/.bitinfinity-testnet/logs/*`
 
 ---
 

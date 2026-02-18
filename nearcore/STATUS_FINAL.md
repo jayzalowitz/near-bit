@@ -85,7 +85,7 @@ User Flow (Unchanged from Bitcoin):
 ## Files & Structure
 
 ```
-sydney/
+bitinfinity/
 ├── IMPLEMENTATION_STATUS.md         ✅ Complete status report
 ├── NEARCORE_INTEGRATION.md          ✅ Technical specification  
 ├── TESTNET_GUIDE.md                 ✅ Setup procedures

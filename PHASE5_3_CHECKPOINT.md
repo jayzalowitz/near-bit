@@ -74,7 +74,7 @@
 
 ### ✅ Running & Available
 1. **Source code** - All Bitcoin integration code compiled and tested
-2. **Genesis files** - ~/.sydney-testnet/genesis_config.json and records.json
+2. **Genesis files** - ~/.bitinfinity-testnet/genesis_config.json and records.json
 3. **Documentation** - 3 comprehensive session docs + proposal
 4. **Git history** - 4 new commits documenting work
 
@@ -249,13 +249,13 @@ Transaction finality:           ~2-3 blocks
 ### Immediate (10-30 minutes)
 ```
 1. Testnet init completes
-2. Config files created: ~/.sydney-testnet/
+2. Config files created: ~/.bitinfinity-testnet/
 3. Storage initialized: RocksDB data/ directory
 ```
 
 ### Short-term (30 min - 1 hour)
 ```
-1. Start node: cargo run -p bitinfinity-neard -- run --home ~/.sydney-testnet
+1. Start node: cargo run -p bitinfinity-neard -- run --home ~/.bitinfinity-testnet
 2. RPC server listens on localhost:3030
 3. Genesis state loads into memory
 4. Block production begins
@@ -285,7 +285,7 @@ Transaction finality:           ~2-3 blocks
 
 ### For Next Session
 1. **Monitor testnet init** - Check when complete
-2. **Start node** - `cargo run -p bitinfinity-neard -- run --home ~/.sydney-testnet`
+2. **Start node** - `cargo run -p bitinfinity-neard -- run --home ~/.bitinfinity-testnet`
 3. **Test RPC** - Query /status endpoint
 4. **End-to-end test** - Sign and submit transaction
 5. **Document results** - Create E2E test report

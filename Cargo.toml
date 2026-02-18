@@ -4,6 +4,9 @@ members = [
     "bitinfinity-btcrpc",
     "bitinfinity-token",
     "bitinfinity-neard",
+]
+
+exclude = [
     "near-account-id",
 ]
 

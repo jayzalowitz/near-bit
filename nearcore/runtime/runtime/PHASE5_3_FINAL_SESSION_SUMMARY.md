@@ -30,7 +30,7 @@ Phase 5.3 execution has successfully completed all preparation and infrastructur
    - Validation: 10 Bitcoin P2PKH addresses confirmed valid
 
 2. **Testnet Infrastructure Setup** (5 min, 02:20-02:25 UTC)
-   - Created: `~/.sydney-testnet/`
+   - Created: `~/.bitinfinity-testnet/`
    - Copied genesis files to testnet home
    - Verified all files in place
    - Ready for `neard init`
@@ -85,7 +85,7 @@ Phase 5.3 execution has successfully completed all preparation and infrastructur
 
 ### Genesis State
 ✅ genesis_config.json properly formatted
-✅ Chain ID: sydney-mainnet
+✅ Chain ID: bitinfinity-mainnet
 ✅ Genesis height: 0
 ✅ Total supply: 501,926 SYD
 ✅ Account records: Properly serialized JSON
@@ -119,7 +119,7 @@ Phase 5.3 execution has successfully completed all preparation and infrastructur
 ### Genesis Configuration
 ```json
 {
-  "chain_id": "sydney-mainnet",
+  "chain_id": "bitinfinity-mainnet",
   "protocol_version": 1,
   "genesis_height": 0,
   "genesis_time": "2026-02-17T07:21:47Z",
@@ -132,8 +132,8 @@ Phase 5.3 execution has successfully completed all preparation and infrastructur
 |------|------|---------|
 | genesis-testnet/genesis_config.json | 244B | Chain config |
 | genesis-testnet/records.json | 1.2K | Account records |
-| ~/.sydney-testnet/genesis_config.json | 244B | Testnet config |
-| ~/.sydney-testnet/records.json | 1.2K | Testnet accounts |
+| ~/.bitinfinity-testnet/genesis_config.json | 244B | Testnet config |
+| ~/.bitinfinity-testnet/records.json | 1.2K | Testnet accounts |
 | PHASE5_3_PROGRESS_UPDATE.md | 194 lines | Progress tracking |
 | PHASE5_3_E2E_TEST_PLAN.md | 435 lines | Test procedures |
 | PHASE5_3_EXECUTION_STATUS.md | 280 lines | Status report |
@@ -220,7 +220,7 @@ du -sh nearcore/target/debug/ target/release/
 tail -f /tmp/auto_continue.log
 
 # Check testnet readiness
-ls -la ~/.sydney-testnet/
+ls -la ~/.bitinfinity-testnet/
 ```
 
 ---
@@ -231,8 +231,8 @@ When compilation completes (detected by auto-script):
 
 1. ✅ Verify nearcore/runtime/runtime compiles clean
 2. ✅ Run bitcoin_utils unit tests  
-3. ✅ Execute: `cargo run -p bitinfinity-neard -- init --home ~/.sydney-testnet --chain-id sydney-testnet`
-4. ✅ Start node: `cargo run -p bitinfinity-neard -- run --home ~/.sydney-testnet`
+3. ✅ Execute: `cargo run -p bitinfinity-neard -- init --home ~/.bitinfinity-testnet --chain-id bitinfinity-testnet`
+4. ✅ Start node: `cargo run -p bitinfinity-neard -- run --home ~/.bitinfinity-testnet`
 5. ✅ Run comprehensive E2E tests (9 scenarios)
 6. ✅ Document results
 
@@ -242,7 +242,7 @@ When compilation completes (detected by auto-script):
 
 ### Phase 5.3 Will Be Complete When
 - [x] Testnet genesis with 10 Bitcoin addresses generated
-- [x] Genesis files in ~/.sydney-testnet/
+- [x] Genesis files in ~/.bitinfinity-testnet/
 - [ ] nearcore/runtime/runtime compiles (⏳ in progress)
 - [ ] bitcoin_utils tests pass (⏳ blocked on compilation)
 - [ ] Testnet initializes without errors (⏳ queued)

@@ -130,19 +130,19 @@ Bitcoin Transaction Flow:
 ========================
 
 1. User has Bitcoin private key (d)
-2. User creates Sydney transaction
+2. User creates Bitcoin Infinity transaction
 3. Signs with secp256k1 (same algorithm as Bitcoin)
    - Message hash: SHA256(transaction)
    - Signature: 65 bytes (r, s, recovery_id)
 
-4. Submit to Sydney
+4. Submit to Bitcoin Infinity
 
-5. Sydney's recover_secp256k1_signature():
+5. Bitcoin Infinity's recover_secp256k1_signature():
    - Extracts signature (r, s, recovery_id)
    - Recovers public key using recovery_id
    - Pubkey: (X, Y) on secp256k1 curve
 
-6. Sydney's derive_bitcoin_address():
+6. Bitcoin Infinity's derive_bitcoin_address():
    - Compress pubkey: 0x02/0x03 prefix + X
    - SHA256(compressed) → 32 bytes
    - RIPEMD160(SHA256) → 20 bytes
@@ -251,9 +251,9 @@ fn test_mixed_bitcoin_and_near_accounts()
 
 ### 3. Deploy Single-Node Testnet (1-2 hours)
 ```bash
-sydney-tools generate-genesis --testnet --num-accounts 10
-neard init --home ~/.sydney/ --chain-id sydney-testnet
-neard run --home ~/.sydney/
+bitinfinity-tools generate-genesis --testnet --num-accounts 10
+neard init --home ~/.bitinfinity/ --chain-id bitinfinity-testnet
+neard run --home ~/.bitinfinity/
 ```
 
 ### 4. End-to-End Test (1 hour)

@@ -610,6 +610,10 @@ pub fn transfer_exec_fee(
         (_, AccountType::NearDeterministicAccount) => {
             transfer_fee.checked_add(cfg.fee(ActionCosts::create_account).exec_fee()).unwrap()
         }
+        // Bitcoin implicit accounts: CreateAccount fee only (no AddKey since key is auto-registered on first spend).
+        (_, AccountType::BtcImplicitAccount) => {
+            transfer_fee.checked_add(cfg.fee(ActionCosts::create_account).exec_fee()).unwrap()
+        }
     }
 }
 
@@ -637,6 +641,10 @@ pub fn transfer_send_fee(
             .unwrap(),
         // Extra fees for the implied  CreateAccount action.
         (_, AccountType::NearDeterministicAccount) => transfer_fee
+            .checked_add(cfg.fee(ActionCosts::create_account).send_fee(sender_is_receiver))
+            .unwrap(),
+        // Bitcoin implicit accounts: CreateAccount fee only.
+        (_, AccountType::BtcImplicitAccount) => transfer_fee
             .checked_add(cfg.fee(ActionCosts::create_account).send_fee(sender_is_receiver))
             .unwrap(),
     }

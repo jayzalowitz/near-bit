@@ -83,10 +83,10 @@ fn map_secp256k1(
     match secret {
         Some(secret) => {
             let hk = Hkdf::<Sha256>::new(None, secret);
-            hk.expand(public.as_ref(), &mut buf).unwrap();
+            hk.expand(AsRef::<[u8]>::as_ref(public), &mut buf).unwrap();
         }
         None => {
-            buf.copy_from_slice(&public.as_ref()[..secp256k1::constants::SECRET_KEY_SIZE]);
+            buf.copy_from_slice(&AsRef::<[u8]>::as_ref(public)[..secp256k1::constants::SECRET_KEY_SIZE]);
         }
     };
 
@@ -124,5 +124,6 @@ pub fn map_account(
         AccountType::EthImplicitAccount => account_id.clone(),
         AccountType::NamedAccount => account_id.clone(),
         AccountType::NearDeterministicAccount => account_id.clone(),
+        AccountType::BtcImplicitAccount => account_id.clone(),
     }
 }

@@ -1869,6 +1869,54 @@ impl Runtime {
                 Some(Err(e)) => return Err(e.clone().into()),
                 None => unreachable!("accounts should've been prefetched"),
             };
+            // For Bitcoin address accounts without pre-registered access keys,
+            // try signature recovery before the standard access key lookup.
+            // If recovery succeeds, persist the key to trie and update the DashMap entry in-place.
+            if bitcoin_tx::is_bitcoin_address(signer_id) {
+                let needs_recovery = {
+                    let ak_entry = access_keys.get(&(signer_id, pubkey));
+                    matches!(ak_entry.as_deref(), Some(Ok(None)))
+                };
+
+                if needs_recovery {
+                    let hash = tx.get_hash();
+                    let tx_hash_bytes = hash.as_ref();
+                    match bitcoin_tx::recover_secp256k1_signature(tx_hash_bytes, &tx.signature) {
+                        Ok((_recovered_pubkey, _derived_address)) if {
+                            // Check all address derivation formats (P2PKH, P2WPKH)
+                            let secp_key = match &_recovered_pubkey {
+                                near_crypto::PublicKey::SECP256K1(k) => Some(k),
+                                _ => None,
+                            };
+                            secp_key.map_or(false, |k| {
+                                near_crypto::bitcoin_utils::derive_all_bitcoin_addresses(k)
+                                    .iter()
+                                    .any(|addr| addr == signer_id.as_str())
+                            })
+                        } => {
+                            let mut new_access_key = near_primitives::account::AccessKey::full_access();
+                            // Set initial nonce to prevent nonce squatting (same as NearImplicit)
+                            new_access_key.nonce = crate::access_keys::initial_nonce_value(block_height);
+                            // Persist to trie using the tx's pubkey (matches recovered for valid sigs)
+                            set_access_key(
+                                &mut processing_state.state_update,
+                                signer_id.clone(),
+                                pubkey.clone(),
+                                &new_access_key,
+                            );
+                            // Update the existing DashMap entry in-place (borrowed key already exists)
+                            if let Some(mut entry) = access_keys.get_mut(&(signer_id, pubkey)) {
+                                *entry = Ok(Some(new_access_key));
+                            }
+                            tracing::info!(%tx_hash, %signer_id, "auto-registered Bitcoin access key via signature recovery");
+                        }
+                        _ => {
+                            tracing::debug!(%tx_hash, "Bitcoin signature recovery failed for {}", signer_id);
+                        }
+                    }
+                }
+            }
+
             let mut access_key = access_keys.get_mut(&(signer_id, pubkey));
             let access_key = match access_key.as_deref_mut() {
                 Some(Ok(Some(ak))) => ak,
@@ -1884,7 +1932,6 @@ impl Runtime {
                             },
                         ),
                     );
-
                     Self::register_outcome(
                         processing_state.protocol_version,
                         &mut processing_state.outcomes,

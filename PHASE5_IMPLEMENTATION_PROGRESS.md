@@ -115,7 +115,7 @@ User Transaction Flow (Bitcoin Address)
 
 1. User creates transaction with Bitcoin private key
 2. Signs with secp256k1 (Bitcoin standard)
-3. Sends to Sydney RPC: verify_and_register_bitcoin_transaction()
+3. Sends to Bitcoin Infinity RPC: verify_and_register_bitcoin_transaction()
    │
    ├─ is_bitcoin_address(signer_id)?
    │  └─ YES: Continue with Bitcoin path
@@ -231,10 +231,10 @@ Expected: Bitcoin path for Bitcoin addresses, standard for NEAR
 ### Testnet: End-to-End (Phase 5.3)
 ```bash
 # Generate testnet genesis with synthetic Bitcoin addresses
-sydney-tools generate-genesis --testnet --num-accounts 100
+bitinfinity-tools generate-genesis --testnet --num-accounts 100
 
 # Start 1-node network
-neard run --home ~/.sydney/
+neard run --home ~/.bitinfinity/
 
 # Send transactions from Bitcoin addresses
 cargo test --test testnet_bitcoin_tx
@@ -318,7 +318,7 @@ The Bitcoin Infinity design eliminates the "first transaction is different" prob
 | 1 | Import BTC private key | Import BTC private key |
 | 2 | Claim tokens on sidechain | Create transaction (same signing) |
 | 3 | Receive tokens | Sign with Bitcoin key (same process) |
-| 4 | Use sidechain | Submit to Sydney RPC (NEW) |
+| 4 | Use sidechain | Submit to Bitcoin Infinity RPC (NEW) |
 | | | **Access key auto-registers** (invisible) |
 | 5 | - | Balance updates |
 

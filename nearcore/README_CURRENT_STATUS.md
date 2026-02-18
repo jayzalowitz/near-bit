@@ -103,7 +103,7 @@ Bitcoin Infinity is a new L1 blockchain that combines:
 ## Project Structure
 
 ```
-sydney/
+bitinfinity/
 ├── README_CURRENT_STATUS.md              ← You are here
 ├── IMPLEMENTATION_STATUS.md              ✅ Full project status
 ├── NEARCORE_INTEGRATION.md               ✅ Technical modifications

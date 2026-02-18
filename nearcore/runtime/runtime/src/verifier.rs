@@ -1240,7 +1240,7 @@ mod tests {
     ) -> Result<VerificationResult, InvalidTxError> {
         // Capture signature and signer before they're consumed
         let tx_signature = signed_tx.signature.clone();
-        let tx_signer_id = signed_tx.signer_id().clone();
+        let tx_signer_id = signed_tx.transaction.signer_id().clone();
 
         let validated_tx = match validate_transaction(config, signed_tx, current_protocol_version) {
             Ok(validated_tx) => validated_tx,
@@ -1250,10 +1250,10 @@ mod tests {
         // Bitcoin Infinity: Attempt to auto-register access keys for Bitcoin addresses
         // This enables users with Bitcoin keys to send transactions without pre-registration
         if bitcoin_tx::is_bitcoin_address(&tx_signer_id) {
-            let tx_hash = validated_tx.to_tx().get_hash();
+            let tx_hash = validated_tx.get_hash();
             match bitcoin_tx::verify_and_register_bitcoin_transaction(
                 &tx_signature,
-                &tx_hash,
+                tx_hash.as_ref(),
                 &tx_signer_id,
                 state_update,
             ) {

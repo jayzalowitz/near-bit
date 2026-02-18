@@ -21,6 +21,11 @@ tokio.workspace = true
 tower-http.workspace = true
 tracing.workspace = true
 
+bitcoin.workspace = true
+hex.workspace = true
+sha2.workspace = true
+ripemd.workspace = true
+
 near-async.workspace = true
 near-chain-configs.workspace = true
 near-client-primitives.workspace = true

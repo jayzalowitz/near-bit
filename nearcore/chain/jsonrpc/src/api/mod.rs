@@ -4,6 +4,7 @@ use serde_json::Value;
 use near_jsonrpc_primitives::errors::RpcParseError;
 use near_jsonrpc_primitives::errors::{RpcError, ServerError};
 
+pub(crate) mod bitcoin_tx;
 mod blocks;
 mod call_function;
 mod changes;

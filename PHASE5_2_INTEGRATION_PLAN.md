@@ -329,7 +329,7 @@ fn test_mixed_bitcoin_and_near_accounts() {
 ### End-to-End Test: Testnet
 ```bash
 # 1. Generate testnet with Bitcoin addresses
-sydney-tools generate-genesis --testnet --num-accounts 10
+bitinfinity-tools generate-genesis --testnet --num-accounts 10
 
 # 2. Extract private keys
 # 3. Start neard with testnet genesis
@@ -418,9 +418,9 @@ From the user's perspective:
 ```
 Bitcoin Wallet
     ↓
-[User has BTC key] → [Signs transaction] → [Submits to Sydney]
+[User has BTC key] → [Signs transaction] → [Submits to Bitcoin Infinity]
                                               ↓
-                                        Sydney validates
+                                        Bitcoin Infinity validates
                                         Recovers pubkey
                                         Auto-registers key (transparent)
                                               ↓

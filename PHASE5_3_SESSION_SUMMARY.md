@@ -67,7 +67,7 @@
 
 ### 3. 🔄 Testnet Initialization In Progress
 
-**Command**: `cargo run -p bitinfinity-neard --release -- init --home ~/.sydney-testnet --chain-id sydney-testnet`
+**Command**: `cargo run -p bitinfinity-neard --release -- init --home ~/.bitinfinity-testnet --chain-id bitinfinity-testnet`
 
 **Status**: 
 - ✅ Prerequisite files created
@@ -78,7 +78,7 @@
 
 **Genesis State Prepared**:
 ```
-Chain ID: sydney-testnet
+Chain ID: bitinfinity-testnet
 Protocol Version: 1
 Total Supply: 501,926,000,000,000,000,000,000,000 yoctosyd
 Test Accounts: 10 Bitcoin P2PKH addresses
@@ -132,7 +132,7 @@ All changes committed: ✅
 ```
 User signs with Bitcoin private key
     ↓
-Transaction submitted to Sydney RPC
+Transaction submitted to Bitcoin Infinity RPC
     ↓
 nearcore::verifier validates transaction
     ├── Detects Bitcoin address (format check)
@@ -150,7 +150,7 @@ Balance update, state finalized
 ```
 
 ### Key Innovation: Signature Recovery
-- Users control Sydney accounts with their existing Bitcoin private key
+- Users control Bitcoin Infinity accounts with their existing Bitcoin private key
 - No new wallet needed, no claiming process
 - Transparent to user - first transaction just works
 - Recovery happens automatically, stored for fast subsequent verification
@@ -201,7 +201,7 @@ Balance update, state finalized
 - **Next Action**: Will initialize node configuration and storage
 
 ### Queued for Next Steps
-1. Testnet node startup: `cargo run -p bitinfinity-neard -- run --home ~/.sydney-testnet`
+1. Testnet node startup: `cargo run -p bitinfinity-neard -- run --home ~/.bitinfinity-testnet`
 2. RPC connectivity test: Query account balances
 3. Transaction signing test: Sign and submit test transaction
 4. Balance verification: Confirm transaction executed
@@ -283,8 +283,8 @@ Balance update, state finalized
 
 **Immediate** (next 10 minutes):
 1. Monitor testnet initialization completion
-2. Verify config files created: `ls -la ~/.sydney-testnet/`
-3. Start node when ready: `cargo run -p bitinfinity-neard -- run --home ~/.sydney-testnet`
+2. Verify config files created: `ls -la ~/.bitinfinity-testnet/`
+3. Start node when ready: `cargo run -p bitinfinity-neard -- run --home ~/.bitinfinity-testnet`
 
 **Short-term** (next 1-2 hours):
 1. Test RPC connectivity: `curl http://localhost:3030/`
