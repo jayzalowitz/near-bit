@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bitcoin Infinity &mdash; Sydney Chain</title>
+  <style>
+    :root {
+      --orange: #f7931a;
+      --dark: #0d1117;
+      --darker: #010409;
+      --card: #161b22;
+      --border: #30363d;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --green: #3fb950;
+      --blue: #58a6ff;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      background: var(--darker);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    /* Hero */
+    .hero {
+      text-align: center;
+      padding: 80px 24px 60px;
+      background: linear-gradient(180deg, var(--dark) 0%, var(--darker) 100%);
+      border-bottom: 1px solid var(--border);
+    }
+    .hero-logo {
+      font-size: 64px;
+      margin-bottom: 16px;
+    }
+    .hero h1 {
+      font-size: 48px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      margin-bottom: 8px;
+    }
+    .hero h1 span { color: var(--orange); }
+    .hero .tagline {
+      font-size: 22px;
+      color: var(--muted);
+      max-width: 640px;
+      margin: 0 auto 32px;
+    }
+    .hero-badges {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 40px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      background: var(--card);
+    }
+    .badge .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+    }
+
+    /* Sections */
+    section {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 64px 24px;
+    }
+    section h2 {
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+    section h2 span { color: var(--orange); }
+    section .subtitle {
+      color: var(--muted);
+      font-size: 18px;
+      margin-bottom: 40px;
+      max-width: 680px;
+    }
+
+    /* Problem/Solution */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+    @media (max-width: 700px) {
+      .two-col { grid-template-columns: 1fr; }
+      .hero h1 { font-size: 32px; }
+      .hero .tagline { font-size: 18px; }
+      section h2 { font-size: 24px; }
+    }
+    .problem-card, .solution-card {
+      padding: 32px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--card);
+    }
+    .problem-card h3 { color: #f85149; margin-bottom: 16px; font-size: 20px; }
+    .solution-card h3 { color: var(--green); margin-bottom: 16px; font-size: 20px; }
+    .problem-card ul, .solution-card ul {
+      list-style: none;
+      padding: 0;
+    }
+    .problem-card li, .solution-card li {
+      padding: 8px 0;
+      padding-left: 24px;
+      position: relative;
+      color: var(--muted);
+    }
+    .problem-card li::before {
+      content: "\2717";
+      position: absolute;
+      left: 0;
+      color: #f85149;
+      font-weight: bold;
+    }
+    .solution-card li::before {
+      content: "\2713";
+      position: absolute;
+      left: 0;
+      color: var(--green);
+      font-weight: bold;
+    }
+
+    /* How it works */
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+    @media (max-width: 700px) {
+      .steps { grid-template-columns: 1fr; }
+    }
+    .step {
+      padding: 32px 24px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      text-align: center;
+    }
+    .step .num {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: var(--orange);
+      color: #fff;
+      font-size: 22px;
+      font-weight: 800;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+    }
+    .step h3 { font-size: 18px; margin-bottom: 8px; }
+    .step p { color: var(--muted); font-size: 15px; }
+
+    /* Comparison table */
+    .comparison {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+    }
+    .comparison th, .comparison td {
+      padding: 14px 18px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      font-size: 15px;
+    }
+    .comparison th {
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .comparison td:first-child { font-weight: 600; }
+    .comparison .btc { color: var(--orange); }
+    .comparison .sydney { color: var(--green); }
+    .comparison tr:last-child td { border-bottom: none; }
+
+    /* Features grid */
+    .features {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+    @media (max-width: 700px) {
+      .features { grid-template-columns: 1fr; }
+    }
+    .feature {
+      padding: 28px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--card);
+    }
+    .feature .icon { font-size: 32px; margin-bottom: 12px; }
+    .feature h3 { font-size: 18px; margin-bottom: 8px; }
+    .feature p { color: var(--muted); font-size: 15px; }
+
+    /* Diagram */
+    .diagram-wrap {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 40px 24px;
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    .diagram {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      flex-wrap: wrap;
+    }
+    .diagram .box {
+      padding: 20px 28px;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 15px;
+      text-align: center;
+      min-width: 160px;
+    }
+    .diagram .box small {
+      display: block;
+      font-weight: 400;
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 4px;
+    }
+    .diagram .wallet { background: #f7931a22; border: 2px solid var(--orange); color: var(--orange); }
+    .diagram .proxy { background: #58a6ff22; border: 2px solid var(--blue); color: var(--blue); }
+    .diagram .chain { background: #3fb95022; border: 2px solid var(--green); color: var(--green); }
+    .diagram .arrow {
+      font-size: 28px;
+      color: var(--muted);
+      padding: 0 12px;
+    }
+
+    /* CTA */
+    .cta {
+      text-align: center;
+      padding: 64px 24px 80px;
+    }
+    .cta h2 { margin-bottom: 16px; }
+    .cta p { color: var(--muted); font-size: 18px; margin-bottom: 32px; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 28px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: opacity 0.2s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn-primary { background: var(--orange); color: #fff; }
+    .btn-secondary { background: var(--card); color: var(--text); border: 1px solid var(--border); margin-left: 12px; }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 32px 24px;
+      color: var(--muted);
+      font-size: 14px;
+      border-top: 1px solid var(--border);
+    }
+    footer a { color: var(--blue); text-decoration: none; }
+  </style>
+</head>
+<body>
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-logo">&#8734;</div>
+    <h1>Bitcoin <span>Infinity</span></h1>
+    <p class="tagline">
+      What if Bitcoin was fast, programmable, and still worked with every wallet you already use?
+    </p>
+    <div class="hero-badges">
+      <span class="badge"><span class="dot"></span> 1-second finality</span>
+      <span class="badge"><span class="dot"></span> 204 RPC methods</span>
+      <span class="badge"><span class="dot"></span> Smart contracts</span>
+      <span class="badge"><span class="dot"></span> Same Bitcoin keys</span>
+    </div>
+  </div>
+
+  <!-- Problem / Solution -->
+  <section>
+    <h2>The <span>problem</span> with Bitcoin today</h2>
+    <p class="subtitle">
+      Bitcoin proved that decentralized digital money works. But after 15 years, its limitations are holding it back from what it could be.
+    </p>
+    <div class="two-col">
+      <div class="problem-card">
+        <h3>Bitcoin today</h3>
+        <ul>
+          <li>Transactions take 10&ndash;60 minutes to confirm</li>
+          <li>The network handles about 7 transactions per second</li>
+          <li>No smart contracts &mdash; your coins just sit there</li>
+          <li>High fees during busy periods</li>
+          <li>Enormous energy consumption for mining</li>
+        </ul>
+      </div>
+      <div class="solution-card">
+        <h3>Bitcoin Infinity</h3>
+        <ul>
+          <li>Transactions confirm in about 1 second</li>
+          <li>Thousands of transactions per second</li>
+          <li>Full smart contracts &mdash; DeFi, NFTs, anything</li>
+          <li>Predictable, low fees</li>
+          <li>Proof of Stake &mdash; 99.9% less energy</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- The big idea -->
+  <section>
+    <h2>The <span>big idea</span></h2>
+    <p class="subtitle">
+      Bitcoin Infinity keeps everything people love about Bitcoin &mdash; the addresses, the keys, the wallets &mdash; and replaces the slow, limited engine underneath with a modern blockchain.
+    </p>
+    <div class="diagram-wrap">
+      <div class="diagram">
+        <div class="box wallet">
+          Your Bitcoin Wallet
+          <small>Sparrow, Electrum, etc.</small>
+        </div>
+        <div class="arrow">&rarr;</div>
+        <div class="box proxy">
+          Translation Layer
+          <small>Speaks Bitcoin, thinks NEAR</small>
+        </div>
+        <div class="arrow">&rarr;</div>
+        <div class="box chain">
+          Sydney Chain
+          <small>1s blocks, smart contracts</small>
+        </div>
+      </div>
+      <p style="color: var(--muted); margin-top: 20px; font-size: 14px;">
+        Your wallet connects the same way it always does. It has no idea the engine changed.
+      </p>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section>
+    <h2>How it <span>works</span></h2>
+    <p class="subtitle">
+      Three steps. No new software to learn. No new seed phrases to write down.
+    </p>
+    <div class="steps">
+      <div class="step">
+        <div class="num">1</div>
+        <h3>Keep your keys</h3>
+        <p>Your existing Bitcoin private keys and addresses work as-is. Your identity on the new chain is your Bitcoin address.</p>
+      </div>
+      <div class="step">
+        <div class="num">2</div>
+        <h3>Connect your wallet</h3>
+        <p>Point any Bitcoin wallet at the Sydney RPC endpoint. It speaks the exact same language as Bitcoin Core &mdash; all 204 commands.</p>
+      </div>
+      <div class="step">
+        <div class="num">3</div>
+        <h3>Do more with your coins</h3>
+        <p>Send in 1 second. Earn yield. Interact with smart contracts. Your coins are no longer limited by Bitcoin's 2009 design.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Comparison -->
+  <section>
+    <h2>Side by <span>side</span></h2>
+    <p class="subtitle">
+      A direct comparison of how Bitcoin works today versus on the Sydney chain.
+    </p>
+    <div style="overflow-x: auto;">
+    <table class="comparison">
+      <thead>
+        <tr>
+          <th></th>
+          <th class="btc">Bitcoin</th>
+          <th class="sydney">Bitcoin Infinity</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Confirmation time</td>
+          <td>~10 minutes (1 block)</td>
+          <td>~1 second</td>
+        </tr>
+        <tr>
+          <td>Throughput</td>
+          <td>~7 transactions/sec</td>
+          <td>~1,000+ transactions/sec</td>
+        </tr>
+        <tr>
+          <td>Smart contracts</td>
+          <td>Very limited (Script)</td>
+          <td>Full (WebAssembly)</td>
+        </tr>
+        <tr>
+          <td>Energy usage</td>
+          <td>Proof of Work (high)</td>
+          <td>Proof of Stake (minimal)</td>
+        </tr>
+        <tr>
+          <td>Your keys</td>
+          <td>secp256k1</td>
+          <td>Same secp256k1 keys</td>
+        </tr>
+        <tr>
+          <td>Your address</td>
+          <td>bc1q..., 1..., 3...</td>
+          <td>Same addresses, same formats</td>
+        </tr>
+        <tr>
+          <td>Wallet compatibility</td>
+          <td>Native</td>
+          <td>Native (204 RPC methods)</td>
+        </tr>
+        <tr>
+          <td>DeFi, NFTs, dApps</td>
+          <td>Requires sidechains/L2s</td>
+          <td>Built in</td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section>
+    <h2>What you <span>get</span></h2>
+    <p class="subtitle">
+      Everything from Bitcoin, plus everything that modern blockchains offer.
+    </p>
+    <div class="features">
+      <div class="feature">
+        <div class="icon">&#128273;</div>
+        <h3>Your keys, your coins</h3>
+        <p>Your existing Bitcoin private key is your identity. No migration, no new seed phrase, no trust required.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">&#9889;</div>
+        <h3>Instant transfers</h3>
+        <p>Send to any Bitcoin address and it confirms in about one second. No more watching the mempool and waiting.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">&#128221;</div>
+        <h3>Smart contracts</h3>
+        <p>Write programs that run on-chain using WebAssembly. Build DeFi, NFTs, DAOs, or anything else &mdash; all using your Bitcoin address.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">&#128176;</div>
+        <h3>Low, predictable fees</h3>
+        <p>No more fee spikes. Transactions cost a fraction of a cent with predictable gas pricing.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">&#127758;</div>
+        <h3>Wallet compatible</h3>
+        <p>Sparrow, Electrum, Bitcoin Core &mdash; any wallet that speaks Bitcoin RPC connects without changes. All 204 commands are supported.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">&#127793;</div>
+        <h3>Energy efficient</h3>
+        <p>Proof of Stake consensus uses 99.9% less energy than Bitcoin mining. Secure without the waste.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">&#128256;</div>
+        <h3>UTXO snapshot import</h3>
+        <p>Every existing Bitcoin balance can be imported at genesis. If you own BTC today, your balance is already there.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">&#128679;</div>
+        <h3>Open source</h3>
+        <p>The full stack is open source. The translation layer, the modified chain, the genesis tools &mdash; all public and auditable.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Technical under the hood -->
+  <section>
+    <h2>Under the <span>hood</span></h2>
+    <p class="subtitle">
+      For the technically curious &mdash; here's what makes this possible.
+    </p>
+    <div class="features">
+      <div class="feature">
+        <h3>Modified NEAR Protocol</h3>
+        <p>The Sydney chain is a fork of NEAR Protocol where Bitcoin addresses are first-class account identifiers. When you send coins to a Bitcoin address, the chain creates an account automatically.</p>
+      </div>
+      <div class="feature">
+        <h3>RPC translation proxy</h3>
+        <p>A lightweight Rust service sits between your wallet and the chain. It translates all 204 Bitcoin Core RPC commands into NEAR RPC calls in real time. Your wallet never knows the difference.</p>
+      </div>
+      <div class="feature">
+        <h3>Native signature verification</h3>
+        <p>The chain verifies Bitcoin-format secp256k1 signatures natively. When you sign a transaction with your Bitcoin key, the chain recovers your public key and verifies it matches your address.</p>
+      </div>
+      <div class="feature">
+        <h3>Genesis UTXO import</h3>
+        <p>A genesis builder tool reads Bitcoin's UTXO snapshot and converts every balance into a Sydney chain account. One satoshi equals 10^16 yoctoBIT, preserving full precision.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <div class="cta">
+    <h2>Ready to explore?</h2>
+    <p>Bitcoin Infinity is open source. Dive into the code, run a testnet, or build something new.</p>
+    <a href="https://github.com/infinitoshi/near-bit" class="btn btn-primary">
+      View on GitHub
+    </a>
+    <a href="https://github.com/infinitoshi/near-bit/pull/9" class="btn btn-secondary">
+      Read the PR
+    </a>
+  </div>
+
+  <footer>
+    Bitcoin Infinity (Sydney Chain) &mdash; Built by <a href="https://github.com/infinitoshi">infinitoshi</a>
+  </footer>
+
+</body>
+</html>
