@@ -24,12 +24,12 @@ This proposal includes:
 ### Quantum Computing Threat
 - Shor's algorithm can break ECDSA in polynomial time if quantum computers with sufficient qubits exist
 - Current Bitcoin UTXO set uses secp256k1 (vulnerable to quantum attacks)
-- Sydney forks Bitcoin's address space, inheriting the same vulnerability
+- Bitcoin Infinity forks Bitcoin's address space, inheriting the same vulnerability
 - Need proactive migration path before quantum threat is imminent
 
 ### Current Vulnerability
 - Bitcoin addresses: ~1.1M owned by Satoshi (Patoshi), ~21M total BTC in circulation
-- Sydney mirrors this: ~501K SYD in test accounts
+- Bitcoin Infinity mirrors this: ~501K BIT in test accounts
 - If quantum computers become practical (estimated 10-15+ years), funds at risk
 - No current migration mechanism in place
 
@@ -123,13 +123,13 @@ if quantum_bit_active && account.quantum_resistant_key.is_none() {
 **Option A: Quick Migration (Recommended)**
 ```bash
 # 1. Register quantum-resistant key
-sydney-cli register-qr-key \
+bitinfinity-cli register-qr-key \
     --account <bitcoin-address> \
     --qr-key <quantum-resistant-pubkey> \
     --sign-with secp256k1
 
 # 2. Make key the primary signer
-sydney-cli set-primary-key \
+bitinfinity-cli set-primary-key \
     --account <bitcoin-address> \
     --key-type dilithium3
 ```
@@ -137,7 +137,7 @@ sydney-cli set-primary-key \
 **Option B: Conservative Migration**
 ```bash
 # Keep both keys, require both signatures
-sydney-cli require-dual-signature \
+bitinfinity-cli require-dual-signature \
     --account <bitcoin-address> \
     --secp256k1-key <existing> \
     --qr-key <quantum-resistant>
@@ -146,7 +146,7 @@ sydney-cli require-dual-signature \
 **Option C: Cold Storage Migration**
 ```bash
 # Transfer all funds to new quantum-safe account
-sydney-cli transfer \
+bitinfinity-cli transfer \
     --from <old-bitcoin-address> \
     --to <new-qr-address> \
     --amount max

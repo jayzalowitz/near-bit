@@ -1,6 +1,6 @@
-//! Sydney token (BIT) denomination
-//! 1 BIT = 10^24 yoctosyd (same internal precision as NEAR's 10^24 yoctoNEAR)
-//! 1 BTC satoshi = 10^16 yoctosyd
+//! Bitcoin Infinity token (BIT) denomination
+//! 1 BIT = 10^24 yoctobit (same internal precision as NEAR's 10^24 yoctoNEAR)
+//! 1 BTC satoshi = 10^16 yoctobit
 
 pub const ONE_BIT: u128 = 10_u128.pow(24);
 pub const ONE_SATOSHI_IN_YOCTOBIT: u128 = 10_u128.pow(16);

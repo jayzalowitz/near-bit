@@ -11,7 +11,6 @@ use near_mirror::key_mapping::{map_account, map_key};
 use near_o11y::default_subscriber_with_opentelemetry;
 use near_o11y::env_filter::make_env_filter;
 use near_parameters::RuntimeConfig;
-use near_primitives::account::id::AccountType;
 use near_primitives::account::{AccessKey, AccessKeyPermission, Account, AccountContract};
 use near_primitives::borsh;
 use near_primitives::epoch_manager::{EpochConfig, EpochConfigStore};
@@ -977,8 +976,7 @@ impl ForkNetworkCommand {
             if let Some(sr) = StateRecord::from_raw_key_value(&key, value.clone()) {
                 match sr {
                     StateRecord::AccessKey { account_id, public_key, access_key } => {
-                        // TODO(eth-implicit) Change back to is_implicit() when ETH-implicit accounts are supported.
-                        if account_id.get_account_type() != AccountType::NearImplicitAccount
+                        if !account_id.get_account_type().is_implicit()
                             && access_key.permission == AccessKeyPermission::FullAccess
                         {
                             has_full_key.insert(account_id.clone());
@@ -999,8 +997,7 @@ impl ForkNetworkCommand {
                         )?;
                     }
                     StateRecord::GasKeyNonce { account_id, public_key, index, nonce } => {
-                        // TODO(eth-implicit) Change back to is_implicit() when ETH-implicit accounts are supported.
-                        if account_id.get_account_type() != AccountType::NearImplicitAccount {
+                        if !account_id.get_account_type().is_implicit() {
                             has_full_key.insert(account_id.clone());
                         }
                         let new_account_id = map_account(&account_id, None);
@@ -1107,7 +1104,7 @@ impl ForkNetworkCommand {
                         continue;
                     }
                 };
-                if account_id.get_account_type() == AccountType::NearImplicitAccount
+                if account_id.get_account_type().is_implicit()
                     || has_full_key.contains(&account_id)
                 {
                     continue;

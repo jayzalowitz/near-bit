@@ -465,6 +465,7 @@ pub fn account_is_implicit(
         AccountType::NearImplicitAccount => true,
         AccountType::EthImplicitAccount => eth_implicit_accounts_enabled,
         AccountType::NearDeterministicAccount => deterministic_account_ids_enabled,
+        AccountType::BtcImplicitAccount => true,
     }
 }
 

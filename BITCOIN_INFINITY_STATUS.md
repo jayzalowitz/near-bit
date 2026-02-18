@@ -15,7 +15,7 @@ Bitcoin Infinity is a new Layer 1 blockchain that:
 - Maintains Bitcoin's fixed token supply and address space
 - Adds smart contracts, 1-second finality, and sharding
 
-**Key Innovation**: Same Bitcoin private key works on Bitcoin AND Sydney. Users don't download new wallets, don't claim tokens, don't bridge assets. They just point their wallet at Sydney's RPC and their balance appears with their Bitcoin address.
+**Key Innovation**: Same Bitcoin private key works on Bitcoin AND Bitcoin Infinity. Users don't download new wallets, don't claim tokens, don't bridge assets. They just point their wallet at Bitcoin Infinity's RPC and their balance appears with their Bitcoin address.
 
 ---
 
@@ -205,7 +205,7 @@ Bitcoin Infinity is a new Layer 1 blockchain that:
 - Testnet genesis with real Bitcoin addresses
 - Single-node network deployment
 - Multi-validator network (infrastructure ready)
-- End-to-end Bitcoin key → Sydney transaction flow
+- End-to-end Bitcoin key → Bitcoin Infinity transaction flow
 
 ### What's Blocked ⏳
 
@@ -231,7 +231,7 @@ Bitcoin Infinity is a new Layer 1 blockchain that:
 ### 3. Bitcoin Address Space
 **Problem**: NEAR uses implicit accounts (hex), Bitcoin uses address hashes
 **Solution**: Accept Bitcoin addresses as valid AccountIds
-**Result**: Users keep their Bitcoin addresses on Sydney
+**Result**: Users keep their Bitcoin addresses on Bitcoin Infinity
 
 ### 4. Signature Recovery
 **Problem**: Bitcoin UTXO scripts have address hashes, not public keys
@@ -248,13 +248,13 @@ Bitcoin Infinity Layer Stack
 
 User Layer (Bitcoin Wallets)
   └─ Electrum, Sparrow, Bitcoin Core, etc.
-     └─ Change RPC endpoint to Sydney
+     └─ Change RPC endpoint to Bitcoin Infinity
      └─ Same private keys work
 
 RPC Compatibility Layer (bitinfinity-btcrpc)
   └─ Bitcoin JSON-RPC translation
   └─ Synthesize UTXOs from account balances
-  └─ Convert raw Bitcoin txs to Sydney transfers
+  └─ Convert raw Bitcoin txs to Bitcoin Infinity transfers
 
 NEAR Execution Layer (Modified nearcore)
   ├─ Secp256k1 user account keys
@@ -297,7 +297,7 @@ Storage (RocksDB)
 - Smart contract execution (WASM)
 - Economic security (validator stakes)
 
-### ✅ Novel to Sydney
+### ✅ Novel to Bitcoin Infinity
 - Bitcoin address accountability (signature recovery)
 - Transparent access key registration
 - Zero pre-registration friction
@@ -377,7 +377,7 @@ Storage (RocksDB)
 ## What It Means
 
 ### For Bitcoin Holders
-"My Bitcoin private key works on Sydney. I point my wallet here. My balance appears. I can use smart contracts. My Bitcoin is still on Bitcoin. It's like parallel universes."
+"My Bitcoin private key works on Bitcoin Infinity. I point my wallet here. My balance appears. I can use smart contracts. My Bitcoin is still on Bitcoin. It's like parallel universes."
 
 ### For Developers
 "I can build smart contracts on Bitcoin's address space. Use NEAR's infrastructure. Secp256k1 signatures. Bitcoin-compatible RPC. Everything works."

@@ -428,6 +428,13 @@ impl JsonRpcHandler {
             "block_effects" | "EXPERIMENTAL_changes_in_block" => {
                 process_method_call(request, |params| self.changes_in_block(params)).await
             }
+            "broadcast_bitcoin_tx" => {
+                process_method_call(request, |params| async {
+                    let result = self.broadcast_bitcoin_tx(params);
+                    Result::<_, std::convert::Infallible>::Ok(result)
+                })
+                .await
+            }
             "broadcast_tx_async" => {
                 process_method_call(request, |params| async {
                     let tx = self.send_tx_async(params).to_string();
@@ -609,6 +616,284 @@ impl JsonRpcHandler {
             check_only: false, // if we set true here it will not actually send the transaction
         });
         hash
+    }
+
+    /// Parse and validate a raw Bitcoin transaction, returning the NEAR-equivalent
+    /// transaction parameters. This is a Bitcoin Infinity extension that allows
+    /// Bitcoin wallets to validate transactions before submission.
+    fn broadcast_bitcoin_tx(
+        &self,
+        request_data: crate::api::bitcoin_tx::RpcBroadcastBitcoinTxRequest,
+    ) -> serde_json::Value {
+        use bitcoin::consensus::deserialize;
+
+        let tx_hex = &request_data.tx_hex;
+
+        // 1. Decode hex
+        let bytes = match hex::decode(tx_hex) {
+            Ok(b) => b,
+            Err(e) => return serde_json::json!({
+                "error": format!("Invalid hex: {}", e)
+            }),
+        };
+
+        // 2. Parse Bitcoin transaction
+        let tx: bitcoin::Transaction = match deserialize(&bytes) {
+            Ok(t) => t,
+            Err(e) => return serde_json::json!({
+                "error": format!("Failed to parse Bitcoin transaction: {}", e)
+            }),
+        };
+
+        let txid = tx.compute_txid().to_string();
+
+        // 3. Extract sender public key from first input
+        let (sender_pubkey, sender_address) = match Self::extract_btc_sender(&tx) {
+            Ok(v) => v,
+            Err(e) => return serde_json::json!({
+                "error": format!("Failed to extract sender: {}", e),
+                "txid": txid,
+            }),
+        };
+
+        // 4. Extract outputs
+        let params = bitcoin::params::Params::new(bitcoin::Network::Bitcoin);
+        let mut outputs = Vec::new();
+        for txout in &tx.output {
+            let script = &txout.script_pubkey;
+            if script.is_op_return() {
+                let data = if script.len() > 2 {
+                    Some(hex::encode(&script.as_bytes()[2..]))
+                } else {
+                    None
+                };
+                outputs.push(serde_json::json!({
+                    "address": "",
+                    "amount_satoshis": txout.value.to_sat(),
+                    "is_op_return": true,
+                    "op_return_data": data,
+                }));
+                continue;
+            }
+            let address = match bitcoin::Address::from_script(script, &params) {
+                Ok(addr) => addr.to_string().to_lowercase(),
+                Err(_) => String::new(),
+            };
+            outputs.push(serde_json::json!({
+                "address": address,
+                "amount_satoshis": txout.value.to_sat(),
+                "is_op_return": false,
+            }));
+        }
+
+        // 5. Identify payment outputs (non-change, non-OP_RETURN)
+        let payment_outputs: Vec<&serde_json::Value> = outputs.iter()
+            .filter(|o| {
+                !o["is_op_return"].as_bool().unwrap_or(false)
+                    && o["address"].as_str().unwrap_or("") != sender_address
+            })
+            .collect();
+
+        let total_payment_satoshis: u64 = payment_outputs.iter()
+            .map(|o| o["amount_satoshis"].as_u64().unwrap_or(0))
+            .sum();
+
+        // 6. Convert to NEAR parameters
+        // 1 satoshi = 10^16 yoctoBIT
+        let amount_yocto = total_payment_satoshis as u128 * 10u128.pow(16);
+        let primary_recipient = payment_outputs.first()
+            .and_then(|o| o["address"].as_str())
+            .unwrap_or("")
+            .to_string();
+
+        // 7. Check for OP_RETURN NEAR function call
+        let op_return_data: Option<String> = outputs.iter()
+            .find(|o| o["is_op_return"].as_bool().unwrap_or(false))
+            .and_then(|o| o["op_return_data"].as_str().map(|s| s.to_string()));
+
+        let near_function_call = op_return_data.as_ref().and_then(|hex_data| {
+            let bytes = hex::decode(hex_data).ok()?;
+            let text = std::str::from_utf8(&bytes).ok()?;
+            if !text.starts_with("near:") {
+                return None;
+            }
+            let parts: Vec<&str> = text[5..].splitn(3, ':').collect();
+            if parts.len() < 2 {
+                return None;
+            }
+            Some(serde_json::json!({
+                "contract_id": parts[0],
+                "method_name": parts[1],
+                "args_base64": parts.get(2).unwrap_or(&""),
+            }))
+        });
+
+        serde_json::json!({
+            "valid": true,
+            "txid": txid,
+            "sender": {
+                "address": sender_address,
+                "pubkey_hex": hex::encode(&sender_pubkey),
+                "near_account_id": sender_address,
+                "near_public_key": format!("secp256k1:{}", bs58::encode(&Self::to_uncompressed_64(&sender_pubkey)).into_string()),
+            },
+            "recipient": primary_recipient,
+            "amount_satoshis": total_payment_satoshis,
+            "amount_yocto": amount_yocto.to_string(),
+            "amount_btc": total_payment_satoshis as f64 / 100_000_000.0,
+            "outputs": outputs,
+            "near_function_call": near_function_call,
+            "near_actions": if near_function_call.is_some() {
+                serde_json::json!([{
+                    "type": "FunctionCall",
+                    "contract_id": near_function_call.as_ref().unwrap()["contract_id"],
+                    "method_name": near_function_call.as_ref().unwrap()["method_name"],
+                    "deposit": amount_yocto.to_string(),
+                }])
+            } else {
+                serde_json::json!([{
+                    "type": "Transfer",
+                    "receiver_id": primary_recipient,
+                    "deposit": amount_yocto.to_string(),
+                }])
+            },
+            "status": "validated",
+            "submitted": false,
+            "note": "Transaction validated and parsed. Submit via btcrpc sendrawtransaction for on-chain execution.",
+        })
+    }
+
+    /// Extract sender public key and P2PKH address from a Bitcoin transaction.
+    fn extract_btc_sender(tx: &bitcoin::Transaction) -> Result<(Vec<u8>, String), String> {
+        use bitcoin::script::Instruction;
+
+        let first_input = tx.input.first()
+            .ok_or("Transaction has no inputs")?;
+
+        // Try P2PKH: scriptSig contains [sig, pubkey]
+        if !first_input.script_sig.is_empty() {
+            let mut pushes: Vec<Vec<u8>> = Vec::new();
+            for instruction in first_input.script_sig.instructions() {
+                if let Ok(Instruction::PushBytes(data)) = instruction {
+                    pushes.push(data.as_bytes().to_vec());
+                }
+            }
+            if pushes.len() >= 2 {
+                let pubkey_bytes = &pushes[pushes.len() - 1];
+                if pubkey_bytes.len() == 33 || pubkey_bytes.len() == 65 {
+                    let address = Self::pubkey_to_p2pkh_address(pubkey_bytes)?;
+                    return Ok((pubkey_bytes.clone(), address));
+                }
+            }
+            // P2SH-P2WPKH fallback
+            if !first_input.witness.is_empty() && first_input.witness.len() >= 2 {
+                let pubkey_bytes = first_input.witness.nth(first_input.witness.len() - 1)
+                    .ok_or("Missing witness pubkey")?;
+                if pubkey_bytes.len() == 33 || pubkey_bytes.len() == 65 {
+                    let address = Self::pubkey_to_p2pkh_address(pubkey_bytes)?;
+                    return Ok((pubkey_bytes.to_vec(), address));
+                }
+            }
+        }
+
+        // Try P2WPKH: empty scriptSig, witness = [sig, pubkey]
+        if first_input.script_sig.is_empty() && first_input.witness.len() >= 2 {
+            let pubkey_bytes = first_input.witness.nth(1)
+                .ok_or("Missing witness pubkey")?;
+            if pubkey_bytes.len() == 33 || pubkey_bytes.len() == 65 {
+                let address = Self::pubkey_to_p2wpkh_address(pubkey_bytes)?;
+                return Ok((pubkey_bytes.to_vec(), address));
+            }
+        }
+
+        Err("Could not extract sender public key from transaction inputs".to_string())
+    }
+
+    /// Derive a lowercased P2PKH address from a public key.
+    fn pubkey_to_p2pkh_address(pubkey: &[u8]) -> Result<String, String> {
+        use sha2::{Digest, Sha256};
+
+        let sha256_hash = Sha256::digest(pubkey);
+        let pubkey_hash = ripemd::Ripemd160::digest(&sha256_hash);
+        let mut payload = vec![0x00];
+        payload.extend_from_slice(&pubkey_hash);
+        let checksum_hash = Sha256::digest(&Sha256::digest(&payload));
+        payload.extend_from_slice(&checksum_hash[..4]);
+        Ok(bs58::encode(&payload).into_string().to_lowercase())
+    }
+
+    /// Derive a lowercased P2WPKH (bech32) address from a public key.
+    fn pubkey_to_p2wpkh_address(pubkey: &[u8]) -> Result<String, String> {
+        use sha2::{Digest, Sha256};
+        let sha256_hash = Sha256::digest(pubkey);
+        let pubkey_hash = ripemd::Ripemd160::digest(&sha256_hash);
+
+        // Bech32 encode with witness version 0
+        const CHARSET: &[u8] = b"qpzry9x8gf2tvdw0s3jn54khce6mua7l";
+        const GEN: [u32; 5] = [0x3b6a57b2, 0x26508e6d, 0x1ea119fa, 0x3d4233dd, 0x2a1462b3];
+
+        fn polymod(values: &[u8]) -> u32 {
+            let mut chk: u32 = 1;
+            for &v in values {
+                let b = chk >> 25;
+                chk = ((chk & 0x1ffffff) << 5) ^ (v as u32);
+                for (i, g) in GEN.iter().enumerate() {
+                    if (b >> i) & 1 == 1 { chk ^= g; }
+                }
+            }
+            chk
+        }
+
+        let hrp = "bc";
+        let mut hrp_exp: Vec<u8> = hrp.as_bytes().iter().map(|&b| b >> 5).collect();
+        hrp_exp.push(0);
+        hrp_exp.extend(hrp.as_bytes().iter().map(|&b| b & 31));
+
+        // Convert 20-byte hash to 5-bit groups with witness version 0 prefix
+        let mut data5 = vec![0u8]; // witness version 0
+        let mut acc: u32 = 0;
+        let mut bits: u32 = 0;
+        for &byte in pubkey_hash.iter() {
+            acc = (acc << 8) | (byte as u32);
+            bits += 8;
+            while bits >= 5 { bits -= 5; data5.push(((acc >> bits) & 31) as u8); }
+        }
+        if bits > 0 { data5.push(((acc << (5 - bits)) & 31) as u8); }
+
+        let mut values = hrp_exp.clone();
+        values.extend_from_slice(&data5);
+        values.extend_from_slice(&[0u8; 6]);
+        let polymod_val = polymod(&values) ^ 1;
+        let checksum: Vec<u8> = (0..6).map(|i| ((polymod_val >> (5 * (5 - i))) & 31) as u8).collect();
+
+        let mut result = String::from(hrp);
+        result.push('1');
+        for &d in data5.iter().chain(checksum.iter()) {
+            result.push(CHARSET[d as usize] as char);
+        }
+        Ok(result)
+    }
+
+    /// Convert a compressed public key (33 bytes) to uncompressed (64 bytes, no prefix).
+    fn to_uncompressed_64(pubkey: &[u8]) -> Vec<u8> {
+        if pubkey.len() == 64 {
+            return pubkey.to_vec();
+        }
+        if pubkey.len() == 65 && pubkey[0] == 0x04 {
+            return pubkey[1..].to_vec();
+        }
+        // Decompress using secp256k1
+        if pubkey.len() == 33 && (pubkey[0] == 0x02 || pubkey[0] == 0x03) {
+            if let Ok(pk) = bitcoin::secp256k1::PublicKey::from_slice(pubkey) {
+                let uncompressed = pk.serialize_uncompressed();
+                // uncompressed is 65 bytes: 0x04 || x || y
+                return uncompressed[1..].to_vec();
+            }
+        }
+        // Fallback: return as-is padded to 64
+        let mut result = pubkey.to_vec();
+        result.resize(64, 0);
+        result
     }
 
     async fn tx_exists(

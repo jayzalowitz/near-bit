@@ -87,18 +87,18 @@ serde_json 1.0 (for genesis)
 
 ### 3. Testnet Initialization 🔄 IN PROGRESS
 
-**Command**: `cargo run -p bitinfinity-neard --release -- init --home ~/.sydney-testnet --chain-id sydney-testnet`
+**Command**: `cargo run -p bitinfinity-neard --release -- init --home ~/.bitinfinity-testnet --chain-id bitinfinity-testnet`
 
 **Prerequisites Verified**:
-- [x] Genesis config file: `~/.sydney-testnet/genesis_config.json` (244 bytes)
-- [x] Genesis records: `~/.sydney-testnet/records.json` (1.2 KB)
+- [x] Genesis config file: `~/.bitinfinity-testnet/genesis_config.json` (244 bytes)
+- [x] Genesis records: `~/.bitinfinity-testnet/records.json` (1.2 KB)
 - [x] 10 test accounts with valid Bitcoin P2PKH addresses
 - [x] Total supply: 501,926,000,000,000,000,000,000,000 yoctosyd (~501.926M SYD)
 
 **Genesis State Sample**:
 ```json
 {
-  "chain_id": "sydney-testnet",
+  "chain_id": "bitinfinity-testnet",
   "protocol_version": 1,
   "genesis_height": 0,
   "num_block_producer_seats": 1,
@@ -157,7 +157,7 @@ serde_json 1.0 (for genesis)
 ```
 User → Sign with Bitcoin Private Key
     ↓
-Sydney RPC accepts secp256k1 signature
+Bitcoin Infinity RPC accepts secp256k1 signature
     ↓
 nearcore::verifier::validate_transaction()
     ↓
@@ -194,7 +194,7 @@ Balance update
 | RocksDB compilation | Long build time (5-10 min) | Pre-compile in advance | 🟡 In progress |
 | Genesis state consistency | Balance aggregation errors | Manual verification done | ✅ Clear |
 | Signature recovery | Cryptographic soundness | Code reviewed, secp256k1 crate used | ✅ Clear |
-| Node initialization | Config conflicts | Fresh ~/.sydney-testnet dir used | ✅ Clear |
+| Node initialization | Config conflicts | Fresh ~/.bitinfinity-testnet dir used | ✅ Clear |
 | Port conflicts | 3030 (RPC) already in use | Will detect and report | 🟡 Monitor |
 | Test data quality | Insufficient test accounts | 10 Bitcoin addresses prepared | ✅ Clear |
 
@@ -205,10 +205,10 @@ Balance update
 ### Immediate (Next 30 minutes)
 - [ ] Verify testnet initialization completes
 - [ ] Inspect generated config files
-- [ ] Check ~/.sydney-testnet directory structure
+- [ ] Check ~/.bitinfinity-testnet directory structure
 
 ### Short-term (Next 1-2 hours)
-- [ ] Start single-node testnet: `cargo run -p bitinfinity-neard -- run --home ~/.sydney-testnet`
+- [ ] Start single-node testnet: `cargo run -p bitinfinity-neard -- run --home ~/.bitinfinity-testnet`
 - [ ] Query RPC: `curl http://localhost:3030/`
 - [ ] Check account balances via RPC
 - [ ] Verify genesis state loaded
@@ -281,7 +281,7 @@ Status: All committed ✅
 **Command to Execute** (after testnet init completes):
 ```bash
 # Start testnet
-cargo run -p bitinfinity-neard -- run --home ~/.sydney-testnet
+cargo run -p bitinfinity-neard -- run --home ~/.bitinfinity-testnet
 
 # In another terminal, test RPC:
 curl -X POST http://localhost:3030 \
@@ -295,7 +295,7 @@ curl -X POST http://localhost:3030 \
   "jsonrpc": "2.0",
   "result": {
     "version": {...},
-    "chain_id": "sydney-testnet",
+    "chain_id": "bitinfinity-testnet",
     "protocol_version": 1,
     "latest_block_hash": "...",
     "latest_block_height": 0

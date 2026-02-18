@@ -67,7 +67,7 @@ Step 1: User has Bitcoin private key, creates transaction
         ├─ Signs with secp256k1 (Bitcoin standard)
         └─ Sender = Bitcoin address (e.g., "1A1zP1eP...")
 
-Step 2: Submit to Sydney via validate_verify_and_charge_transaction()
+Step 2: Submit to Bitcoin Infinity via validate_verify_and_charge_transaction()
 
 Step 3: Signature & Signer Capture
         ├─ tx_signature = cloned from signed_tx
@@ -141,7 +141,7 @@ OUTPUT: Transaction verified ✓
 - No claiming process
 - No bridging
 - Same private key, same balance, same signature algorithm
-- Only change: RPC endpoint points to Sydney instead of Bitcoin Core
+- Only change: RPC endpoint points to Bitcoin Infinity instead of Bitcoin Core
 
 ### 3. Signature Recovery Without Extra Data
 - Genesis doesn't store public keys (UTXO script format incompatible)
@@ -247,25 +247,25 @@ Unchanged from standard path:
 ## Architecture: The Complete Picture
 
 ```
-Sydney Chain Architecture (Post-Phase 5.2)
+Bitcoin Infinity Chain Architecture (Post-Phase 5.2)
 ==========================================
 
 Users Layer
   │
   ├─ Bitcoin Wallet Holders
-  │  └─ Same private key, can now sign Sydney txs
+  │  └─ Same private key, can now sign Bitcoin Infinity txs
   │
   └─ NEAR Users
      └─ ED25519 keys, unchanged workflow
 
 RPC Layer (Bitcoin Compatibility)
-  ├─ Bitcoin RPC endpoints (Sydney-btcrpc)
-  │  ├─ translate Bitcoin RPC ↔ Sydney internals
+  ├─ Bitcoin RPC endpoints (Bitcoin Infinity-btcrpc)
+  │  ├─ translate Bitcoin RPC ↔ Bitcoin Infinity internals
   │  ├─ synthesize UTXOs from balances
-  │  └─ convert raw Bitcoin txs to Sydney transfers
+  │  └─ convert raw Bitcoin txs to Bitcoin Infinity transfers
   │
   └─ JSON-RPC (standard)
-     └─ Native Sydney queries
+     └─ Native Bitcoin Infinity queries
 
 Verification Layer (Phase 5.2 - NEW)
   ├─ validate_verify_and_charge_transaction()
@@ -354,13 +354,13 @@ The most important verification:
 1. Generate testnet with Bitcoin addresses
 2. Extract private keys from testnet
 3. Create Bitcoin-standard secp256k1 signature
-4. Send transaction to Sydney
+4. Send transaction to Bitcoin Infinity
 5. EXPECTED: Transaction succeeds immediately
 6. VERIFY: No claiming, no bridging, balance updated
 7. ACTUAL USER EXPERIENCE: "Wait, that was it? No setup needed?"
 ```
 
-If Step 5-7 work, Phase 5 is complete. The user has Bitcoin, signs with their Bitcoin key, and their balance appears on Sydney. Done.
+If Step 5-7 work, Phase 5 is complete. The user has Bitcoin, signs with their Bitcoin key, and their balance appears on Bitcoin Infinity. Done.
 
 ---
 
@@ -392,7 +392,7 @@ If Step 5-7 work, Phase 5 is complete. The user has Bitcoin, signs with their Bi
 
 **Next**: Write tests and deploy testnet (Phase 5.3)
 
-**Status**: Bitcoin Infinity transaction verification is now fully functional. Users with Bitcoin private keys can sign Sydney transactions without pre-registration. The chain transparently recovers their public key from their first signature and registers it automatically. The user experiences no difference from native NEAR users - just sign and send.
+**Status**: Bitcoin Infinity transaction verification is now fully functional. Users with Bitcoin private keys can sign Bitcoin Infinity transactions without pre-registration. The chain transparently recovers their public key from their first signature and registers it automatically. The user experiences no difference from native NEAR users - just sign and send.
 
 ---
 

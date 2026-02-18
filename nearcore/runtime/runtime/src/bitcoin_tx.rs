@@ -1,4 +1,4 @@
-//! Bitcoin Address Support for Sydney Chain
+//! Bitcoin Address Support for Bitcoin Infinity Chain
 //!
 //! This module provides support for Bitcoin address-based accounts and secp256k1 signature
 //! recovery, enabling users to sign transactions with their Bitcoin private keys.
@@ -25,12 +25,8 @@ use near_store::{StorageError, TrieUpdate, get_access_key, set_access_key};
 /// # Returns
 /// `true` if this appears to be a Bitcoin address, `false` otherwise
 pub fn is_bitcoin_address(account_id: &AccountId) -> bool {
-    let addr_str = account_id.as_str();
-
-    // Check for common Bitcoin address prefixes
-    addr_str.starts_with('1') ||  // P2PKH legacy
-    addr_str.starts_with('3') ||  // P2SH multisig
-    addr_str.starts_with("bc1")   // Bech32 (SegWit/Taproot)
+    use near_primitives_core::account::id::AccountType;
+    matches!(account_id.get_account_type(), AccountType::BtcImplicitAccount)
 }
 
 /// Recovers a secp256k1 public key from a signature.
@@ -64,9 +60,14 @@ pub fn recover_secp256k1_signature(
                 .recover(hash_array)
                 .map_err(|e| format!("Failed to recover public key: {}", e))?;
 
-            // Derive Bitcoin address from the recovered public key
-            // This function doesn't return a Result, just the address string
-            let bitcoin_address = near_crypto::bitcoin_utils::derive_bitcoin_address_from_pubkey(&recovered_pubkey);
+            // Derive all possible Bitcoin address formats from the recovered public key
+            // Returns both P2PKH and P2WPKH addresses for matching
+            let addresses = near_crypto::bitcoin_utils::derive_all_bitcoin_addresses(&recovered_pubkey);
+
+            // Return the P2PKH address as primary (most common), but callers should
+            // check all formats via derive_all_bitcoin_addresses
+            let bitcoin_address = addresses.into_iter().next()
+                .unwrap_or_default();
 
             Ok((PublicKey::SECP256K1(recovered_pubkey), bitcoin_address))
         }
@@ -140,11 +141,19 @@ pub fn verify_and_register_bitcoin_transaction(
     // Check if this is a Bitcoin address account
     if is_bitcoin_address(signer_id) {
         // Try to recover the public key from the secp256k1 signature
-        let (recovered_pubkey, derived_address) = recover_secp256k1_signature(message_hash, tx_signature)?;
+        let (recovered_pubkey, _primary_address) = recover_secp256k1_signature(message_hash, tx_signature)?;
 
-        // Verify the derived address matches the claimed sender
-        if derived_address != signer_id.as_str() {
-            return Ok((false, None)); // Signature doesn't match claimed sender
+        // Try all address derivation formats (P2PKH, P2WPKH) to match the signer
+        let secp_key = match &recovered_pubkey {
+            PublicKey::SECP256K1(k) => k,
+            _ => return Err("Expected secp256k1 public key".to_string()),
+        };
+        let all_addresses = near_crypto::bitcoin_utils::derive_all_bitcoin_addresses(secp_key);
+
+        let signer_str = signer_id.as_str();
+        let matched = all_addresses.iter().any(|addr| addr == signer_str);
+        if !matched {
+            return Ok((false, None)); // Signature doesn't match claimed sender in any format
         }
 
         // Auto-register the access key if this is the first transaction
@@ -167,23 +176,29 @@ mod tests {
 
     #[test]
     fn test_bitcoin_address_detection() {
-        // P2PKH (legacy)
-        let p2pkh: AccountId = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa".parse().unwrap();
-        assert!(is_bitcoin_address(&p2pkh));
-
-        // P2SH (multisig)
-        let p2sh: AccountId = "3J98t1WpEZ73CNmYviecrnyiWrnqRhWNLy".parse().unwrap();
-        assert!(is_bitcoin_address(&p2sh));
-
-        // Bech32 (SegWit)
+        // Bech32 SegWit (lowercase, valid as NEAR AccountId)
         let bech32: AccountId = "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4".parse().unwrap();
         assert!(is_bitcoin_address(&bech32));
+
+        // Bech32 Taproot
+        let taproot: AccountId = "bc1pqw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4".parse().unwrap();
+        assert!(is_bitcoin_address(&taproot));
+
+        // P2PKH-style (lowercased — real P2PKH uses mixed case base58check,
+        // but NEAR AccountId requires lowercase. Full base58check support
+        // requires modifying near-account-id.)
+        let p2pkh: AccountId = "1a1zp1ep5qgefi2dmptftl5slmv7divfna".parse().unwrap();
+        assert!(is_bitcoin_address(&p2pkh));
+
+        // P2SH-style (lowercased)
+        let p2sh: AccountId = "3j98t1wpez73cnmyviecrnyiwrnqrhwnly".parse().unwrap();
+        assert!(is_bitcoin_address(&p2sh));
 
         // NEAR-style address
         let near_address: AccountId = "alice.near".parse().unwrap();
         assert!(!is_bitcoin_address(&near_address));
 
-        // Short NEAR address
+        // Hex NEAR implicit account
         let near_implicit: AccountId = "0123456789abcdef0123456789abcdef".parse().unwrap();
         assert!(!is_bitcoin_address(&near_implicit));
     }
@@ -191,15 +206,15 @@ mod tests {
     #[test]
     fn test_is_bitcoin_address_edge_cases() {
         // Address starting with number other than 1 or 3
-        let not_btc: AccountId = "2A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa".parse().unwrap();
+        let not_btc: AccountId = "2a1zp1ep5qgefi2dmptftl5slmv7divfna".parse().unwrap();
         assert!(!is_bitcoin_address(&not_btc));
 
         // Address starting with 'bc' but not 'bc1'
-        let not_btc2: AccountId = "bcQw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4".parse().unwrap();
+        let not_btc2: AccountId = "bcqw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4".parse().unwrap();
         assert!(!is_bitcoin_address(&not_btc2));
 
-        // Empty-like
-        let unknown: AccountId = "x".parse().unwrap();
+        // Short non-Bitcoin account
+        let unknown: AccountId = "xx".parse().unwrap();
         assert!(!is_bitcoin_address(&unknown));
     }
 }

@@ -157,12 +157,12 @@ pub fn state_dump_redis(
                     let redis_key = account_id.as_bytes();
                     let () = redis_connection.zadd(
                         [b"account:", redis_key].concat(),
-                        block_hash.as_ref(),
+                        block_hash.as_bytes(),
                         block_height,
                     )?;
                     let value = borsh::to_vec(&account).unwrap();
                     let () = redis_connection.set(
-                        [b"account-data:", redis_key, b":", block_hash.as_ref()].concat(),
+                        [b"account-data:", redis_key, b":", block_hash.as_bytes()].concat(),
                         value,
                     )?;
                     println!("Account written: {}", account_id);
@@ -173,12 +173,12 @@ pub fn state_dump_redis(
                     let redis_key = [account_id.as_bytes(), b":", data_key.as_ref()].concat();
                     let () = redis_connection.zadd(
                         [b"data:", redis_key.as_slice()].concat(),
-                        block_hash.as_ref(),
+                        block_hash.as_bytes(),
                         block_height,
                     )?;
                     let value_vec: &[u8] = value.as_ref();
                     let () = redis_connection.set(
-                        [b"data-value:", redis_key.as_slice(), b":", block_hash.as_ref()].concat(),
+                        [b"data-value:", redis_key.as_slice(), b":", block_hash.as_bytes()].concat(),
                         value_vec,
                     )?;
                     println!("Data written: {}", account_id);
@@ -189,7 +189,7 @@ pub fn state_dump_redis(
                     let redis_key = [b"code:", account_id.as_bytes()].concat();
                     let () = redis_connection.zadd(
                         redis_key.clone(),
-                        block_hash.as_ref(),
+                        block_hash.as_bytes(),
                         block_height,
                     )?;
                     let value_vec: &[u8] = code.as_ref();

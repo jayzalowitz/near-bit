@@ -23,7 +23,7 @@
 - **Validation**: All addresses are valid P2PKH Bitcoin format
 
 ### ✅ COMPLETE: Testnet Infrastructure Setup
-- **Testnet Home**: `~/.sydney-testnet/` created
+- **Testnet Home**: `~/.bitinfinity-testnet/` created
 - **Genesis Files**: Copied to testnet home directory
 - **Directory Structure**: Ready for initialization
 - **Permissions**: All files readable/writable
@@ -80,15 +80,15 @@ Action: Auto-runs testnet initialization when nearcore/runtime/runtime is done
 **Trigger**: When nearcore/runtime/runtime compilation completes
 ```bash
 cargo run -p bitinfinity-neard -- init \
-    --home ~/.sydney-testnet \
-    --chain-id sydney-testnet
+    --home ~/.bitinfinity-testnet \
+    --chain-id bitinfinity-testnet
 ```
 
 ### Queue Item 2: Start Testnet Node (Step 5)
 **Trigger**: After testnet initialization
 ```bash
 cargo run -p bitinfinity-neard -- run \
-    --home ~/.sydney-testnet \
+    --home ~/.bitinfinity-testnet \
     2>&1 | tee node.log
 ```
 
@@ -207,8 +207,8 @@ Week of Feb 24:
 ### Generated This Session
 - `genesis-testnet/genesis_config.json` ✅
 - `genesis-testnet/records.json` ✅
-- `~/.sydney-testnet/genesis_config.json` ✅
-- `~/.sydney-testnet/records.json` ✅
+- `~/.bitinfinity-testnet/genesis_config.json` ✅
+- `~/.bitinfinity-testnet/records.json` ✅
 - `PHASE5_3_PROGRESS_UPDATE.md` ✅
 - `PHASE5_3_E2E_TEST_PLAN.md` ✅
 - `PHASE5_3_EXECUTION_STATUS.md` ✅ (this file)
@@ -239,7 +239,7 @@ du -sh nearcore/target/debug/ target/release/
 tail -f /tmp/auto_continue.log
 
 # Check for testnet files when ready
-ls -la ~/.sydney-testnet/
+ls -la ~/.bitinfinity-testnet/
 ```
 
 ---

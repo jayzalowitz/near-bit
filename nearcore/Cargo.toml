@@ -166,6 +166,7 @@ bn = { package = "zeropool-bn", version = "0.5.11", default-features = false }
 bolero = { version = "0.10.0", git = "https://github.com/near/bolero", rev = "c37993bd70dcf5b1778b03daf29f686225e9a504", features = [
     "arbitrary",
 ] }
+bitcoin = "0.32"
 borsh = { version = "1.0.0", features = ["derive", "rc"] }
 bs58 = "0.4"
 bytes = "1"
@@ -426,6 +427,7 @@ stdx = { package = "near-stdx", path = "utils/stdx" }
 [patch.crates-io]
 protobuf = { git = "https://github.com/near/rust-protobuf.git", branch = "3.0.2-patch" }
 protobuf-support = { git = "https://github.com/near/rust-protobuf.git", branch = "3.0.2-patch" }
+near-account-id = { path = "../near-account-id" }
 
 # Note that "bench" profile inherits from "release" profile and
 # "test" profile inherits from "dev" profile.

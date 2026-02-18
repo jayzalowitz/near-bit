@@ -67,7 +67,7 @@ cargo test bitcoin_tx::tests -- --nocapture
 ### Create 10 Bitcoin Addresses with Known Keys
 
 ```bash
-cd sydney-tools
+cd bitinfinity-tools
 
 # Generate genesis with 10 synthetic Bitcoin addresses
 cargo run --release -- generate-genesis \
@@ -92,7 +92,7 @@ ls -lh genesis-output/
 
 # Check genesis structure
 jq '.chain_id' genesis-output/genesis.json
-# Expected: "sydney-testnet"
+# Expected: "bitinfinity-testnet"
 
 jq '.genesis_height' genesis-output/genesis.json
 # Expected: 0
@@ -123,23 +123,23 @@ head -5 addresses.txt
 ### Create Testnet Home Directory
 
 ```bash
-mkdir -p ~/.sydney-testnet
-cd ~/.sydney-testnet
+mkdir -p ~/.bitinfinity-testnet
+cd ~/.bitinfinity-testnet
 
 # Copy genesis files
-cp ../sydney-tools/genesis-output/genesis.json ./
-cp ../sydney-tools/genesis-output/records.json ./
+cp ../bitinfinity-tools/genesis-output/genesis.json ./
+cp ../bitinfinity-tools/genesis-output/records.json ./
 ```
 
 ### Initialize Node Configuration
 
 ```bash
 cargo run -p bitinfinity-neard -- init \
-    --home ~/.sydney-testnet \
-    --chain-id sydney-testnet
+    --home ~/.bitinfinity-testnet \
+    --chain-id bitinfinity-testnet
 
 # Expected: Creates directory structure:
-# ~/.sydney-testnet/
+# ~/.bitinfinity-testnet/
 #   ├── config.json
 #   ├── validator_key.json
 #   ├── node_key.json
@@ -150,14 +150,14 @@ cargo run -p bitinfinity-neard -- init \
 
 ```bash
 # Check that config was created
-ls -la ~/.sydney-testnet/
+ls -la ~/.bitinfinity-testnet/
 # Expected: config.json and key files present
 
 # Check config contents
-jq '.chain_id' ~/.sydney-testnet/config.json
-# Expected: "sydney-testnet"
+jq '.chain_id' ~/.bitinfinity-testnet/config.json
+# Expected: "bitinfinity-testnet"
 
-jq '.consensus.min_block_production_delay' ~/.sydney-testnet/config.json
+jq '.consensus.min_block_production_delay' ~/.bitinfinity-testnet/config.json
 # Expected: 400 (milliseconds, 0.4 seconds)
 ```
 
@@ -169,7 +169,7 @@ jq '.consensus.min_block_production_delay' ~/.sydney-testnet/config.json
 
 ```bash
 cargo run -p bitinfinity-neard -- run \
-    --home ~/.sydney-testnet \
+    --home ~/.bitinfinity-testnet \
     2>&1 | tee node.log
 
 # Watch for these messages in output:
@@ -207,7 +207,7 @@ curl -X POST http://127.0.0.1:3030 \
 # Expected output:
 # {
 #   "result": {
-#     "chain_id": "sydney-testnet",
+#     "chain_id": "bitinfinity-testnet",
 #     "sync_info": {
 #       "latest_block_height": 10,
 #       ...
@@ -417,7 +417,7 @@ Once Phase 5.3 is complete:
 
 ```bash
 # Start over fresh
-rm -rf ~/.sydney-testnet
+rm -rf ~/.bitinfinity-testnet
 rm -rf nearcore/runtime/runtime/target
 
 # Kill node if stuck
@@ -427,7 +427,7 @@ killall neard 2>/dev/null || true
 curl -s http://127.0.0.1:3030/status | jq '.result.sync_info.latest_block_height'
 
 # Get full logs
-cat ~/.sydney-testnet/logs/* 2>/dev/null | tail -100
+cat ~/.bitinfinity-testnet/logs/* 2>/dev/null | tail -100
 
 # Reset and try again
 ./reset_testnet.sh

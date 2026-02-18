@@ -1,17 +1,26 @@
 [package]
 name = "near-account-id"
-version.workspace = true
-edition.workspace = true
-authors.workspace = true
-license.workspace = true
-description = "NEAR account ID types with Bitcoin address support (forked)"
+version = "2.0.0"
+edition = "2021"
+authors = ["Near Inc <hello@nearprotocol.com>", "Bitcoin Infinity Contributors"]
+license = "MIT OR Apache-2.0"
+description = "NEAR Account ID with Bitcoin address support (forked for Bitcoin Infinity)"
 
 [dependencies]
-serde = { workspace = true }
-serde_json = { workspace = true }
-bs58 = { workspace = true }
-sha2 = { workspace = true }
-ripemd = { workspace = true }
-bitcoin = { workspace = true }
-bech32 = "0.11"
-regex = "1.10"
+borsh = { version = "1.0.0", optional = true }
+serde = { version = "1.0.119", features = ["alloc", "derive", "rc"], optional = true }
+
+[dev-dependencies]
+serde_json = "1.0"
+
+[features]
+default = []
+internal_unstable = []
+serde = ["dep:serde"]
+borsh = ["dep:borsh"]
+abi = ["borsh/unstable__schema"]
+schemars = []
+schemars-v0_8 = []
+schemars-v1 = []
+schemars-alpha = []
+schemars-stable = []

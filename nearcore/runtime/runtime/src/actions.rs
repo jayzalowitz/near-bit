@@ -261,6 +261,16 @@ pub(crate) fn action_implicit_account_creation_transfer(
                 &apply_state.config.fees.storage_usage_config,
             ));
         }
+        AccountType::BtcImplicitAccount => {
+            // Bitcoin implicit accounts: create with no access key.
+            // The key is auto-registered on first spend via secp256k1 signature recovery.
+            *account = Some(Account::new(
+                deposit,
+                Balance::ZERO,
+                AccountContract::None,
+                fee_config.storage_usage_config.num_bytes_account,
+            ));
+        }
         // This panic is unreachable as this is an implicit account creation transfer.
         // `check_account_existence` would fail because `account_is_implicit` would return false for a Named account.
         AccountType::NamedAccount => panic!("must be implicit"),

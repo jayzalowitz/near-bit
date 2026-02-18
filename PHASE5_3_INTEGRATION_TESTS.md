@@ -27,7 +27,7 @@
    - State consistency
 
 4. **End-to-End Tests** (Phase 5.3)
-   - Bitcoin wallet → Sydney transaction
+   - Bitcoin wallet → Bitcoin Infinity transaction
    - Balance verification
    - Multi-transaction flow
 
@@ -362,7 +362,7 @@ cargo test bitcoin_address_tests -- --nocapture
 ### Phase 5.3b: Testnet Genesis (30 min)
 ```bash
 # Generate testnet with 10 Bitcoin addresses
-cargo run -p sydney-tools -- generate-genesis \
+cargo run -p bitinfinity-tools -- generate-genesis \
     --testnet \
     --num-accounts 10 \
     --output-dir ./genesis-testnet/
@@ -375,15 +375,15 @@ extract_bitcoin_private_keys.sh ./genesis-testnet/ > test_keys.txt
 ```bash
 # Initialize testnet
 cargo run -p bitinfinity-neard -- init \
-    --home ~/.sydney-testnet \
-    --chain-id sydney-testnet
+    --home ~/.bitinfinity-testnet \
+    --chain-id bitinfinity-testnet
 
 # Copy genesis from generation step
-cp ./genesis-testnet/genesis.json ~/.sydney-testnet/
+cp ./genesis-testnet/genesis.json ~/.bitinfinity-testnet/
 
 # Start node
 cargo run -p bitinfinity-neard -- run \
-    --home ~/.sydney-testnet
+    --home ~/.bitinfinity-testnet
 ```
 
 ### Phase 5.3d: End-to-End Testing (1 hour)
