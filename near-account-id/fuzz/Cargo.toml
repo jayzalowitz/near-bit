@@ -1,0 +1,22 @@
+[package]
+name = "near-account-id-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.near-account-id]
+path = ".."
+
+# Prevent this from interfering with select target compilation:
+[[bin]]
+name = "fuzz_account_id_parse"
+path = "fuzz_targets/fuzz_account_id_parse.rs"
+test = false
+doc = false
+bench = false

@@ -1,0 +1,172 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "jayzalowitz/**"]
+  pull_request:
+    branches: ["main"]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # ─────────────────────────────────────────────
+  # Build all three binaries in release mode
+  # ─────────────────────────────────────────────
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-build-
+
+      - name: Build bitinfinity-btcrpc
+        run: cargo build --release -p bitinfinity-btcrpc
+
+      - name: Build bitinfinity-tools
+        run: cargo build --release -p bitinfinity-tools
+
+      - name: Build bitinfinity-neard
+        run: cargo build --release -p bitinfinity-neard
+
+  # ─────────────────────────────────────────────
+  # Run all tests
+  # ─────────────────────────────────────────────
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-test-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-test-
+
+      - name: Run tests (workspace)
+        run: cargo test --workspace
+
+      - name: Run tests (near-account-id)
+        run: cargo test --manifest-path near-account-id/Cargo.toml
+
+  # ─────────────────────────────────────────────
+  # Clippy lint (no warnings allowed)
+  # ─────────────────────────────────────────────
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable with clippy
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-clippy-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-clippy-
+
+      - name: Clippy (workspace)
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Clippy (near-account-id)
+        run: cargo clippy --manifest-path near-account-id/Cargo.toml --all-targets -- -D warnings
+
+  # ─────────────────────────────────────────────
+  # Formatting check
+  # ─────────────────────────────────────────────
+  fmt:
+    name: Format
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable with rustfmt
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+
+      - name: Check formatting (workspace)
+        run: cargo fmt --all -- --check
+
+      - name: Check formatting (near-account-id)
+        run: cargo fmt --manifest-path near-account-id/Cargo.toml -- --check
+
+  # ─────────────────────────────────────────────
+  # Security audit
+  # ─────────────────────────────────────────────
+  audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+
+      - name: Audit workspace dependencies
+        run: cargo audit
+
+      - name: Audit near-account-id dependencies
+        run: cargo audit --manifest-path near-account-id/Cargo.toml
+
+  # ─────────────────────────────────────────────
+  # Fuzz (short run on CI — full runs are nightly)
+  # ─────────────────────────────────────────────
+  fuzz:
+    name: Fuzz (smoke)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust nightly
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz --locked
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-fuzz-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Fuzz account-id parser (30s)
+        run: |
+          cd near-account-id
+          cargo fuzz run fuzz_account_id_parse -- -max_total_time=30 -timeout=5
+
+      - name: Fuzz RPC JSON parser (30s)
+        run: |
+          cd bitinfinity-btcrpc
+          cargo fuzz run fuzz_rpc_parse -- -max_total_time=30 -timeout=5
