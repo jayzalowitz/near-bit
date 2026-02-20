@@ -108,7 +108,7 @@ mod actions;
 mod actions_test_utils;
 pub mod adapter;
 mod bandwidth_scheduler;
-mod bitcoin_tx;
+pub mod bitcoin_tx;
 pub mod config;
 mod congestion_control;
 mod conversions;
@@ -1984,69 +1984,152 @@ impl Runtime {
                 if needs_recovery {
                     let hash = tx.get_hash();
                     let tx_hash_bytes = hash.as_ref();
-                    match bitcoin_tx::recover_secp256k1_signature(tx_hash_bytes, &tx.signature) {
-                        Ok((_recovered_pubkey, _derived_address))
-                            if {
-                                // Check all address derivation formats (P2PKH, P2WPKH)
-                                let secp_key = match &_recovered_pubkey {
-                                    near_crypto::PublicKey::SECP256K1(k) => Some(k),
-                                    _ => None,
-                                };
-                                secp_key.map_or(false, |k| {
-                                    near_crypto::bitcoin_utils::derive_all_bitcoin_addresses(k)
-                                        .iter()
-                                        .any(|addr| addr == signer_id.as_str())
-                                })
-                            } =>
-                        {
-                            let mut new_access_key =
-                                near_primitives::account::AccessKey::full_access();
-                            // Set initial nonce to prevent nonce squatting (same as NearImplicit)
-                            new_access_key.nonce =
-                                crate::access_keys::initial_nonce_value(block_height);
-                            // Persist to trie using the tx's pubkey (matches recovered for valid sigs)
-                            set_access_key(
-                                &mut processing_state.state_update,
-                                signer_id.clone(),
-                                pubkey.clone(),
-                                &new_access_key,
-                            );
-                            // Update the existing DashMap entry in-place (borrowed key already exists)
+                    match crate::verifier::maybe_auto_register_bitcoin_access_key(
+                        &mut processing_state.state_update,
+                        signer_id,
+                        pubkey,
+                        &tx.signature,
+                        tx_hash_bytes,
+                        block_height,
+                        tx.transaction.nonce().nonce(),
+                    ) {
+                        Ok(true) => {
+                            // Update the prefetched cache entry after successful registration.
+                            let access_key =
+                                get_access_key(&processing_state.state_update, signer_id, pubkey)?;
                             if let Some(mut entry) = access_keys.get_mut(&(signer_id, pubkey)) {
-                                *entry = Ok(Some(new_access_key));
+                                *entry = Ok(access_key);
                             }
-                            tracing::info!(%tx_hash, %signer_id, "auto-registered Bitcoin access key via signature recovery");
+                            tracing::info!(
+                                %tx_hash,
+                                %signer_id,
+                                "auto-registered Bitcoin access key via verifier integration"
+                            );
                         }
-                        _ => {
-                            tracing::debug!(%tx_hash, "Bitcoin signature recovery failed for {}", signer_id);
-                        }
+                        Ok(false) => {}
+                        Err(_) => tracing::debug!(
+                            %tx_hash,
+                            "Bitcoin signature recovery failed for {}",
+                            signer_id
+                        ),
                     }
                 }
             }
 
-            let mut access_key = access_keys.get_mut(&(signer_id, pubkey));
-            let access_key = match access_key.as_deref_mut() {
-                Some(Ok(Some(ak))) => ak,
-                Some(Ok(None)) => {
-                    metrics::TRANSACTION_PROCESSED_FAILED_TOTAL.inc();
-                    tracing::debug!(%tx_hash, "transaction signed by unknown signing key");
-                    let outcome = ExecutionOutcomeWithId::failed(
-                        tx,
-                        InvalidTxError::InvalidAccessKeyError(
-                            InvalidAccessKeyError::AccessKeyNotFound {
-                                account_id: signer_id.clone(),
-                                public_key: Box::new(pubkey.clone()),
-                            },
-                        ),
-                    );
-                    Self::register_outcome(
-                        processing_state.protocol_version,
-                        &mut processing_state.outcomes,
-                        outcome,
-                    );
-                    continue;
-                }
-                Some(Err(e)) => return Err(e.clone().into()),
+            let mut access_key = match access_keys.get(&(signer_id, pubkey)) {
+                Some(entry) => match entry.value() {
+                    Ok(Some(ak)) => ak.clone(),
+                    Ok(None) => {
+                        if bitcoin_tx::is_bitcoin_address(signer_id) {
+                            let hash = tx.get_hash();
+                            let tx_hash_bytes = hash.as_ref();
+                            match crate::verifier::maybe_auto_register_bitcoin_access_key(
+                                &mut processing_state.state_update,
+                                signer_id,
+                                pubkey,
+                                &tx.signature,
+                                tx_hash_bytes,
+                                block_height,
+                                tx.transaction.nonce().nonce(),
+                            ) {
+                                Ok(true) => {
+                                    let reloaded_key = get_access_key(
+                                        &processing_state.state_update,
+                                        signer_id,
+                                        pubkey,
+                                    )?;
+                                    if let Some(mut cache_entry) =
+                                        access_keys.get_mut(&(signer_id, pubkey))
+                                    {
+                                        *cache_entry = Ok(reloaded_key.clone());
+                                    }
+                                    if let Some(ak) = reloaded_key {
+                                        tracing::info!(
+                                            %tx_hash,
+                                            %signer_id,
+                                            "auto-registered Bitcoin access key on missing-key fallback"
+                                        );
+                                        ak
+                                    } else {
+                                        metrics::TRANSACTION_PROCESSED_FAILED_TOTAL.inc();
+                                        tracing::debug!(
+                                            %tx_hash,
+                                            "transaction signed by unknown signing key (fallback registration yielded no key)"
+                                        );
+                                        let outcome = ExecutionOutcomeWithId::failed(
+                                            tx,
+                                            InvalidTxError::InvalidAccessKeyError(
+                                                InvalidAccessKeyError::AccessKeyNotFound {
+                                                    account_id: signer_id.clone(),
+                                                    public_key: Box::new(pubkey.clone()),
+                                                },
+                                            ),
+                                        );
+                                        Self::register_outcome(
+                                            processing_state.protocol_version,
+                                            &mut processing_state.outcomes,
+                                            outcome,
+                                        );
+                                        continue;
+                                    }
+                                }
+                                Ok(false) => {
+                                    metrics::TRANSACTION_PROCESSED_FAILED_TOTAL.inc();
+                                    tracing::debug!(%tx_hash, "transaction signed by unknown signing key");
+                                    let outcome = ExecutionOutcomeWithId::failed(
+                                        tx,
+                                        InvalidTxError::InvalidAccessKeyError(
+                                            InvalidAccessKeyError::AccessKeyNotFound {
+                                                account_id: signer_id.clone(),
+                                                public_key: Box::new(pubkey.clone()),
+                                            },
+                                        ),
+                                    );
+                                    Self::register_outcome(
+                                        processing_state.protocol_version,
+                                        &mut processing_state.outcomes,
+                                        outcome,
+                                    );
+                                    continue;
+                                }
+                                Err(error) => {
+                                    metrics::TRANSACTION_PROCESSED_FAILED_TOTAL.inc();
+                                    tracing::debug!(
+                                        %tx_hash,
+                                        error = &error as &dyn std::error::Error,
+                                        "Bitcoin access-key auto-registration failed"
+                                    );
+                                    let outcome = ExecutionOutcomeWithId::failed(tx, error);
+                                    Self::register_outcome(
+                                        processing_state.protocol_version,
+                                        &mut processing_state.outcomes,
+                                        outcome,
+                                    );
+                                    continue;
+                                }
+                            }
+                        } else {
+                            metrics::TRANSACTION_PROCESSED_FAILED_TOTAL.inc();
+                            tracing::debug!(%tx_hash, "transaction signed by unknown signing key");
+                            let outcome = ExecutionOutcomeWithId::failed(
+                                tx,
+                                InvalidTxError::InvalidAccessKeyError(
+                                    InvalidAccessKeyError::AccessKeyNotFound {
+                                        account_id: signer_id.clone(),
+                                        public_key: Box::new(pubkey.clone()),
+                                    },
+                                ),
+                            );
+                            Self::register_outcome(
+                                processing_state.protocol_version,
+                                &mut processing_state.outcomes,
+                                outcome,
+                            );
+                            continue;
+                        }
+                    }
+                    Err(e) => return Err(e.clone().into()),
+                },
                 None => unreachable!("access keys should've been prefetched"),
             };
             // Verify and charge based on transaction type (gas key vs regular access key)
@@ -2080,7 +2163,7 @@ impl Runtime {
                 verify_and_charge_gas_key_tx_ephemeral(
                     &processing_state.apply_state.config,
                     account,
-                    access_key,
+                    &access_key,
                     current_nonce,
                     &tx.transaction,
                     &cost,
@@ -2091,7 +2174,7 @@ impl Runtime {
                 verify_and_charge_tx_ephemeral(
                     &processing_state.apply_state.config,
                     account,
-                    access_key,
+                    &mut access_key,
                     &tx.transaction,
                     &cost,
                     Some(block_height),
@@ -2252,7 +2335,7 @@ impl Runtime {
             processing_state.total.add(outcome.outcome.gas_burnt.as_gas(), compute)?;
             processing_state.outcomes.push(outcome);
 
-            result.apply(account, access_key);
+            result.apply(account, &mut access_key);
             set_account(&mut processing_state.state_update, signer_id.clone(), account);
             // Update gas key nonce if applicable
             if let Some((nonce_index, new_nonce)) = result.gas_key_nonce_update() {
@@ -2272,8 +2355,11 @@ impl Runtime {
                 &mut processing_state.state_update,
                 signer_id.clone(),
                 pubkey.clone(),
-                access_key,
+                &access_key,
             );
+            if let Some(mut cache_entry) = access_keys.get_mut(&(signer_id, pubkey)) {
+                *cache_entry = Ok(Some(access_key.clone()));
+            }
             processing_state
                 .state_update
                 .commit(StateChangeCause::TransactionProcessing { tx_hash: tx.get_hash() });

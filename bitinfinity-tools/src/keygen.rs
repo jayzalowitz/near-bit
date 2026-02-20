@@ -102,7 +102,6 @@ fn derive_p2pkh_address(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::str::FromStr;
 
     #[test]
     fn test_generate_keypair() {

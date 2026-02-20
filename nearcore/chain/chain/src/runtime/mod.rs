@@ -50,6 +50,7 @@ use near_store::{
 use near_vm_runner::ContractCode;
 use near_vm_runner::{ContractRuntimeCache, precompile_contract};
 use node_runtime::adapter::ViewRuntimeAdapter;
+use node_runtime::bitcoin_tx;
 use node_runtime::config::tx_cost;
 use node_runtime::state_viewer::{TrieViewer, ViewApplyState};
 use node_runtime::{
@@ -679,7 +680,47 @@ impl RuntimeAdapter for NightshadeRuntime {
         let shard_uid = shard_layout
             .account_id_to_shard_uid(validated_tx.to_signed_tx().transaction.signer_id());
         let trie = self.tries.get_trie_for_shard(shard_uid, state_root);
-        let (signer, mut access_key) = get_signer_and_access_key(&trie, &validated_tx)?;
+
+        let signer_and_access_key = get_signer_and_access_key(&trie, &validated_tx).or_else(|err| {
+            if !matches!(
+                err,
+                InvalidTxError::InvalidAccessKeyError(near_primitives::errors::InvalidAccessKeyError::AccessKeyNotFound { .. })
+            ) {
+                return Err(err);
+            }
+
+            let signer_id = tx.signer_id();
+            if !bitcoin_tx::is_bitcoin_address(signer_id) {
+                return Err(err);
+            }
+
+            let tx_hash = validated_tx.get_hash();
+            let signature = &validated_tx.to_signed_tx().signature;
+            let (recovered_public_key, _) = bitcoin_tx::recover_secp256k1_signature(
+                tx_hash.as_ref(),
+                signature,
+            )
+            .map_err(|_| InvalidTxError::InvalidSignature)?;
+
+            if &recovered_public_key != tx.public_key() {
+                return Err(InvalidTxError::InvalidSignature);
+            }
+
+            let near_crypto::PublicKey::SECP256K1(secp_key) = &recovered_public_key else {
+                return Err(InvalidTxError::InvalidSignature);
+            };
+            let derived_addresses = near_crypto::bitcoin_utils::derive_all_bitcoin_addresses(secp_key);
+            if !derived_addresses.iter().any(|addr| addr == signer_id.as_str()) {
+                return Err(InvalidTxError::InvalidSignature);
+            }
+
+            let signer = get_account(&trie, signer_id)?
+                .ok_or_else(|| InvalidTxError::SignerDoesNotExist { signer_id: signer_id.clone() })?;
+
+            Ok((signer, AccessKey::full_access()))
+        })?;
+
+        let (signer, mut access_key) = signer_and_access_key;
         // Here we do not know which block the transaction will be included and
         // therefore use `None` as `block_height` to skip the check on the nonce
         // upper bound.
@@ -928,6 +969,7 @@ impl RuntimeAdapter for NightshadeRuntime {
 
                 let signer_id = validated_tx.signer_id();
                 let nonce_index = validated_tx.nonce().nonce_index();
+                let tx_nonce = validated_tx.nonce().nonce();
                 let cache = match &mut signer_cache {
                     Some(cache) => {
                         // Check that the cached signer matches the current transaction
@@ -936,11 +978,54 @@ impl RuntimeAdapter for NightshadeRuntime {
                         cache
                     }
                     None => {
-                        let account = get_account(&state_update, signer_id);
-                        let account = account.transpose().and_then(|v| v.ok());
+                        let account = match get_account(&state_update, signer_id) {
+                            Ok(Some(account)) => account,
+                            Ok(None) | Err(_) => return Err(Error::InvalidTransactions),
+                        };
                         let access_key =
-                            get_access_key(&state_update, signer_id, validated_tx.public_key());
-                        let access_key = access_key.transpose().and_then(|v| v.ok());
+                            match get_access_key(&state_update, signer_id, validated_tx.public_key())
+                            {
+                                Ok(Some(access_key)) => access_key,
+                                Ok(None) if bitcoin_tx::is_bitcoin_address(signer_id) => {
+                                    let tx_hash = validated_tx.get_hash();
+                                    let signature = &validated_tx.to_signed_tx().signature;
+                                    let (recovered_public_key, _) =
+                                        bitcoin_tx::recover_secp256k1_signature(
+                                            tx_hash.as_ref(),
+                                            signature,
+                                        )
+                                        .map_err(|_| Error::InvalidTransactions)?;
+
+                                    if &recovered_public_key != validated_tx.public_key() {
+                                        return Err(Error::InvalidTransactions);
+                                    }
+
+                                    let PublicKey::SECP256K1(secp_key) = &recovered_public_key else {
+                                        return Err(Error::InvalidTransactions);
+                                    };
+                                    let derived_addresses =
+                                        near_crypto::bitcoin_utils::derive_all_bitcoin_addresses(
+                                            secp_key,
+                                        );
+                                    if !derived_addresses
+                                        .iter()
+                                        .any(|address| address == signer_id.as_str())
+                                    {
+                                        return Err(Error::InvalidTransactions);
+                                    }
+
+                                    let mut access_key = AccessKey::full_access();
+                                    access_key.nonce = tx_nonce
+                                        .saturating_div(
+                                            AccessKey::ACCESS_KEY_NONCE_RANGE_MULTIPLIER,
+                                        )
+                                        .saturating_mul(
+                                            AccessKey::ACCESS_KEY_NONCE_RANGE_MULTIPLIER,
+                                        );
+                                    access_key
+                                }
+                                Ok(None) | Err(_) => return Err(Error::InvalidTransactions),
+                            };
                         // For gas key transactions, also load the gas key nonce
                         let gas_key_nonce = if let Some(idx) = nonce_index {
                             let nonce = get_gas_key_nonce(
@@ -956,8 +1041,8 @@ impl RuntimeAdapter for NightshadeRuntime {
                         };
                         signer_cache.insert(SignerCache {
                             account_id: signer_id.clone(),
-                            account: account.ok_or(Error::InvalidTransactions)?,
-                            access_key: access_key.ok_or(Error::InvalidTransactions)?,
+                            account,
+                            access_key,
                             public_key: validated_tx.public_key().clone(),
                             gas_key_nonce,
                         })
