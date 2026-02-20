@@ -3,9 +3,9 @@
 //! This translates Bitcoin RPC queries into NEAR RPC calls and converts
 //! the responses back into Bitcoin-compatible formats.
 
+use crate::tx_translator::YOCTO_PER_SATOSHI;
 use reqwest::Client;
 use serde_json::json;
-use crate::tx_translator::YOCTO_PER_SATOSHI;
 
 pub struct NearClient {
     client: Client,
@@ -24,7 +24,11 @@ impl NearClient {
     }
 
     /// Generic NEAR RPC call helper (public for direct passthrough)
-    pub async fn call(&self, method: &str, params: serde_json::Value) -> Result<serde_json::Value, String> {
+    pub async fn call(
+        &self,
+        method: &str,
+        params: serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
         let body = json!({
             "jsonrpc": "2.0",
             "id": "btcrpc",
@@ -32,7 +36,8 @@ impl NearClient {
             "params": params
         });
 
-        let resp = self.client
+        let resp = self
+            .client
             .post(&self.near_rpc_url)
             .json(&body)
             .send()
@@ -55,25 +60,34 @@ impl NearClient {
 
     /// Query an account's state (balance, nonce, etc.)
     pub async fn view_account(&self, account_id: &str) -> Result<AccountView, String> {
-        let result = self.call("query", json!({
-            "request_type": "view_account",
-            "finality": "final",
-            "account_id": account_id
-        })).await?;
+        let result = self
+            .call(
+                "query",
+                json!({
+                    "request_type": "view_account",
+                    "finality": "final",
+                    "account_id": account_id
+                }),
+            )
+            .await?;
 
         Ok(AccountView {
-            amount: result.get("amount")
+            amount: result
+                .get("amount")
                 .and_then(|v| v.as_str())
                 .unwrap_or("0")
                 .to_string(),
-            locked: result.get("locked")
+            locked: result
+                .get("locked")
                 .and_then(|v| v.as_str())
                 .unwrap_or("0")
                 .to_string(),
-            block_height: result.get("block_height")
+            block_height: result
+                .get("block_height")
                 .and_then(|v| v.as_u64())
                 .unwrap_or(0),
-            block_hash: result.get("block_hash")
+            block_hash: result
+                .get("block_hash")
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .to_string(),
@@ -86,25 +100,31 @@ impl NearClient {
         let sync_info = result.get("sync_info").unwrap_or(&result);
 
         Ok(NodeStatus {
-            chain_id: result.get("chain_id")
+            chain_id: result
+                .get("chain_id")
                 .and_then(|v| v.as_str())
                 .unwrap_or("unknown")
                 .to_string(),
-            latest_block_height: sync_info.get("latest_block_height")
+            latest_block_height: sync_info
+                .get("latest_block_height")
                 .and_then(|v| v.as_u64())
                 .unwrap_or(0),
-            latest_block_hash: sync_info.get("latest_block_hash")
+            latest_block_hash: sync_info
+                .get("latest_block_hash")
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .to_string(),
-            latest_block_time: sync_info.get("latest_block_time")
+            latest_block_time: sync_info
+                .get("latest_block_time")
                 .and_then(|v| v.as_str())
                 .unwrap_or("")
                 .to_string(),
-            syncing: sync_info.get("syncing")
+            syncing: sync_info
+                .get("syncing")
                 .and_then(|v| v.as_bool())
                 .unwrap_or(false),
-            validator_account_id: result.get("validator_account_id")
+            validator_account_id: result
+                .get("validator_account_id")
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string()),
         })
@@ -112,19 +132,30 @@ impl NearClient {
 
     /// Send a signed transaction asynchronously (returns tx hash immediately)
     pub async fn send_tx_async(&self, signed_tx_base64: &str) -> Result<String, String> {
-        let result = self.call("broadcast_tx_async", json!([signed_tx_base64])).await?;
-        result.as_str()
+        let result = self
+            .call("broadcast_tx_async", json!([signed_tx_base64]))
+            .await?;
+        result
+            .as_str()
             .map(|s| s.to_string())
             .ok_or_else(|| "Expected tx hash string".to_string())
     }
 
     /// Send a signed transaction and wait for it to complete
-    pub async fn send_tx_commit(&self, signed_tx_base64: &str) -> Result<serde_json::Value, String> {
-        self.call("broadcast_tx_commit", json!([signed_tx_base64])).await
+    pub async fn send_tx_commit(
+        &self,
+        signed_tx_base64: &str,
+    ) -> Result<serde_json::Value, String> {
+        self.call("broadcast_tx_commit", json!([signed_tx_base64]))
+            .await
     }
 
     /// Get transaction status
-    pub async fn tx_status(&self, tx_hash: &str, sender_id: &str) -> Result<serde_json::Value, String> {
+    pub async fn tx_status(
+        &self,
+        tx_hash: &str,
+        sender_id: &str,
+    ) -> Result<serde_json::Value, String> {
         self.call("tx", json!([tx_hash, sender_id])).await
     }
 
@@ -141,20 +172,29 @@ impl NearClient {
     /// Get current gas price
     pub async fn gas_price(&self) -> Result<String, String> {
         let result = self.call("gas_price", json!([null])).await?;
-        result.get("gas_price")
+        result
+            .get("gas_price")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string())
             .ok_or_else(|| "Missing gas_price field".to_string())
     }
 
     /// View an access key (returns nonce + permission)
-    pub async fn view_access_key(&self, account_id: &str, public_key: &str) -> Result<serde_json::Value, String> {
-        self.call("query", json!({
-            "request_type": "view_access_key",
-            "finality": "final",
-            "account_id": account_id,
-            "public_key": public_key
-        })).await
+    pub async fn view_access_key(
+        &self,
+        account_id: &str,
+        public_key: &str,
+    ) -> Result<serde_json::Value, String> {
+        self.call(
+            "query",
+            json!({
+                "request_type": "view_access_key",
+                "finality": "final",
+                "account_id": account_id,
+                "public_key": public_key
+            }),
+        )
+        .await
     }
 
     /// Validate a Bitcoin transaction via nearcore's broadcast_bitcoin_tx RPC
@@ -163,42 +203,70 @@ impl NearClient {
     }
 
     /// View all access keys for an account
-    pub async fn view_access_key_list(&self, account_id: &str) -> Result<serde_json::Value, String> {
-        self.call("query", json!({
-            "request_type": "view_access_key_list",
-            "finality": "final",
-            "account_id": account_id
-        })).await
+    pub async fn view_access_key_list(
+        &self,
+        account_id: &str,
+    ) -> Result<serde_json::Value, String> {
+        self.call(
+            "query",
+            json!({
+                "request_type": "view_access_key_list",
+                "finality": "final",
+                "account_id": account_id
+            }),
+        )
+        .await
     }
 
     /// Call a view function on a contract (read-only, no gas cost)
-    pub async fn call_function(&self, account_id: &str, method_name: &str, args_base64: &str) -> Result<serde_json::Value, String> {
-        self.call("query", json!({
-            "request_type": "call_function",
-            "finality": "final",
-            "account_id": account_id,
-            "method_name": method_name,
-            "args_base64": args_base64
-        })).await
+    pub async fn call_function(
+        &self,
+        account_id: &str,
+        method_name: &str,
+        args_base64: &str,
+    ) -> Result<serde_json::Value, String> {
+        self.call(
+            "query",
+            json!({
+                "request_type": "call_function",
+                "finality": "final",
+                "account_id": account_id,
+                "method_name": method_name,
+                "args_base64": args_base64
+            }),
+        )
+        .await
     }
 
     /// View contract state (raw key-value storage)
-    pub async fn view_state(&self, account_id: &str, prefix_base64: &str) -> Result<serde_json::Value, String> {
-        self.call("query", json!({
-            "request_type": "view_state",
-            "finality": "final",
-            "account_id": account_id,
-            "prefix_base64": prefix_base64
-        })).await
+    pub async fn view_state(
+        &self,
+        account_id: &str,
+        prefix_base64: &str,
+    ) -> Result<serde_json::Value, String> {
+        self.call(
+            "query",
+            json!({
+                "request_type": "view_state",
+                "finality": "final",
+                "account_id": account_id,
+                "prefix_base64": prefix_base64
+            }),
+        )
+        .await
     }
 
     /// View contract code (WASM bytecode)
     pub async fn view_code(&self, account_id: &str) -> Result<serde_json::Value, String> {
-        self.call("query", json!({
-            "request_type": "view_code",
-            "finality": "final",
-            "account_id": account_id
-        })).await
+        self.call(
+            "query",
+            json!({
+                "request_type": "view_code",
+                "finality": "final",
+                "account_id": account_id
+            }),
+        )
+        .await
     }
 
     /// Get current validators
@@ -208,20 +276,36 @@ impl NearClient {
 
     /// Send transaction with configurable wait_until finality
     /// wait_until: "NONE", "INCLUDED", "EXECUTED_OPTIMISTIC", "INCLUDED_FINAL", "EXECUTED", "FINAL"
-    pub async fn send_tx(&self, signed_tx_base64: &str, wait_until: &str) -> Result<serde_json::Value, String> {
-        self.call("send_tx", json!({
-            "signed_tx_base64": signed_tx_base64,
-            "wait_until": wait_until
-        })).await
+    pub async fn send_tx(
+        &self,
+        signed_tx_base64: &str,
+        wait_until: &str,
+    ) -> Result<serde_json::Value, String> {
+        self.call(
+            "send_tx",
+            json!({
+                "signed_tx_base64": signed_tx_base64,
+                "wait_until": wait_until
+            }),
+        )
+        .await
     }
 
     /// Get transaction status with full receipts (EXPERIMENTAL_tx_status)
-    pub async fn tx_status_with_receipts(&self, tx_hash: &str, sender_id: &str) -> Result<serde_json::Value, String> {
-        self.call("EXPERIMENTAL_tx_status", json!({
-            "tx_hash": tx_hash,
-            "sender_account_id": sender_id,
-            "wait_until": "EXECUTED"
-        })).await
+    pub async fn tx_status_with_receipts(
+        &self,
+        tx_hash: &str,
+        sender_id: &str,
+    ) -> Result<serde_json::Value, String> {
+        self.call(
+            "EXPERIMENTAL_tx_status",
+            json!({
+                "tx_hash": tx_hash,
+                "sender_account_id": sender_id,
+                "wait_until": "EXECUTED"
+            }),
+        )
+        .await
     }
 
     /// Get a chunk by chunk hash
@@ -230,18 +314,28 @@ impl NearClient {
     }
 
     /// Get a chunk by block hash + shard ID
-    pub async fn chunk_by_block_shard(&self, block_id: serde_json::Value, shard_id: u64) -> Result<serde_json::Value, String> {
-        self.call("chunk", json!({"block_id": block_id, "shard_id": shard_id})).await
+    pub async fn chunk_by_block_shard(
+        &self,
+        block_id: serde_json::Value,
+        shard_id: u64,
+    ) -> Result<serde_json::Value, String> {
+        self.call("chunk", json!({"block_id": block_id, "shard_id": shard_id}))
+            .await
     }
 
     /// Get a receipt by receipt ID
     pub async fn receipt(&self, receipt_id: &str) -> Result<serde_json::Value, String> {
-        self.call("EXPERIMENTAL_receipt", json!({"receipt_id": receipt_id})).await
+        self.call("EXPERIMENTAL_receipt", json!({"receipt_id": receipt_id}))
+            .await
     }
 
     /// Get state changes in a block
-    pub async fn changes_in_block(&self, block_reference: serde_json::Value) -> Result<serde_json::Value, String> {
-        self.call("EXPERIMENTAL_changes_in_block", block_reference).await
+    pub async fn changes_in_block(
+        &self,
+        block_reference: serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
+        self.call("EXPERIMENTAL_changes_in_block", block_reference)
+            .await
     }
 
     /// Get specific state changes by type
@@ -250,8 +344,12 @@ impl NearClient {
     }
 
     /// Get protocol config at a given block
-    pub async fn protocol_config(&self, block_reference: serde_json::Value) -> Result<serde_json::Value, String> {
-        self.call("EXPERIMENTAL_protocol_config", block_reference).await
+    pub async fn protocol_config(
+        &self,
+        block_reference: serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
+        self.call("EXPERIMENTAL_protocol_config", block_reference)
+            .await
     }
 
     /// Get genesis config
@@ -265,25 +363,47 @@ impl NearClient {
     }
 
     /// Light client execution outcome proof
-    pub async fn light_client_proof(&self, params: serde_json::Value) -> Result<serde_json::Value, String> {
+    pub async fn light_client_proof(
+        &self,
+        params: serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
         self.call("EXPERIMENTAL_light_client_proof", params).await
     }
 
     /// Next light client block
-    pub async fn next_light_client_block(&self, last_block_hash: &str) -> Result<serde_json::Value, String> {
-        self.call("next_light_client_block", json!({"last_block_hash": last_block_hash})).await
+    pub async fn next_light_client_block(
+        &self,
+        last_block_hash: &str,
+    ) -> Result<serde_json::Value, String> {
+        self.call(
+            "next_light_client_block",
+            json!({"last_block_hash": last_block_hash}),
+        )
+        .await
     }
 
     /// Validators ordered by stake
-    pub async fn validators_ordered(&self, block_id: Option<serde_json::Value>) -> Result<serde_json::Value, String> {
+    pub async fn validators_ordered(
+        &self,
+        block_id: Option<serde_json::Value>,
+    ) -> Result<serde_json::Value, String> {
         match block_id {
-            Some(id) => self.call("EXPERIMENTAL_validators_ordered", json!({"block_id": id})).await,
-            None => self.call("EXPERIMENTAL_validators_ordered", json!([null])).await,
+            Some(id) => {
+                self.call("EXPERIMENTAL_validators_ordered", json!({"block_id": id}))
+                    .await
+            }
+            None => {
+                self.call("EXPERIMENTAL_validators_ordered", json!([null]))
+                    .await
+            }
         }
     }
 
     /// Congestion level for a shard
-    pub async fn congestion_level(&self, params: serde_json::Value) -> Result<serde_json::Value, String> {
+    pub async fn congestion_level(
+        &self,
+        params: serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
         self.call("EXPERIMENTAL_congestion_level", params).await
     }
 
@@ -300,14 +420,20 @@ impl NearClient {
     /// Gas price at a specific block
     pub async fn gas_price_at_block(&self, block_id: serde_json::Value) -> Result<String, String> {
         let result = self.call("gas_price", json!([block_id])).await?;
-        result.get("gas_price")
+        result
+            .get("gas_price")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string())
             .ok_or_else(|| "Missing gas_price field".to_string())
     }
 
     /// Query with configurable block reference
-    pub async fn query_at_block(&self, request_type: &str, params: serde_json::Value, block_ref: serde_json::Value) -> Result<serde_json::Value, String> {
+    pub async fn query_at_block(
+        &self,
+        request_type: &str,
+        params: serde_json::Value,
+        block_ref: serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
         let mut query_params = params.as_object().cloned().unwrap_or_default();
         query_params.insert("request_type".to_string(), json!(request_type));
         // Merge block reference
@@ -320,13 +446,21 @@ impl NearClient {
     }
 
     /// View gas key nonces
-    pub async fn view_gas_key_nonces(&self, account_id: &str, public_key: &str) -> Result<serde_json::Value, String> {
-        self.call("query", json!({
-            "request_type": "view_gas_key_nonces",
-            "finality": "final",
-            "account_id": account_id,
-            "public_key": public_key
-        })).await
+    pub async fn view_gas_key_nonces(
+        &self,
+        account_id: &str,
+        public_key: &str,
+    ) -> Result<serde_json::Value, String> {
+        self.call(
+            "query",
+            json!({
+                "request_type": "view_gas_key_nonces",
+                "finality": "final",
+                "account_id": account_id,
+                "public_key": public_key
+            }),
+        )
+        .await
     }
 
     /// Check if the nearcore node is reachable

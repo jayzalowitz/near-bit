@@ -178,7 +178,8 @@ pub fn state_dump_redis(
                     )?;
                     let value_vec: &[u8] = value.as_ref();
                     let () = redis_connection.set(
-                        [b"data-value:", redis_key.as_slice(), b":", block_hash.as_bytes()].concat(),
+                        [b"data-value:", redis_key.as_slice(), b":", block_hash.as_bytes()]
+                            .concat(),
                         value_vec,
                     )?;
                     println!("Data written: {}", account_id);

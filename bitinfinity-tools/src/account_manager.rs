@@ -2,8 +2,8 @@
 //!
 //! Manages accounts keyed by Bitcoin addresses with transparent access via signature recovery
 
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-use serde::{Serialize, Deserialize};
 
 /// Represents a Bitcoin Infinity account state
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -85,7 +85,8 @@ impl AccountManager {
         if self.accounts.contains_key(&address) {
             return Err(format!("Account {} already exists", address));
         }
-        self.accounts.insert(address.clone(), Account::new(address, balance));
+        self.accounts
+            .insert(address.clone(), Account::new(address, balance));
         Ok(())
     }
 
@@ -114,12 +115,7 @@ impl AccountManager {
     }
 
     /// Transfer balance from one account to another
-    pub fn transfer(
-        &mut self,
-        from: &str,
-        to: &str,
-        amount: u128,
-    ) -> Result<(), String> {
+    pub fn transfer(&mut self, from: &str, to: &str, amount: u128) -> Result<(), String> {
         // Verify both accounts exist
         if !self.accounts.contains_key(from) {
             return Err(format!("Sender account {} not found", from));
@@ -135,21 +131,13 @@ impl AccountManager {
             .subtract_balance(amount)?;
 
         // Add to receiver
-        self.accounts
-            .get_mut(to)
-            .unwrap()
-            .add_balance(amount)?;
+        self.accounts.get_mut(to).unwrap().add_balance(amount)?;
 
         Ok(())
     }
 
     /// Process a transaction (transfer + nonce increment)
-    pub fn execute_transfer(
-        &mut self,
-        from: &str,
-        to: &str,
-        amount: u128,
-    ) -> Result<(), String> {
+    pub fn execute_transfer(&mut self, from: &str, to: &str, amount: u128) -> Result<(), String> {
         // Transfer the balance
         self.transfer(from, to, amount)?;
 
@@ -215,7 +203,9 @@ mod tests {
         manager.create_account(addr1.clone(), initial).unwrap();
         manager.create_account(addr2.clone(), 0).unwrap();
 
-        manager.transfer(&addr1, &addr2, 50_000_000_000_000).unwrap();
+        manager
+            .transfer(&addr1, &addr2, 50_000_000_000_000)
+            .unwrap();
 
         assert_eq!(manager.get_balance(&addr1), Some(50_000_000_000_000));
         assert_eq!(manager.get_balance(&addr2), Some(50_000_000_000_000));
@@ -239,8 +229,14 @@ mod tests {
     fn test_load_from_utxos() {
         let mut manager = AccountManager::new();
         let mut utxos = BTreeMap::new();
-        utxos.insert("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa".to_string(), 50_000_000_000_000u64);
-        utxos.insert("1FP5gk4z7mDdSb3m3YvUwFb1BDUvcLYe1F".to_string(), 25_000_000_000u64);
+        utxos.insert(
+            "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa".to_string(),
+            50_000_000_000_000u64,
+        );
+        utxos.insert(
+            "1FP5gk4z7mDdSb3m3YvUwFb1BDUvcLYe1F".to_string(),
+            25_000_000_000u64,
+        );
 
         manager.load_from_utxos(&utxos).unwrap();
 

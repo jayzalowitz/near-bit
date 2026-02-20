@@ -78,7 +78,10 @@ impl SyntheticUtxo {
     /// Falls back to synthetic P2PKH for unrecognized formats.
     fn derive_script_pub_key(account_id: &str) -> String {
         // Bech32 SegWit (P2WPKH): bc1q... or tb1q...
-        if account_id.starts_with("bc1q") || account_id.starts_with("tb1q") || account_id.starts_with("bcrt1q") {
+        if account_id.starts_with("bc1q")
+            || account_id.starts_with("tb1q")
+            || account_id.starts_with("bcrt1q")
+        {
             if let Some(program) = Self::decode_bech32_program(account_id) {
                 if program.len() == 20 {
                     return format!("0014{}", hex::encode(&program));
@@ -86,7 +89,10 @@ impl SyntheticUtxo {
             }
         }
         // Bech32m Taproot (P2TR): bc1p... or tb1p...
-        if account_id.starts_with("bc1p") || account_id.starts_with("tb1p") || account_id.starts_with("bcrt1p") {
+        if account_id.starts_with("bc1p")
+            || account_id.starts_with("tb1p")
+            || account_id.starts_with("bcrt1p")
+        {
             if let Some(program) = Self::decode_bech32_program(account_id) {
                 if program.len() == 32 {
                     return format!("5120{}", hex::encode(&program));
@@ -102,7 +108,8 @@ impl SyntheticUtxo {
             }
         }
         // P2PKH: starts with 1 (mainnet), m/n (testnet)
-        if account_id.starts_with('1') || account_id.starts_with('m') || account_id.starts_with('n') {
+        if account_id.starts_with('1') || account_id.starts_with('m') || account_id.starts_with('n')
+        {
             if let Ok(decoded) = bs58::decode(account_id).into_vec() {
                 if decoded.len() >= 25 {
                     return format!("76a914{}88ac", hex::encode(&decoded[1..21]));
@@ -121,11 +128,14 @@ impl SyntheticUtxo {
         let data_part = &addr[sep_pos + 1..];
         // Skip first char (witness version), decode 5-bit to 8-bit
         const BECH32_CHARSET: &str = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
-        let data5: Vec<u8> = data_part.chars()
+        let data5: Vec<u8> = data_part
+            .chars()
             .filter_map(|c| BECH32_CHARSET.find(c).map(|i| i as u8))
             .collect();
-        if data5.len() <= 7 { return None; } // too short (version + min data + 6 checksum)
-        // Skip version byte (index 0), remove 6 checksum bytes
+        if data5.len() <= 7 {
+            return None;
+        } // too short (version + min data + 6 checksum)
+          // Skip version byte (index 0), remove 6 checksum bytes
         let payload5 = &data5[1..data5.len() - 6];
         let mut acc: u32 = 0;
         let mut bits: u32 = 0;
@@ -157,7 +167,9 @@ impl SyntheticUtxo {
                 let b = chk >> 25;
                 chk = ((chk & 0x1ffffff) << 5) ^ (v as u32);
                 for (i, g) in GEN.iter().enumerate() {
-                    if (b >> i) & 1 == 1 { chk ^= g; }
+                    if (b >> i) & 1 == 1 {
+                        chk ^= g;
+                    }
                 }
             }
             chk
@@ -189,7 +201,9 @@ impl SyntheticUtxo {
         values.extend_from_slice(&data5);
         values.extend_from_slice(&[0u8; 6]);
         let polymod_val = polymod(&values) ^ 1;
-        let checksum: Vec<u8> = (0..6).map(|i| ((polymod_val >> (5 * (5 - i))) & 31) as u8).collect();
+        let checksum: Vec<u8> = (0..6)
+            .map(|i| ((polymod_val >> (5 * (5 - i))) & 31) as u8)
+            .collect();
 
         let mut result = String::from(bech32_hrp);
         result.push('1');

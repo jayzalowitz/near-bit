@@ -445,6 +445,18 @@ pub(crate) fn apply_delegate_action(
 ) -> Result<(), RuntimeError> {
     let delegate_action = &signed_delegate_action.delegate_action;
 
+    if let Some(record) = crate::bitcoin_tx::get_patoshi_record(state_update, sender_id)? {
+        if crate::bitcoin_tx::is_patoshi_locked(&record, apply_state.epoch_height) {
+            result.result = Err(ActionErrorKind::DelegateActionAccessKeyError(
+                InvalidAccessKeyError::MethodNameMismatch {
+                    method_name: "Patoshi locked account cannot use DelegateAction".to_string(),
+                },
+            )
+            .into());
+            return Ok(());
+        }
+    }
+
     if !signed_delegate_action.verify() {
         result.result = Err(ActionErrorKind::DelegateActionInvalidSignature.into());
         return Ok(());

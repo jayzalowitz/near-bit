@@ -1,0 +1,60 @@
+name: Nightly Fuzz
+
+on:
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+    inputs:
+      max_total_time:
+        description: "Per-target fuzz time in seconds"
+        required: false
+        default: "1800"
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  fuzz:
+    name: "Fuzz: ${{ matrix.target }}"
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - crate_path: near-account-id
+            target: fuzz_account_id_parse
+          - crate_path: bitinfinity-btcrpc
+            target: fuzz_rpc_parse
+          - crate_path: bitinfinity-btcrpc
+            target: fuzz_tx_hex
+          - crate_path: bitinfinity-btcrpc
+            target: fuzz_tx_translator
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust nightly
+        uses: dtolnay/rust-toolchain@nightly
+
+      - name: Install cargo-fuzz
+        run: cargo install cargo-fuzz --locked
+
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-nightly-fuzz-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Run fuzz target
+        shell: bash
+        run: |
+          set -euo pipefail
+          DURATION="${{ github.event.inputs.max_total_time }}"
+          if [ -z "${DURATION}" ]; then
+            DURATION="1800"
+          fi
+          cd "${{ matrix.crate_path }}"
+          cargo fuzz run "${{ matrix.target }}" -- -max_total_time="${DURATION}" -timeout=10

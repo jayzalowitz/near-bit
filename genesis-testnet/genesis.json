@@ -1,0 +1,372 @@
+{
+  "protocol_version": 84,
+  "genesis_time": "2026-02-17T07:21:47.000000000Z",
+  "chain_id": "bitinfinity-testnet",
+  "genesis_height": 0,
+  "num_block_producer_seats": 1,
+  "num_block_producer_seats_per_shard": [
+    1
+  ],
+  "avg_hidden_validator_seats_per_shard": [
+    0
+  ],
+  "dynamic_resharding": false,
+  "protocol_upgrade_stake_threshold": [
+    4,
+    5
+  ],
+  "epoch_length": 500,
+  "gas_limit": 1000000000000000,
+  "min_gas_price": "100000000",
+  "max_gas_price": "10000000000000000000000",
+  "block_producer_kickout_threshold": 90,
+  "chunk_producer_kickout_threshold": 90,
+  "chunk_validator_only_kickout_threshold": 80,
+  "target_validator_mandates_per_shard": 68,
+  "online_min_threshold": [
+    9,
+    10
+  ],
+  "online_max_threshold": [
+    99,
+    100
+  ],
+  "gas_price_adjustment_rate": [
+    1,
+    100
+  ],
+  "validators": [
+    {
+      "account_id": "validator.bitinfinity",
+      "public_key": "ed25519:5TtK71YT4CDnFVR2SKJk4SLpQnfTUpi3ek6xNMbhL2cA",
+      "amount": "50000000000000000000000000000000"
+    }
+  ],
+  "transaction_validity_period": 100,
+  "protocol_reward_rate": [
+    1,
+    10
+  ],
+  "max_inflation_rate": [
+    1,
+    20
+  ],
+  "total_supply": "61534020000000000000000000000000",
+  "num_blocks_per_year": 31536000,
+  "protocol_treasury_account": "treasury.bitinfinity",
+  "fishermen_threshold": "10000000000000000000000000",
+  "minimum_stake_divisor": 10,
+  "shard_layout": {
+    "V2": {
+      "boundary_accounts": [],
+      "shard_ids": [
+        0
+      ],
+      "id_to_index_map": {
+        "0": 0
+      },
+      "index_to_id_map": {
+        "0": 0
+      },
+      "shards_split_map": null,
+      "shards_parent_map": null,
+      "version": 0
+    }
+  },
+  "num_chunk_only_producer_seats": 300,
+  "minimum_validators_per_shard": 1,
+  "max_kickout_stake_perc": 100,
+  "minimum_stake_ratio": [
+    1,
+    6250
+  ],
+  "shuffle_shard_assignment_for_chunk_producers": false,
+  "use_production_config": false,
+  "num_chunk_producer_seats": 1,
+  "num_chunk_validator_seats": 1,
+  "chunk_producer_assignment_changes_limit": 5,
+  "records": [
+    {
+      "Account": {
+        "account_id": "validator.bitinfinity",
+        "account": {
+          "amount": "10000000000000000000000000000000",
+          "locked": "50000000000000000000000000000000",
+          "code_hash": "11111111111111111111111111111111",
+          "storage_usage": 0,
+          "version": "V1"
+        }
+      }
+    },
+    {
+      "AccessKey": {
+        "account_id": "validator.bitinfinity",
+        "public_key": "ed25519:5TtK71YT4CDnFVR2SKJk4SLpQnfTUpi3ek6xNMbhL2cA",
+        "access_key": {
+          "nonce": 0,
+          "permission": "FullAccess"
+        }
+      }
+    },
+    {
+      "Account": {
+        "account_id": "treasury.bitinfinity",
+        "account": {
+          "amount": "1000000000000000000000000000000",
+          "locked": "0",
+          "code_hash": "11111111111111111111111111111111",
+          "storage_usage": 0,
+          "version": "V1"
+        }
+      }
+    },
+    {
+      "AccessKey": {
+        "account_id": "treasury.bitinfinity",
+        "public_key": "ed25519:5TtK71YT4CDnFVR2SKJk4SLpQnfTUpi3ek6xNMbhL2cA",
+        "access_key": {
+          "nonce": 0,
+          "permission": "FullAccess"
+        }
+      }
+    },
+    {
+      "Account": {
+        "account_id": "1a1zp1ep5qgefi2dmptftl5slmv7divfna",
+        "account": {
+          "amount": "500000000000000000000000000000",
+          "locked": "0",
+          "code_hash": "11111111111111111111111111111111",
+          "storage_usage": 0,
+          "version": "V1"
+        }
+      }
+    },
+    {
+      "Account": {
+        "account_id": "1fp5gk4z7mddsb3m3yvuwfb1bduvclye1f",
+        "account": {
+          "amount": "250000000000000000000000000",
+          "locked": "0",
+          "code_hash": "11111111111111111111111111111111",
+          "storage_usage": 0,
+          "version": "V1"
+        }
+      }
+    },
+    {
+      "Account": {
+        "account_id": "1jfmmwgbvbkyxtshbajbpqjfahehnfelpj",
+        "account": {
+          "amount": "500000000000000000000000000",
+          "locked": "0",
+          "code_hash": "11111111111111111111111111111111",
+          "storage_usage": 0,
+          "version": "V1"
+        }
+      }
+    },
+    {
+      "Account": {
+        "account_id": "1lcbvp2zp7vqchekz1u7tz8vpgjtfvkbvf",
+        "account": {
+          "amount": "100000000000000000000000000",
+          "locked": "0",
+          "code_hash": "11111111111111111111111111111111",
+          "storage_usage": 0,
+          "version": "V1"
+        }
+      }
+    },
+    {
+      "Account": {
+        "account_id": "1dice8emcqaqsn3r3ekqyji2rk5jsfd",
+        "account": {
+          "amount": "1000000000000000000000000000",
+          "locked": "0",
+          "code_hash": "11111111111111111111111111111111",
+          "storage_usage": 0,
+          "version": "V1"
+        }
+      }
+    },
+    {
+      "Account": {
+        "account_id": "3j98t1wpez73cnmyviecrnyiwrnqrhwnly",
+        "account": {
+          "amount": "20000000000000000000000000",
+          "locked": "0",
+          "code_hash": "11111111111111111111111111111111",
+          "storage_usage": 0,
+          "version": "V1"
+        }
+      }
+    },
+    {
+      "Account": {
+        "account_id": "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+        "account": {
+          "amount": "50000000000000000000000000",
+          "locked": "0",
+          "code_hash": "11111111111111111111111111111111",
+          "storage_usage": 0,
+          "version": "V1"
+        }
+      }
+    },
+    {
+      "Account": {
+        "account_id": "1kxwo1egkzwg5trtnsyzvvnyeyroqmk26u",
+        "account": {
+          "amount": "10000000000000000000000000000",
+          "locked": "0",
+          "code_hash": "11111111111111111111111111111111",
+          "storage_usage": 0,
+          "version": "V1"
+        }
+      }
+    },
+    {
+      "Account": {
+        "account_id": "bc1q6qrwry4m6gersymf4v3f7ujxx4e7nw59hee5dc",
+        "account": {
+          "amount": "10000000000000000000000000000",
+          "locked": "0",
+          "code_hash": "11111111111111111111111111111111",
+          "storage_usage": 0,
+          "version": "V1"
+        }
+      }
+    },
+    {
+      "Account": {
+        "account_id": "1cggrajrsat4pznicsfhifwqyblgstqwtn",
+        "account": {
+          "amount": "5000000000000000000000000000",
+          "locked": "0",
+          "code_hash": "11111111111111111111111111111111",
+          "storage_usage": 0,
+          "version": "V1"
+        }
+      }
+    },
+    {
+      "Account": {
+        "account_id": "bc1qsq4gy62z4slzrsq9vwx5zmup5p6x5gcxts6rfz",
+        "account": {
+          "amount": "5000000000000000000000000000",
+          "locked": "0",
+          "code_hash": "11111111111111111111111111111111",
+          "storage_usage": 0,
+          "version": "V1"
+        }
+      }
+    },
+    {
+      "Account": {
+        "account_id": "1jiwtwwpn84e34zebrxsytux9js4bgxb7n",
+        "account": {
+          "amount": "1000000000000000000000000000",
+          "locked": "0",
+          "code_hash": "11111111111111111111111111111111",
+          "storage_usage": 0,
+          "version": "V1"
+        }
+      }
+    },
+    {
+      "Account": {
+        "account_id": "bc1qcffunkg9xz927u30qwwlq68p6xv30u0ku4lhl4",
+        "account": {
+          "amount": "1000000000000000000000000000",
+          "locked": "0",
+          "code_hash": "11111111111111111111111111111111",
+          "storage_usage": 0,
+          "version": "V1"
+        }
+      }
+    },
+    {
+      "Account": {
+        "account_id": "bridge.bitinfinity",
+        "account": {
+          "amount": "100000000000000000000000000",
+          "locked": "0",
+          "code_hash": "11111111111111111111111111111111",
+          "storage_usage": 0,
+          "version": "V1"
+        }
+      }
+    },
+    {
+      "AccessKey": {
+        "account_id": "bridge.bitinfinity",
+        "public_key": "ed25519:5TtK71YT4CDnFVR2SKJk4SLpQnfTUpi3ek6xNMbhL2cA",
+        "access_key": {
+          "nonce": 0,
+          "permission": "FullAccess"
+        }
+      }
+    },
+    {
+      "AccessKey": {
+        "account_id": "1kxwo1egkzwg5trtnsyzvvnyeyroqmk26u",
+        "public_key": "secp256k1:2ssn9NE1sUU7NBVM5oZ4XVcnNZnenapxfPCGgsDQdVfGWrsyZAmHpPTK3Tw5PLv1mu2Cp2dNhBbSDg5cadvUas4M",
+        "access_key": {
+          "nonce": 0,
+          "permission": "FullAccess"
+        }
+      }
+    },
+    {
+      "AccessKey": {
+        "account_id": "bc1q6qrwry4m6gersymf4v3f7ujxx4e7nw59hee5dc",
+        "public_key": "secp256k1:2ssn9NE1sUU7NBVM5oZ4XVcnNZnenapxfPCGgsDQdVfGWrsyZAmHpPTK3Tw5PLv1mu2Cp2dNhBbSDg5cadvUas4M",
+        "access_key": {
+          "nonce": 0,
+          "permission": "FullAccess"
+        }
+      }
+    },
+    {
+      "AccessKey": {
+        "account_id": "1cggrajrsat4pznicsfhifwqyblgstqwtn",
+        "public_key": "secp256k1:5SNQntdidfyxZNGU2Lpv5Km515Fi4s6hn24rE1bGR5jffxmEuE53ph3ZkWkYbSgVjUiouP2BjHKrEAYfbpYdCQeR",
+        "access_key": {
+          "nonce": 0,
+          "permission": "FullAccess"
+        }
+      }
+    },
+    {
+      "AccessKey": {
+        "account_id": "bc1qsq4gy62z4slzrsq9vwx5zmup5p6x5gcxts6rfz",
+        "public_key": "secp256k1:5SNQntdidfyxZNGU2Lpv5Km515Fi4s6hn24rE1bGR5jffxmEuE53ph3ZkWkYbSgVjUiouP2BjHKrEAYfbpYdCQeR",
+        "access_key": {
+          "nonce": 0,
+          "permission": "FullAccess"
+        }
+      }
+    },
+    {
+      "AccessKey": {
+        "account_id": "1jiwtwwpn84e34zebrxsytux9js4bgxb7n",
+        "public_key": "secp256k1:6nA1qLm9TtSuFNLcPzNjkkXBebVduboSN2XbAKBPEkoYKePVSerJnkWoGSMui6W6Q1V9hM7AbYR3w7n46HpKxuv",
+        "access_key": {
+          "nonce": 0,
+          "permission": "FullAccess"
+        }
+      }
+    },
+    {
+      "AccessKey": {
+        "account_id": "bc1qcffunkg9xz927u30qwwlq68p6xv30u0ku4lhl4",
+        "public_key": "secp256k1:6nA1qLm9TtSuFNLcPzNjkkXBebVduboSN2XbAKBPEkoYKePVSerJnkWoGSMui6W6Q1V9hM7AbYR3w7n46HpKxuv",
+        "access_key": {
+          "nonce": 0,
+          "permission": "FullAccess"
+        }
+      }
+    }
+  ]
+}

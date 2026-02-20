@@ -4088,8 +4088,11 @@ dependencies = [
 name = "near-account-id"
 version = "2.0.0"
 dependencies = [
+ "bech32",
  "borsh",
+ "bs58 0.5.1",
  "serde",
+ "sha2 0.10.6",
 ]
 
 [[package]]

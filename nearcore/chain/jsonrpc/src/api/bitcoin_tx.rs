@@ -14,9 +14,7 @@ pub struct RpcBroadcastBitcoinTxRequest {
 impl RpcRequest for RpcBroadcastBitcoinTxRequest {
     fn parse(value: Value) -> Result<Self, RpcParseError> {
         Params::new(value)
-            .try_singleton(|tx_hex: String| {
-                Ok(RpcBroadcastBitcoinTxRequest { tx_hex })
-            })
+            .try_singleton(|tx_hex: String| Ok(RpcBroadcastBitcoinTxRequest { tx_hex }))
             .unwrap_or_parse()
     }
 }

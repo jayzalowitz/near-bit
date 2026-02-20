@@ -16,20 +16,28 @@ impl UtxoParser {
             return Err(format!("UTXO snapshot not found: {}", path.display()).into());
         }
         let metadata = std::fs::metadata(path)?;
-        println!("UTXO snapshot: {} ({:.2} GB)", path.display(),
-            metadata.len() as f64 / 1_073_741_824.0);
-        Ok(UtxoParser { path: path.to_path_buf() })
+        println!(
+            "UTXO snapshot: {} ({:.2} GB)",
+            path.display(),
+            metadata.len() as f64 / 1_073_741_824.0
+        );
+        Ok(UtxoParser {
+            path: path.to_path_buf(),
+        })
     }
 
     /// Stream-parse all UTXOs, aggregate balances by address.
     /// Returns a map of Bitcoin address -> total satoshis.
-    pub fn parse_and_aggregate(&mut self) -> Result<BTreeMap<String, u64>, Box<dyn std::error::Error>> {
+    pub fn parse_and_aggregate(
+        &mut self,
+    ) -> Result<BTreeMap<String, u64>, Box<dyn std::error::Error>> {
         use txoutset::{ComputeAddresses, Dump};
 
         let dump = Dump::new(
             self.path.to_str().unwrap(),
             ComputeAddresses::Yes(txoutset::Network::Bitcoin),
-        ).map_err(|e| format!("Failed to open UTXO dump: {}", e))?;
+        )
+        .map_err(|e| format!("Failed to open UTXO dump: {}", e))?;
 
         let mut address_balances: BTreeMap<String, u64> = BTreeMap::new();
         let mut total_utxos: u64 = 0;
@@ -40,8 +48,12 @@ impl UtxoParser {
             total_utxos += 1;
 
             if total_utxos % 5_000_000 == 0 {
-                println!("  Processed {} UTXOs ({} addresses, {} skipped)...",
-                    total_utxos, address_balances.len(), skipped_no_address);
+                println!(
+                    "  Processed {} UTXOs ({} addresses, {} skipped)...",
+                    total_utxos,
+                    address_balances.len(),
+                    skipped_no_address
+                );
             }
 
             let sats: u64 = u64::from(item.amount);
@@ -63,7 +75,10 @@ impl UtxoParser {
         println!("✓ UTXO parsing complete:");
         println!("  Total UTXOs: {}", total_utxos);
         println!("  Unique addresses: {}", address_balances.len());
-        println!("  Total satoshis: {} ({:.8} BTC)", total_satoshis, total_btc);
+        println!(
+            "  Total satoshis: {} ({:.8} BTC)",
+            total_satoshis, total_btc
+        );
         println!("  Skipped (no address): {}", skipped_no_address);
 
         Ok(address_balances)
@@ -93,16 +108,24 @@ mod tests {
         let balances = parser.parse_and_aggregate().unwrap();
 
         // Basic sanity checks
-        assert!(balances.len() > 1_000_000, "Should have >1M unique addresses");
+        assert!(
+            balances.len() > 1_000_000,
+            "Should have >1M unique addresses"
+        );
 
         let total_sats: u64 = balances.values().sum();
         let total_btc = total_sats as f64 / 100_000_000.0;
         // Total BTC should be close to 21M (minus lost coins + unmined)
-        assert!(total_btc > 19_000_000.0 && total_btc < 21_000_001.0,
-            "Total BTC {} out of expected range", total_btc);
+        assert!(
+            total_btc > 19_000_000.0 && total_btc < 21_000_001.0,
+            "Total BTC {} out of expected range",
+            total_btc
+        );
 
         // Satoshi's genesis address should exist
-        assert!(balances.contains_key("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"),
-            "Satoshi's genesis address should be in UTXO set");
+        assert!(
+            balances.contains_key("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"),
+            "Satoshi's genesis address should be in UTXO set"
+        );
     }
 }

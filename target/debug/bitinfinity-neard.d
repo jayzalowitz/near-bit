@@ -1,1 +1,1 @@
-/Users/infinitoshi/conductor/workspaces/near-bit/sydney/target/debug/bitinfinity-neard: /Users/infinitoshi/conductor/workspaces/near-bit/sydney/bitinfinity-neard/src/main.rs
+/Users/infinitoshi/conductor/workspaces/near-bit/sydney/target/debug/bitinfinity-neard: /Users/infinitoshi/conductor/workspaces/near-bit/sydney/bitinfinity-neard/src/keys.rs /Users/infinitoshi/conductor/workspaces/near-bit/sydney/bitinfinity-neard/src/main.rs

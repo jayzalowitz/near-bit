@@ -1,7 +1,7 @@
+use crate::bitcoin_tx;
 use crate::config::{TransactionCost, total_prepaid_gas};
 use crate::near_primitives::account::Account;
 use crate::{AccessKeyUpdate, TxVerdict, VerificationResult};
-use crate::bitcoin_tx;
 use near_crypto::PublicKey;
 use near_crypto::key_conversion::is_valid_staking_key;
 use near_parameters::RuntimeConfig;

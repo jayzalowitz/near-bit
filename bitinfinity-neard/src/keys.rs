@@ -24,7 +24,10 @@ pub fn generate_key_file(account_id: &str) -> KeyFile {
     let signing_key = SigningKey::generate(&mut OsRng);
     let verifying_key = signing_key.verifying_key();
 
-    let public_key = format!("ed25519:{}", bs58::encode(verifying_key.as_bytes()).into_string());
+    let public_key = format!(
+        "ed25519:{}",
+        bs58::encode(verifying_key.as_bytes()).into_string()
+    );
     let secret_key = format!(
         "ed25519:{}",
         bs58::encode(signing_key.to_keypair_bytes()).into_string()

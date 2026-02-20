@@ -18,7 +18,10 @@ pub fn generate_synthetic_utxos(
         ("1FP5gk4z7mDdSb3m3YvUwFb1BDUvcLYe1F", 25_000_000_000u64),
         ("1LCBvP2zP7VqcHeKz1U7TZ8VpGJTfvKbvf", 10_000_000_000u64),
         // Bech32 SegWit address
-        ("bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4", 5_000_000_000u64),
+        (
+            "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4",
+            5_000_000_000u64,
+        ),
         // P2SH multisig
         ("3J98t1WpEZ73CNmYviecrnyiWrnqRhWNLy", 2_000_000_000u64),
     ];
@@ -41,7 +44,11 @@ pub fn generate_synthetic_utxos(
 
     // Total supply check
     let total: u64 = utxos.values().sum();
-    eprintln!("Generated {} test accounts with total {} satoshis", utxos.len(), total);
+    eprintln!(
+        "Generated {} test accounts with total {} satoshis",
+        utxos.len(),
+        total
+    );
 
     Ok(utxos)
 }
