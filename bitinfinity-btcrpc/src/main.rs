@@ -10390,7 +10390,7 @@ async fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::{encode_bitcoin_varint, verify_bitcoin_message_signature};
+    use super::{encode_bitcoin_varint, parse_patoshi_record_bytes, verify_bitcoin_message_signature};
     use secp256k1::{Message, Secp256k1, SecretKey};
 
     fn sign_bitcoin_message(secret_key: &SecretKey, message: &str) -> String {
@@ -10477,5 +10477,37 @@ mod tests {
             "message-a",
             "bc",
         ));
+    }
+
+    #[test]
+    fn test_parse_patoshi_record_bytes_locked_without_unlock_epoch() {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&123u128.to_le_bytes()); // genesis_balance
+        bytes.push(1); // is_locked=true
+        bytes.push(0); // unlock_epoch=None
+
+        let record = parse_patoshi_record_bytes(&bytes).expect("record should parse");
+        assert!(record.is_locked);
+        assert_eq!(record.unlock_epoch, None);
+    }
+
+    #[test]
+    fn test_parse_patoshi_record_bytes_locked_with_unlock_epoch() {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&456u128.to_le_bytes()); // genesis_balance
+        bytes.push(1); // is_locked=true
+        bytes.push(1); // unlock_epoch=Some
+        bytes.extend_from_slice(&42u64.to_le_bytes());
+
+        let record = parse_patoshi_record_bytes(&bytes).expect("record should parse");
+        assert!(record.is_locked);
+        assert_eq!(record.unlock_epoch, Some(42));
+    }
+
+    #[test]
+    fn test_parse_patoshi_record_bytes_rejects_short_payload() {
+        let bytes = vec![0u8; 5];
+        let err = parse_patoshi_record_bytes(&bytes).expect_err("short payload must fail");
+        assert!(err.contains("invalid Patoshi record length"));
     }
 }
