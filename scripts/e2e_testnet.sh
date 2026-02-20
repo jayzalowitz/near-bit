@@ -8,6 +8,7 @@ WORK_DIR="$(mktemp -d /tmp/bitinfinity-e2e.XXXXXX)"
 CHAIN_ID="bitinfinity-mainnet-e2e"
 SATOSHI_ADDR="1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"
 FUNDED_BALANCE_YOCTO="5000000000000000000000000" # 5 BIT
+SEND_AMOUNT_RAW="0.1"
 SEND_AMOUNT_1="1.0"
 SEND_AMOUNT_2="0.25"
 NEAR_RPC_URL="${NEAR_RPC_URL:-http://127.0.0.1:3030}"
@@ -362,7 +363,44 @@ if [[ "$UNLOCKED_VISIBLE_COUNT" -lt 1 ]]; then
   exit 1
 fi
 
-echo "[10/12] Sending Bitcoin-signed transfers..."
+echo "[10/12] Sending transactions via raw+wallet and sendtoaddress..."
+CREATE_RAW_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"create-raw\",\"method\":\"createrawtransaction\",\"params\":[[],{\"$SATOSHI_ADDR\":$SEND_AMOUNT_RAW}]}" \
+  | tee "$ARTIFACT_DIR/btc_createrawtransaction_response.json")"
+RAW_INTENT_HEX="$(echo "$CREATE_RAW_RESPONSE" | jq -r '.result // empty')"
+if [[ -z "$RAW_INTENT_HEX" ]]; then
+  echo "createrawtransaction returned empty result" >&2
+  exit 1
+fi
+if [[ "$(echo "$CREATE_RAW_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "createrawtransaction failed" >&2
+  exit 1
+fi
+
+SIGN_RAW_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"sign-raw\",\"method\":\"signrawtransactionwithwallet\",\"params\":[\"$RAW_INTENT_HEX\"]}" \
+  | tee "$ARTIFACT_DIR/btc_signrawtransactionwithwallet_response.json")"
+SIGNED_RAW_HEX="$(echo "$SIGN_RAW_RESPONSE" | jq -r '.result.hex // empty')"
+SIGNED_RAW_COMPLETE="$(echo "$SIGN_RAW_RESPONSE" | jq -r '.result.complete // false')"
+if [[ "$(echo "$SIGN_RAW_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "signrawtransactionwithwallet failed" >&2
+  exit 1
+fi
+if [[ -z "$SIGNED_RAW_HEX" || "$SIGNED_RAW_COMPLETE" != "true" ]]; then
+  echo "signrawtransactionwithwallet did not return a complete signed payload" >&2
+  exit 1
+fi
+
+SEND_RAW_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"send-raw\",\"method\":\"sendrawtransaction\",\"params\":[\"$SIGNED_RAW_HEX\"]}" \
+  | tee "$ARTIFACT_DIR/btc_sendrawtransaction_response.json")"
+RAW_TXID="$(echo "$SEND_RAW_RESPONSE" | jq -r '.result // empty')"
+if [[ -z "$RAW_TXID" ]]; then
+  echo "sendrawtransaction returned no txid" >&2
+  exit 1
+fi
+if [[ "$(echo "$SEND_RAW_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "sendrawtransaction failed" >&2
+  exit 1
+fi
+
 SEND1_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"send1\",\"method\":\"sendtoaddress\",\"params\":[\"$SATOSHI_ADDR\",$SEND_AMOUNT_1]}" \
   | tee "$ARTIFACT_DIR/btc_sendtoaddress_1_response.json")"
 TXID1="$(echo "$SEND1_RESPONSE" | jq -r '.result // empty')"
@@ -380,6 +418,28 @@ if [[ -z "$TXID2" ]]; then
 fi
 
 echo "[11/12] Verifying transaction query methods..."
+GETRAW_RAWTX_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"getraw-rawtx\",\"method\":\"getrawtransaction\",\"params\":[\"$RAW_TXID\",false]}" \
+  | tee "$ARTIFACT_DIR/btc_getrawtransaction_rawtx_response.json")"
+if [[ "$(echo "$GETRAW_RAWTX_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "getrawtransaction failed for raw-signed txid: $RAW_TXID" >&2
+  exit 1
+fi
+if [[ -z "$(echo "$GETRAW_RAWTX_RESPONSE" | jq -r '.result // empty')" ]]; then
+  echo "getrawtransaction returned empty hex for raw-signed transaction" >&2
+  exit 1
+fi
+
+GETTX_RAWTX_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"gettx-rawtx\",\"method\":\"gettransaction\",\"params\":[\"$RAW_TXID\"]}" \
+  | tee "$ARTIFACT_DIR/btc_gettransaction_rawtx_response.json")"
+if [[ "$(echo "$GETTX_RAWTX_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "gettransaction failed for raw-signed txid: $RAW_TXID" >&2
+  exit 1
+fi
+if [[ "$(echo "$GETTX_RAWTX_RESPONSE" | jq -r '.result.txid // empty')" != "$RAW_TXID" ]]; then
+  echo "gettransaction returned unexpected txid for raw-signed transaction" >&2
+  exit 1
+fi
+
 GETRAW_SENT_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"getraw-sent\",\"method\":\"getrawtransaction\",\"params\":[\"$TXID1\",true]}" \
   | tee "$ARTIFACT_DIR/btc_getrawtransaction_sent_response.json")"
 if [[ "$(echo "$GETRAW_SENT_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
@@ -445,6 +505,7 @@ later_height=$LATER_HEIGHT
 height_increased=$([[ "$LATER_HEIGHT" -gt "$INITIAL_HEIGHT" ]] && echo true || echo false)
 satoshi_address=$SATOSHI_ADDR
 funded_address=$FUNDED_ADDR
+txid_raw=$RAW_TXID
 txid1=$TXID1
 txid2=$TXID2
 lock_txid=$LOCK_TXID
