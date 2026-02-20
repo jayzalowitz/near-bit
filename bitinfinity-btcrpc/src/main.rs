@@ -9956,6 +9956,79 @@ async fn handle_listquantumkeys(state: &RpcState, request: &JsonRpcRequest) -> J
 
 const PATOSHI_UNLOCK_DELAY_EPOCHS: u64 = 14;
 const PATOSHI_UNLOCK_RECEIVER: &str = "near";
+const PATOSHI_RECORD_DATA_KEY: &[u8] = b"bitinfinity:patoshi:v1";
+
+#[derive(Debug, Clone, Copy)]
+struct PatoshiLockState {
+    is_locked: bool,
+    unlock_epoch: Option<u64>,
+}
+
+fn parse_patoshi_record_bytes(bytes: &[u8]) -> Result<PatoshiLockState, String> {
+    // Borsh layout for nearcore/runtime/runtime/src/bitcoin_tx.rs::PatoshiRecord:
+    // genesis_balance: u128 (16 bytes LE)
+    // is_locked: bool (1 byte, 0/1)
+    // unlock_epoch: Option<u64> (1 byte tag + optional 8 byte LE payload)
+    if bytes.len() < 18 {
+        return Err(format!(
+            "invalid Patoshi record length {}; expected at least 18 bytes",
+            bytes.len()
+        ));
+    }
+    let is_locked = match bytes[16] {
+        0 => false,
+        1 => true,
+        value => return Err(format!("invalid is_locked discriminator byte: {}", value)),
+    };
+    let unlock_epoch = match bytes[17] {
+        0 => None,
+        1 => {
+            if bytes.len() < 26 {
+                return Err(format!(
+                    "invalid Patoshi record length {} for unlock_epoch=Some",
+                    bytes.len()
+                ));
+            }
+            let mut epoch_bytes = [0u8; 8];
+            epoch_bytes.copy_from_slice(&bytes[18..26]);
+            Some(u64::from_le_bytes(epoch_bytes))
+        }
+        value => return Err(format!("invalid unlock_epoch option tag byte: {}", value)),
+    };
+
+    Ok(PatoshiLockState {
+        is_locked,
+        unlock_epoch,
+    })
+}
+
+async fn fetch_patoshi_lock_state(
+    state: &RpcState,
+    address: &str,
+) -> Result<Option<PatoshiLockState>, String> {
+    let key_b64 = base64_encode(PATOSHI_RECORD_DATA_KEY);
+    let state_view = state.near_client.view_state(address, &key_b64).await?;
+    let Some(values) = state_view.get("values").and_then(|v| v.as_array()) else {
+        return Ok(None);
+    };
+
+    for entry in values {
+        let Some(entry_key) = entry.get("key").and_then(|v| v.as_str()) else {
+            continue;
+        };
+        if entry_key != key_b64 {
+            continue;
+        }
+        let Some(value_b64) = entry.get("value").and_then(|v| v.as_str()) else {
+            continue;
+        };
+        let bytes = base64_decode(value_b64)
+            .map_err(|e| format!("failed to decode Patoshi record value: {}", e))?;
+        return parse_patoshi_record_bytes(&bytes).map(Some);
+    }
+
+    Ok(None)
+}
 
 /// Submit the Patoshi unlock challenge for an account.
 ///
@@ -10046,6 +10119,41 @@ async fn handle_patoshiunlock(state: &RpcState, request: &JsonRpcRequest) -> Jso
             &request.id,
             -5,
             "Signature does not match address/challenge message".to_string(),
+        );
+    }
+
+    let patoshi_lock_state = match fetch_patoshi_lock_state(state, &address).await {
+        Ok(Some(lock_state)) => lock_state,
+        Ok(None) => {
+            return err_response(
+                &request.id,
+                -5,
+                format!("Address {} is not a Patoshi-registered account", address),
+            )
+        }
+        Err(e) => {
+            return err_response(
+                &request.id,
+                -32000,
+                format!("Failed to read Patoshi lock state: {}", e),
+            )
+        }
+    };
+    if !patoshi_lock_state.is_locked {
+        return err_response(
+            &request.id,
+            -5,
+            format!("Patoshi account {} is already unlocked", address),
+        );
+    }
+    if let Some(unlock_epoch) = patoshi_lock_state.unlock_epoch {
+        return err_response(
+            &request.id,
+            -5,
+            format!(
+                "Patoshi unlock already scheduled for {} at epoch {}",
+                address, unlock_epoch
+            ),
         );
     }
 
