@@ -575,6 +575,18 @@ fn get_u64_param(params: &serde_json::Value, index: usize) -> Option<u64> {
         .and_then(|v| v.as_u64())
 }
 
+/// Helper to extract a bool param from positional params.
+/// Accepts JSON bools and 0/1 numeric flags.
+fn get_bool_param(params: &serde_json::Value, index: usize) -> Option<bool> {
+    params.as_array().and_then(|arr| arr.get(index)).and_then(|v| {
+        if let Some(b) = v.as_bool() {
+            Some(b)
+        } else {
+            v.as_u64().map(|n| n != 0)
+        }
+    })
+}
+
 /// Encode a Bitcoin-style variable-length integer (CompactSize)
 fn encode_bitcoin_varint(value: u64, buf: &mut Vec<u8>) {
     if value < 0xfd {
@@ -1491,6 +1503,16 @@ async fn handle_getaccount(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
 
 async fn handle_listunspent(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     // listunspent [minconf] [maxconf] [addresses]
+    let minconf = get_u64_param(&request.params, 0).unwrap_or(1);
+    let maxconf = get_u64_param(&request.params, 1).unwrap_or(9_999_999);
+    if maxconf < minconf {
+        return err_response(
+            &request.id,
+            -8,
+            "maxconf must be greater than or equal to minconf".to_string(),
+        );
+    }
+
     let explicit_addresses: Vec<String> = request
         .params
         .as_array()
@@ -1519,8 +1541,10 @@ async fn handle_listunspent(state: &RpcState, request: &JsonRpcRequest) -> JsonR
         return ok_response(&request.id, json!([]));
     }
 
-    let status = state.near_client.status().await;
-    let block_height = status.as_ref().map(|s| s.latest_block_height).unwrap_or(0);
+    let locked_utxos: std::collections::HashSet<(String, u32)> = {
+        let locked = state.locked_utxos.read().await;
+        locked.iter().cloned().collect()
+    };
 
     let mut utxos = Vec::new();
     for addr in &addresses {
@@ -1528,7 +1552,13 @@ async fn handle_listunspent(state: &RpcState, request: &JsonRpcRequest) -> JsonR
             Ok(account) => {
                 let satoshis = account.balance_as_satoshis();
                 if satoshis > 0 {
-                    let mut utxo = SyntheticUtxo::from_account(addr, satoshis, block_height);
+                    let mut utxo = SyntheticUtxo::from_account(addr, satoshis);
+                    if utxo.confirmations < minconf || utxo.confirmations > maxconf {
+                        continue;
+                    }
+                    if locked_utxos.contains(&(utxo.txid.clone(), utxo.vout)) {
+                        continue;
+                    }
                     // Watch-only addresses are not spendable
                     if watch_only_set.contains(addr) {
                         utxo.spendable = false;
@@ -3921,6 +3951,17 @@ async fn handle_getaddressinfo(state: &RpcState, request: &JsonRpcRequest) -> Js
         Some(a) => a,
         None => return err_response(&request.id, -32602, "Missing address parameter".to_string()),
     };
+    let parsed_account = match AccountIdRef::new(addr) {
+        Ok(account) => account,
+        Err(_) => return err_response(&request.id, -5, format!("Invalid address: {}", addr)),
+    };
+    if !matches!(parsed_account.get_account_type(), AccountType::BtcImplicitAccount) {
+        return err_response(
+            &request.id,
+            -5,
+            format!("Invalid Bitcoin address: {}", addr),
+        );
+    }
 
     let keystore = state.keystore.read().await;
     let is_mine = keystore.get(addr).is_some();
@@ -4587,6 +4628,7 @@ async fn handle_getblockheader(state: &RpcState, request: &JsonRpcRequest) -> Js
         Some(h) => h,
         None => return err_response(&request.id, -32602, "Missing hash parameter".to_string()),
     };
+    let verbose = get_bool_param(&request.params, 1).unwrap_or(true);
 
     match state.near_client.block_by_hash(hash).await {
         Ok(block) => {
@@ -4645,6 +4687,27 @@ async fn handle_getblockheader(state: &RpcState, request: &JsonRpcRequest) -> Js
                 let h2 = Sha256::digest(&h1);
                 hex::encode(h2)
             };
+
+            if !verbose {
+                let hash_hex_to_le_bytes = |hash_hex: &str| -> [u8; 32] {
+                    let mut out = [0u8; 32];
+                    if let Ok(mut bytes) = hex::decode(hash_hex) {
+                        if bytes.len() == 32 {
+                            bytes.reverse();
+                            out.copy_from_slice(&bytes);
+                        }
+                    }
+                    out
+                };
+                let mut raw_header = Vec::with_capacity(80);
+                raw_header.extend_from_slice(&1u32.to_le_bytes()); // version
+                raw_header.extend_from_slice(&hash_hex_to_le_bytes(prev_hash));
+                raw_header.extend_from_slice(&hash_hex_to_le_bytes(&merkleroot));
+                raw_header.extend_from_slice(&(timestamp as u32).to_le_bytes());
+                raw_header.extend_from_slice(&0x1d00ffffu32.to_le_bytes()); // bits
+                raw_header.extend_from_slice(&0u32.to_le_bytes()); // nonce
+                return ok_response(&request.id, json!(hex::encode(raw_header)));
+            }
 
             ok_response(
                 &request.id,
