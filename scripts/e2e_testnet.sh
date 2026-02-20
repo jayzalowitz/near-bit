@@ -69,10 +69,10 @@ float_lt() {
   awk -v a="$1" -v b="$2" 'BEGIN { exit !(a < b) }'
 }
 
-echo "[1/10] Building required binaries..."
+echo "[1/11] Building required binaries..."
 cargo build -p bitinfinity-tools -p bitinfinity-neard -p bitinfinity-btcrpc >"$ARTIFACT_DIR/build.log" 2>&1
 
-echo "[2/10] Generating funded Bitcoin keypair..."
+echo "[2/11] Generating funded Bitcoin keypair..."
 "$TOOLS_BIN" generate-keypair --output "$FUNDED_KEY_JSON" >"$ARTIFACT_DIR/keygen.log" 2>&1
 FUNDED_ADDR="$(jq -r '.bitcoin_address // empty' "$FUNDED_KEY_JSON")"
 FUNDED_WIF="$(jq -r '.private_key_wif // empty' "$FUNDED_KEY_JSON")"
@@ -81,12 +81,12 @@ if [[ -z "$FUNDED_ADDR" || -z "$FUNDED_WIF" ]]; then
   exit 1
 fi
 
-echo "[3/10] Generating synthetic genesis..."
+echo "[3/11] Generating synthetic genesis..."
 "$TOOLS_BIN" generate-genesis \
   --testnet --num-accounts 10 --chain-id "$CHAIN_ID" --output-dir "$GENESIS_DIR" \
   >"$ARTIFACT_DIR/genesis.log" 2>&1
 
-echo "[4/10] Creating extra funded account record..."
+echo "[4/11] Creating extra funded account record..."
 jq '[.records[] | select(.Account.account_id? and (.Account.account_id | test("^(1|3|bc1)")))]' \
   "$GENESIS_DIR/genesis.json" >"$BTC_RECORDS"
 
@@ -124,7 +124,7 @@ cat >"$ARTIFACT_DIR/extra_records_preview.json" <<JSON
 ]
 JSON
 
-echo "[5/10] Initializing node home..."
+echo "[5/11] Initializing node home..."
 "$NODE_BIN" init \
   --home "$NODE_HOME" \
   --chain-id "$CHAIN_ID" \
@@ -133,7 +133,7 @@ echo "[5/10] Initializing node home..."
   --neard-bin "$NEARD_BIN" \
   >"$ARTIFACT_DIR/init.log" 2>&1
 
-echo "[6/10] Starting bitinfinity-neard..."
+echo "[6/11] Starting bitinfinity-neard..."
 (
   "$NODE_BIN" run --home "$NODE_HOME" --neard-bin "$NEARD_BIN" \
     >"$ARTIFACT_DIR/node.log" 2>&1 || true
@@ -162,7 +162,7 @@ if [[ "$LATER_HEIGHT" -le "$INITIAL_HEIGHT" ]]; then
   echo "Warning: block height did not increase during warmup ($INITIAL_HEIGHT -> $LATER_HEIGHT)" >&2
 fi
 
-echo "[7/10] Starting bitinfinity-btcrpc..."
+echo "[7/11] Starting bitinfinity-btcrpc..."
 (
   HOME="$BTCRPC_HOME" BTC_RPC_NOAUTH=1 "$BTCRPC_BIN" \
     --near-rpc-url "$NEAR_RPC_URL" \
@@ -187,7 +187,7 @@ if ! wait_for_btcrpc; then
   exit 1
 fi
 
-echo "[8/10] Querying initial balances..."
+echo "[8/11] Querying initial balances..."
 cat >"$ARTIFACT_DIR/near_view_account_request.json" <<JSON
 {"jsonrpc":"2.0","id":"e2e","method":"query","params":{"request_type":"view_account","finality":"final","account_id":"$SATOSHI_ADDR"}}
 JSON
@@ -217,7 +217,7 @@ if [[ "$FUNDED_BALANCE_BEFORE" == "0" || "$FUNDED_BALANCE_BEFORE" == "0.0" ]]; t
   exit 1
 fi
 
-echo "[9/10] Importing key and sending Bitcoin-signed transfers..."
+echo "[9/11] Importing key and validating wallet coin-control..."
 IMPORT_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"import\",\"method\":\"importprivkey\",\"params\":[\"$FUNDED_WIF\"]}" \
   | tee "$ARTIFACT_DIR/btc_importprivkey_response.json")"
 if [[ "$(echo "$IMPORT_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
@@ -225,6 +225,62 @@ if [[ "$(echo "$IMPORT_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
   exit 1
 fi
 
+LISTUNSPENT_BEFORE_LOCK="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"listunspent-before-lock\",\"method\":\"listunspent\",\"params\":[1,9999999,[\"$FUNDED_ADDR\"]]}" \
+  | tee "$ARTIFACT_DIR/btc_listunspent_before_lock_response.json")"
+LOCK_TXID="$(echo "$LISTUNSPENT_BEFORE_LOCK" | jq -r '.result[0].txid // empty')"
+LOCK_VOUT="$(echo "$LISTUNSPENT_BEFORE_LOCK" | jq -r '.result[0].vout // empty')"
+if [[ -z "$LOCK_TXID" || -z "$LOCK_VOUT" ]]; then
+  echo "listunspent did not return a lockable UTXO for funded address: $FUNDED_ADDR" >&2
+  exit 1
+fi
+
+LOCK_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"lockunspent-lock\",\"method\":\"lockunspent\",\"params\":[false,[{\"txid\":\"$LOCK_TXID\",\"vout\":$LOCK_VOUT}]]}" \
+  | tee "$ARTIFACT_DIR/btc_lockunspent_lock_response.json")"
+if [[ "$(echo "$LOCK_RESPONSE" | jq -r '.result // false')" != "true" ]]; then
+  echo "lockunspent(false, ...) failed for $LOCK_TXID:$LOCK_VOUT" >&2
+  exit 1
+fi
+
+LISTLOCKED_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"listlockunspent-after-lock","method":"listlockunspent","params":[]}' \
+  | tee "$ARTIFACT_DIR/btc_listlockunspent_after_lock_response.json")"
+LOCKED_MATCH_COUNT="$(echo "$LISTLOCKED_RESPONSE" | jq --arg txid "$LOCK_TXID" --argjson vout "$LOCK_VOUT" '[.result[] | select(.txid == $txid and .vout == $vout)] | length')"
+if [[ "$LOCKED_MATCH_COUNT" -lt 1 ]]; then
+  echo "listlockunspent missing expected entry $LOCK_TXID:$LOCK_VOUT after lock" >&2
+  exit 1
+fi
+
+LISTUNSPENT_WHILE_LOCKED="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"listunspent-while-locked\",\"method\":\"listunspent\",\"params\":[1,9999999,[\"$FUNDED_ADDR\"]]}" \
+  | tee "$ARTIFACT_DIR/btc_listunspent_while_locked_response.json")"
+LOCKED_VISIBLE_COUNT="$(echo "$LISTUNSPENT_WHILE_LOCKED" | jq --arg txid "$LOCK_TXID" --argjson vout "$LOCK_VOUT" '[.result[] | select(.txid == $txid and .vout == $vout)] | length')"
+if [[ "$LOCKED_VISIBLE_COUNT" -ne 0 ]]; then
+  echo "listunspent still returned locked UTXO $LOCK_TXID:$LOCK_VOUT" >&2
+  exit 1
+fi
+
+UNLOCK_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"lockunspent-unlock\",\"method\":\"lockunspent\",\"params\":[true,[{\"txid\":\"$LOCK_TXID\",\"vout\":$LOCK_VOUT}]]}" \
+  | tee "$ARTIFACT_DIR/btc_lockunspent_unlock_response.json")"
+if [[ "$(echo "$UNLOCK_RESPONSE" | jq -r '.result // false')" != "true" ]]; then
+  echo "lockunspent(true, ...) failed for $LOCK_TXID:$LOCK_VOUT" >&2
+  exit 1
+fi
+
+LISTLOCKED_AFTER_UNLOCK="$(btc_rpc_call '{"jsonrpc":"2.0","id":"listlockunspent-after-unlock","method":"listlockunspent","params":[]}' \
+  | tee "$ARTIFACT_DIR/btc_listlockunspent_after_unlock_response.json")"
+LOCKED_AFTER_UNLOCK_COUNT="$(echo "$LISTLOCKED_AFTER_UNLOCK" | jq --arg txid "$LOCK_TXID" --argjson vout "$LOCK_VOUT" '[.result[] | select(.txid == $txid and .vout == $vout)] | length')"
+if [[ "$LOCKED_AFTER_UNLOCK_COUNT" -ne 0 ]]; then
+  echo "listlockunspent still contains $LOCK_TXID:$LOCK_VOUT after unlock" >&2
+  exit 1
+fi
+
+LISTUNSPENT_AFTER_UNLOCK="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"listunspent-after-unlock\",\"method\":\"listunspent\",\"params\":[1,9999999,[\"$FUNDED_ADDR\"]]}" \
+  | tee "$ARTIFACT_DIR/btc_listunspent_after_unlock_response.json")"
+UNLOCKED_VISIBLE_COUNT="$(echo "$LISTUNSPENT_AFTER_UNLOCK" | jq --arg txid "$LOCK_TXID" --argjson vout "$LOCK_VOUT" '[.result[] | select(.txid == $txid and .vout == $vout)] | length')"
+if [[ "$UNLOCKED_VISIBLE_COUNT" -lt 1 ]]; then
+  echo "listunspent did not restore unlocked UTXO $LOCK_TXID:$LOCK_VOUT" >&2
+  exit 1
+fi
+
+echo "[10/11] Sending Bitcoin-signed transfers..."
 SEND1_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"send1\",\"method\":\"sendtoaddress\",\"params\":[\"$SATOSHI_ADDR\",$SEND_AMOUNT_1]}" \
   | tee "$ARTIFACT_DIR/btc_sendtoaddress_1_response.json")"
 TXID1="$(echo "$SEND1_RESPONSE" | jq -r '.result // empty')"
@@ -241,7 +297,7 @@ if [[ -z "$TXID2" ]]; then
   exit 1
 fi
 
-echo "[10/10] Verifying post-transaction balances and access key registration..."
+echo "[11/11] Verifying post-transaction balances and access key registration..."
 FUNDED_BALANCE_AFTER="$FUNDED_BALANCE_BEFORE"
 SATOSHI_BALANCE_AFTER="$SATOSHI_BALANCE_BEFORE"
 for _ in $(seq 1 60); do
@@ -286,6 +342,8 @@ satoshi_address=$SATOSHI_ADDR
 funded_address=$FUNDED_ADDR
 txid1=$TXID1
 txid2=$TXID2
+lock_txid=$LOCK_TXID
+lock_vout=$LOCK_VOUT
 near_amount_yoctobit=$NEAR_AMOUNT
 satoshi_balance_before=$SATOSHI_BALANCE_BEFORE
 satoshi_balance_after=$SATOSHI_BALANCE_AFTER

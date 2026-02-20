@@ -8,7 +8,10 @@ use sha2::{Digest, Sha256};
 
 /// A synthetic UTXO generated from an account balance.
 pub struct SyntheticUtxo {
-    /// Deterministic txid derived from (account_id, block_height)
+    /// Deterministic txid derived from account_id.
+    ///
+    /// This must remain stable across blocks so wallet coin-control locks
+    /// (`lockunspent`) remain effective.
     pub txid: String,
     /// Always 0 (single output per synthetic tx)
     pub vout: u32,
@@ -29,10 +32,10 @@ pub struct SyntheticUtxo {
 impl SyntheticUtxo {
     /// Create a synthetic UTXO from an account balance.
     ///
-    /// The txid is deterministic based on the account ID and block height,
-    /// so it changes each block (wallets see fresh UTXOs).
-    pub fn from_account(account_id: &str, balance_satoshis: u64, block_height: u64) -> Self {
-        let txid = Self::deterministic_txid(account_id, block_height);
+    /// The txid is deterministic based on account ID only, so wallets can
+    /// reliably reference and lock individual synthetic outputs.
+    pub fn from_account(account_id: &str, balance_satoshis: u64) -> Self {
+        let txid = Self::deterministic_txid(account_id);
         let amount_btc = balance_satoshis as f64 / 100_000_000.0;
 
         // Derive scriptPubKey from address format
@@ -50,14 +53,11 @@ impl SyntheticUtxo {
         }
     }
 
-    /// Generate a deterministic txid from (account_id, block_height).
-    /// Changes each block so wallets see "new" UTXOs.
-    fn deterministic_txid(account_id: &str, block_height: u64) -> String {
+    /// Generate a deterministic txid from account_id.
+    fn deterministic_txid(account_id: &str) -> String {
         let mut hasher = Sha256::new();
         hasher.update(b"bitinfinity-utxo:");
         hasher.update(account_id.as_bytes());
-        hasher.update(b":");
-        hasher.update(block_height.to_le_bytes());
         let hash1 = hasher.finalize();
         // Double SHA256 like Bitcoin
         let hash2 = Sha256::digest(&hash1);
@@ -235,13 +235,13 @@ mod tests {
 
     #[test]
     fn test_deterministic_txid() {
-        let txid1 = SyntheticUtxo::deterministic_txid("1abc123", 100);
-        let txid2 = SyntheticUtxo::deterministic_txid("1abc123", 100);
-        let txid3 = SyntheticUtxo::deterministic_txid("1abc123", 101);
+        let txid1 = SyntheticUtxo::deterministic_txid("1abc123");
+        let txid2 = SyntheticUtxo::deterministic_txid("1abc123");
+        let txid3 = SyntheticUtxo::deterministic_txid("1def456");
 
         // Same inputs = same txid
         assert_eq!(txid1, txid2);
-        // Different block = different txid
+        // Different addresses = different txid
         assert_ne!(txid1, txid3);
         // Should be 64 hex chars (32 bytes)
         assert_eq!(txid1.len(), 64);
@@ -249,7 +249,7 @@ mod tests {
 
     #[test]
     fn test_from_account() {
-        let utxo = SyntheticUtxo::from_account("1abc123", 50_000_000, 100);
+        let utxo = SyntheticUtxo::from_account("1abc123", 50_000_000);
         assert_eq!(utxo.vout, 0);
         assert_eq!(utxo.amount_btc, 0.5);
         assert_eq!(utxo.amount_satoshis, 50_000_000);
