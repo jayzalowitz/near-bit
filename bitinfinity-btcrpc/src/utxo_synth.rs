@@ -30,12 +30,17 @@ pub struct SyntheticUtxo {
 }
 
 impl SyntheticUtxo {
+    /// Get the deterministic synthetic txid for an account/address.
+    pub fn txid_for_account(account_id: &str) -> String {
+        Self::deterministic_txid(account_id)
+    }
+
     /// Create a synthetic UTXO from an account balance.
     ///
     /// The txid is deterministic based on account ID only, so wallets can
     /// reliably reference and lock individual synthetic outputs.
     pub fn from_account(account_id: &str, balance_satoshis: u64) -> Self {
-        let txid = Self::deterministic_txid(account_id);
+        let txid = Self::txid_for_account(account_id);
         let amount_btc = balance_satoshis as f64 / 100_000_000.0;
 
         // Derive scriptPubKey from address format
@@ -257,5 +262,6 @@ mod tests {
         assert!(utxo.spendable);
         assert!(utxo.script_pub_key.starts_with("76a914"));
         assert!(utxo.script_pub_key.ends_with("88ac"));
+        assert_eq!(utxo.txid, SyntheticUtxo::txid_for_account("1abc123"));
     }
 }
