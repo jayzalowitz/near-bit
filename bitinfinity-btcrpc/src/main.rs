@@ -5,10 +5,13 @@ use axum::{
     routing::post,
     Router,
 };
+use clap::Parser;
+use near_account_id::{AccountIdRef, AccountType};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::RwLock;
 
 mod keystore;
@@ -24,6 +27,23 @@ use near_tx_builder::{
 };
 use tx_translator::{ParsedBitcoinTx, TxOutput};
 use utxo_synth::SyntheticUtxo;
+
+#[derive(Debug, Parser)]
+#[command(name = "bitinfinity-btcrpc")]
+#[command(about = "Bitcoin-compatible JSON-RPC bridge for Bitcoin Infinity")]
+struct Cli {
+    /// NEAR RPC URL to query backend state
+    #[arg(long)]
+    near_rpc_url: Option<String>,
+
+    /// Bind address for Bitcoin JSON-RPC server
+    #[arg(long)]
+    btc_rpc_addr: Option<String>,
+
+    /// Optional chain ID override if backend discovery fails
+    #[arg(long)]
+    chain_id: Option<String>,
+}
 
 // ============================================================================
 // RPC Authentication (Bitcoin Core compatible cookie + user/pass)
@@ -314,6 +334,10 @@ impl TxCache {
 /// A signed intent produced by signrawtransactionwithwallet.
 /// Hex prefix "626974696e66696e6974793a" = hex("bitinfinity:")
 const SIGNED_INTENT_PREFIX: &str = "bitinfinity:";
+const ACCESS_KEY_NONCE_RANGE_MULTIPLIER: u64 = 1_000_000;
+// For first-use Bitcoin accounts, keep nonce in the current tip's range; chunk
+// preparation enforces an upper bound for the *next* block height.
+const BITCOIN_FIRST_TX_HEIGHT_HEADROOM: u64 = 0;
 
 /// Bitcoin Infinity RPC State
 pub struct RpcState {
@@ -414,6 +438,13 @@ impl RpcState {
         }
     }
 
+    fn bitcoin_first_tx_nonce_floor(latest_block_height: u64) -> u64 {
+        latest_block_height
+            .saturating_add(BITCOIN_FIRST_TX_HEIGHT_HEADROOM)
+            .saturating_mul(ACCESS_KEY_NONCE_RANGE_MULTIPLIER)
+            .saturating_add(1)
+    }
+
     /// Get the next nonce for an address: max(local_cache, on-chain) + 1
     async fn next_nonce(&self, address: &str, near_pubkey_str: &str) -> u64 {
         let local_nonce = {
@@ -427,7 +458,17 @@ impl RpcState {
             .await
         {
             Ok(ak_result) => ak_result.get("nonce").and_then(|v| v.as_u64()).unwrap_or(0),
-            Err(_) => 0, // Access key doesn't exist yet
+            Err(_) => {
+                // First-transaction path for Bitcoin accounts with no registered access key yet.
+                // Return floor-1 here because next_nonce always adds one before returning.
+                self.near_client
+                    .status()
+                    .await
+                    .map(|s| {
+                        Self::bitcoin_first_tx_nonce_floor(s.latest_block_height).saturating_sub(1)
+                    })
+                    .unwrap_or(0)
+            }
         };
 
         let base = std::cmp::max(local_nonce, chain_nonce);
@@ -1575,9 +1616,15 @@ async fn handle_getnewaddress(state: &RpcState, request: &JsonRpcRequest) -> Jso
 
 async fn handle_validateaddress(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     let addr = get_str_param(&request.params, 0).unwrap_or("");
+    let parsed_account = AccountIdRef::new(addr).ok();
+    let account_type = parsed_account
+        .as_ref()
+        .map(|id| id.get_account_type())
+        .unwrap_or(AccountType::NamedAccount);
+    let is_valid = parsed_account.is_some();
+    let is_bitcoin_account = matches!(&account_type, AccountType::BtcImplicitAccount);
     let hrp = state.bech32_hrp();
-    let is_bech32 = addr.starts_with(&format!("{}1", hrp));
-    let is_valid = addr.starts_with('1') || addr.starts_with('3') || is_bech32;
+    let is_bech32 = is_bitcoin_account && addr.starts_with(&format!("{}1", hrp));
 
     let keystore = state.keystore.read().await;
     let is_mine = keystore.get(addr).is_some();
@@ -1595,7 +1642,9 @@ async fn handle_validateaddress(state: &RpcState, request: &JsonRpcRequest) -> J
         (None, None)
     };
 
-    let script_type = if addr.starts_with(&bech32_q) {
+    let script_type = if !is_bitcoin_account {
+        "not_bitcoin"
+    } else if addr.starts_with(&bech32_q) {
         "witness_v0_keyhash"
     } else if addr.starts_with(&bech32_p) {
         "witness_v1_taproot"
@@ -1606,10 +1655,26 @@ async fn handle_validateaddress(state: &RpcState, request: &JsonRpcRequest) -> J
     };
 
     // Check if account exists on-chain
-    let is_on_chain = state.near_client.view_account(addr).await.is_ok();
+    let is_on_chain = if is_valid {
+        state.near_client.view_account(addr).await.is_ok()
+    } else {
+        false
+    };
 
     // Derive scriptPubKey using shared helper
-    let script_pub_key = derive_script_pub_key_hex(addr, hrp);
+    let script_pub_key = if is_bitcoin_account {
+        derive_script_pub_key_hex(addr, hrp)
+    } else {
+        String::new()
+    };
+
+    let account_type_label = match &account_type {
+        AccountType::BtcImplicitAccount => "bitcoin",
+        AccountType::NearImplicitAccount => "near_implicit",
+        AccountType::EthImplicitAccount => "eth_implicit",
+        AccountType::NearDeterministicAccount => "near_deterministic",
+        AccountType::NamedAccount => "named",
+    };
 
     let mut result = json!({
         "isvalid": is_valid,
@@ -1617,9 +1682,10 @@ async fn handle_validateaddress(state: &RpcState, request: &JsonRpcRequest) -> J
         "scriptPubKey": script_pub_key,
         "ismine": is_mine && !is_watch_only,
         "iswatchonly": is_watch_only,
-        "isscript": addr.starts_with('3'),
-        "iswitness": is_witness,
+        "isscript": is_bitcoin_account && addr.starts_with('3'),
+        "iswitness": is_bitcoin_account && is_witness,
         "script_type": script_type,
+        "account_type": account_type_label,
         "ischange": false,
         "labels": [""],
         "near_account_exists": is_on_chain,
@@ -2028,7 +2094,14 @@ async fn handle_sendrawtransaction(state: &RpcState, request: &JsonRpcRequest) -
         Err(e) => return err_response(&request.id, -32000, format!("Invalid public key: {}", e)),
     };
 
-    let nonce = state.next_nonce(&sender, &near_pubkey_str).await;
+    let mut nonce = state.next_nonce(&sender, &near_pubkey_str).await;
+    // First-use Bitcoin keys may be auto-registered at a height-based nonce floor.
+    // Keep nonce at or above the latest observed block-height floor to avoid races
+    // when view_access_key is temporarily unavailable.
+    let nonce_floor = RpcState::bitcoin_first_tx_nonce_floor(status.latest_block_height);
+    if nonce < nonce_floor {
+        nonce = nonce_floor;
+    }
 
     // Get private key and public key bytes
     let sk_bytes = match key_entry.private_key_bytes() {
@@ -3160,7 +3233,14 @@ async fn handle_sendtoaddress(state: &RpcState, request: &JsonRpcRequest) -> Jso
         Err(e) => return err_response(&request.id, -32000, format!("Key error: {}", e)),
     };
 
-    let nonce = state.next_nonce(&sender, &near_pubkey_str).await;
+    let mut nonce = state.next_nonce(&sender, &near_pubkey_str).await;
+    // First-use Bitcoin keys may be auto-registered at a height-based nonce floor.
+    // Keep nonce at or above the latest observed block-height floor to avoid races
+    // when view_access_key is temporarily unavailable.
+    let nonce_floor = RpcState::bitcoin_first_tx_nonce_floor(status.latest_block_height);
+    if nonce < nonce_floor {
+        nonce = nonce_floor;
+    }
 
     // Build and sign NEAR transaction
     let sk_bytes = match key_entry.private_key_bytes() {
@@ -3190,7 +3270,8 @@ async fn handle_sendtoaddress(state: &RpcState, request: &JsonRpcRequest) -> Jso
         Err(e) => return err_response(&request.id, -32000, format!("TX signing failed: {}", e)),
     };
 
-    // Submit
+    // Bitcoin RPC semantics return a txid after broadcast. Post-send balance checks
+    // validate eventual execution.
     match state.near_client.send_tx_async(&signed_tx_base64).await {
         Ok(near_tx_hash) => {
             log::info!(
@@ -9960,31 +10041,58 @@ async fn handle_patoshiunlock(state: &RpcState, request: &JsonRpcRequest) -> Jso
 // Main
 // ============================================================================
 
+async fn wait_for_near_backend(
+    client: &NearClient,
+    max_attempts: u32,
+) -> Result<near_client::NodeStatus, String> {
+    let mut delay = Duration::from_secs(1);
+
+    for attempt in 1..=max_attempts {
+        match client.status().await {
+            Ok(status) => return Ok(status),
+            Err(e) => {
+                if attempt == max_attempts {
+                    return Err(format!(
+                        "nearcore unreachable after {max_attempts} attempts: {e}"
+                    ));
+                }
+                eprintln!(
+                    "nearcore startup check failed (attempt {attempt}/{max_attempts}): {e}. Retrying in {}s...",
+                    delay.as_secs()
+                );
+                tokio::time::sleep(delay).await;
+                delay = std::cmp::min(delay.saturating_mul(2), Duration::from_secs(16));
+            }
+        }
+    }
+
+    Err("nearcore startup check exhausted attempts".to_string())
+}
+
 #[tokio::main]
 async fn main() {
     env_logger::init();
 
-    let near_rpc_url =
-        std::env::var("NEAR_RPC_URL").unwrap_or_else(|_| "http://127.0.0.1:3030".to_string());
+    let cli = Cli::parse();
+    let near_rpc_url = cli
+        .near_rpc_url
+        .or_else(|| std::env::var("NEAR_RPC_URL").ok())
+        .unwrap_or_else(|| "http://127.0.0.1:3030".to_string());
+    let bind_addr = cli
+        .btc_rpc_addr
+        .or_else(|| std::env::var("BTC_RPC_ADDR").ok())
+        .unwrap_or_else(|| "127.0.0.1:8332".to_string());
+    let fallback_chain_id = cli
+        .chain_id
+        .or_else(|| std::env::var("CHAIN_ID").ok())
+        .unwrap_or_else(|| "bitinfinity-testnet".to_string());
 
-    // Query nearcore for actual chain_id on startup
-    let chain_id = {
-        let client = NearClient::new(near_rpc_url.clone());
-        match client.call("status", json!([])).await {
-            Ok(status) => status
-                .get("chain_id")
-                .and_then(|v| v.as_str())
-                .unwrap_or("bitinfinity-testnet")
-                .to_string(),
-            Err(e) => {
-                eprintln!(
-                    "Warning: Could not query nearcore status: {}. Using default chain_id.",
-                    e
-                );
-                std::env::var("CHAIN_ID").unwrap_or_else(|_| "bitinfinity-testnet".to_string())
-            }
-        }
-    };
+    let bootstrap_client = NearClient::new(near_rpc_url.clone());
+    let startup_status = wait_for_near_backend(&bootstrap_client, 6).await;
+    let chain_id = startup_status
+        .as_ref()
+        .map(|s| s.chain_id.clone())
+        .unwrap_or_else(|_| fallback_chain_id.clone());
 
     let state = Arc::new(RpcState::new(
         chain_id.clone(),
@@ -10004,8 +10112,6 @@ async fn main() {
             auth_middleware,
         ))
         .fallback(|| async { (StatusCode::NOT_FOUND, "Bitcoin Infinity JSON-RPC Server") });
-
-    let bind_addr = std::env::var("BTC_RPC_ADDR").unwrap_or_else(|_| "127.0.0.1:8332".to_string());
 
     let listener = tokio::net::TcpListener::bind(&bind_addr)
         .await
@@ -10085,11 +10191,20 @@ async fn main() {
     );
     println!();
 
-    // Check nearcore connectivity
-    if state.near_client.is_connected().await {
-        println!("nearcore node: CONNECTED");
-    } else {
-        println!("nearcore node: NOT CONNECTED (will retry on each request)");
+    match startup_status {
+        Ok(status) => {
+            println!(
+                "nearcore node: CONNECTED (chain_id={}, latest_block_height={})",
+                status.chain_id, status.latest_block_height
+            );
+        }
+        Err(e) => {
+            eprintln!(
+                "Warning: {}. Server will continue and retry per request.",
+                e
+            );
+            println!("nearcore node: NOT CONNECTED (startup retries exhausted)");
+        }
     }
     println!();
 

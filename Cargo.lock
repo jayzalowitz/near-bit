@@ -292,6 +292,7 @@ dependencies = [
  "env_logger",
  "hex",
  "log",
+ "near-account-id",
  "rand",
  "reqwest",
  "ripemd",
@@ -312,6 +313,7 @@ dependencies = [
  "bs58",
  "clap",
  "ed25519-dalek",
+ "near-account-id",
  "rand",
  "serde",
  "serde_json",
@@ -1304,6 +1306,15 @@ dependencies = [
  "security-framework",
  "security-framework-sys",
  "tempfile",
+]
+
+[[package]]
+name = "near-account-id"
+version = "2.0.0"
+dependencies = [
+ "bech32 0.11.1",
+ "bs58",
+ "sha2",
 ]
 
 [[package]]

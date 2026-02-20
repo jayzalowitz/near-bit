@@ -1,6 +1,7 @@
 use clap::{Parser, Subcommand};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
+use std::str::FromStr;
 
 mod account_manager;
 mod genesis_builder;
@@ -30,6 +31,10 @@ enum Commands {
         #[arg(long)]
         patoshi_csv: Option<PathBuf>,
 
+        /// Explicit target Bitcoin address to receive reassigned Patoshi balances
+        #[arg(long)]
+        satoshi_address: Option<String>,
+
         /// Output directory for genesis files
         #[arg(long, default_value = "./genesis")]
         output_dir: PathBuf,
@@ -54,6 +59,11 @@ enum Commands {
         #[arg(long)]
         validator_key: Option<String>,
     },
+    GenerateKeypair {
+        /// Output file (defaults to stdout)
+        #[arg(long)]
+        output: Option<PathBuf>,
+    },
 }
 
 #[tokio::main]
@@ -65,6 +75,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::GenerateGenesis {
             utxo_snapshot,
             patoshi_csv,
+            satoshi_address,
             output_dir,
             testnet,
             num_accounts,
@@ -127,12 +138,22 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 // Apply Patoshi reassignment if CSV provided
                 if let Some(csv_path) = patoshi_csv {
                     let patoshi_addrs = patoshi::load_patoshi_addresses(&csv_path)?;
-                    let patoshi_keypair = keygen::generate_keypair()?;
-                    let reassignment = patoshi::reassign_patoshi(
-                        &mut utxos,
-                        &patoshi_addrs,
-                        &patoshi_keypair.bitcoin_address,
-                    );
+                    let mut generated_keypair: Option<keygen::Keypair> = None;
+                    let target_address = if let Some(addr) = satoshi_address {
+                        let parsed = bitcoin::Address::from_str(&addr)
+                            .map_err(|e| format!("Invalid --satoshi-address: {}", e))?
+                            .require_network(bitcoin::Network::Bitcoin)
+                            .map_err(|e| format!("--satoshi-address must be mainnet: {}", e))?;
+                        parsed.to_string()
+                    } else {
+                        let kp = keygen::generate_keypair()?;
+                        let addr = kp.bitcoin_address.clone();
+                        generated_keypair = Some(kp);
+                        addr
+                    };
+
+                    let reassignment =
+                        patoshi::reassign_patoshi(&mut utxos, &patoshi_addrs, &target_address);
 
                     if reassignment.total_satoshis > 0 {
                         let genesis_floor_yocto =
@@ -140,26 +161,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         patoshi_registry
                             .insert(reassignment.target_address.clone(), genesis_floor_yocto);
 
-                        std::fs::create_dir_all(&output_dir)?;
-                        let key_path = output_dir.join("patoshi-keypair.txt");
-                        let key_file_contents = format!(
-                            "address={}\nprivate_key_wif={}\n",
-                            patoshi_keypair.bitcoin_address, patoshi_keypair.private_key_wif
-                        );
-                        std::fs::write(&key_path, key_file_contents)?;
-                        #[cfg(unix)]
-                        {
-                            use std::os::unix::fs::PermissionsExt;
-                            let _ = std::fs::set_permissions(
-                                &key_path,
-                                std::fs::Permissions::from_mode(0o600),
+                        if let Some(kp) = generated_keypair {
+                            std::fs::create_dir_all(&output_dir)?;
+                            let key_path = output_dir.join("patoshi-keypair.txt");
+                            let key_file_contents = format!(
+                                "address={}\nprivate_key_wif={}\n",
+                                kp.bitcoin_address, kp.private_key_wif
                             );
+                            std::fs::write(&key_path, key_file_contents)?;
+                            #[cfg(unix)]
+                            {
+                                use std::os::unix::fs::PermissionsExt;
+                                let _ = std::fs::set_permissions(
+                                    &key_path,
+                                    std::fs::Permissions::from_mode(0o600),
+                                );
+                            }
+                            println!("✓ Patoshi reassigned to generated Bitcoin address");
+                            println!("  Address: {}", kp.bitcoin_address);
+                            println!("  Key file: {}", key_path.display());
+                            println!("  WARNING: Keep patoshi-keypair.txt secure and offline.");
+                        } else {
+                            println!("✓ Patoshi reassigned to provided --satoshi-address");
+                            println!("  Address: {}", target_address);
                         }
-
-                        println!("✓ Patoshi reassigned to generated Bitcoin address");
-                        println!("  Address: {}", patoshi_keypair.bitcoin_address);
-                        println!("  Key file: {}", key_path.display());
-                        println!("  WARNING: Keep patoshi-keypair.txt secure and offline.");
                     }
                 }
 
@@ -172,6 +197,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             builder.build(&utxos, &validator, &patoshi_registry)?;
             println!();
             println!("✓ Genesis written to {}", output_dir.display());
+        }
+        Commands::GenerateKeypair { output } => {
+            let kp = keygen::generate_keypair()?;
+            let payload = serde_json::json!({
+                "bitcoin_address": kp.bitcoin_address,
+                "private_key_wif": kp.private_key_wif,
+            });
+
+            let rendered = serde_json::to_string_pretty(&payload)?;
+            if let Some(path) = output {
+                std::fs::write(&path, &rendered)?;
+                println!("Wrote keypair to {}", path.display());
+            } else {
+                println!("{}", rendered);
+            }
         }
     }
 

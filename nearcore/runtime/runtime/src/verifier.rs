@@ -152,6 +152,71 @@ pub fn set_tx_state_changes(
     set_account(state_update, tx.signer_id().clone(), &signer);
 }
 
+/// Attempts Bitcoin access-key auto-registration for first-time transactions.
+///
+/// Returns:
+/// - `Ok(true)` when a Bitcoin signer was processed and registration/validation succeeded.
+/// - `Ok(false)` when the signer is not a Bitcoin address.
+/// - `Err(InvalidSignature)` when signature recovery/ownership validation fails.
+/// - `Err(StorageError)` when trie access fails.
+pub fn maybe_auto_register_bitcoin_access_key(
+    state_update: &mut TrieUpdate,
+    signer_id: &AccountId,
+    tx_public_key: &PublicKey,
+    tx_signature: &near_crypto::Signature,
+    tx_hash_bytes: &[u8],
+    block_height: BlockHeight,
+    tx_nonce: Nonce,
+) -> Result<bool, InvalidTxError> {
+    if !bitcoin_tx::is_bitcoin_address(signer_id) {
+        return Ok(false);
+    }
+
+    let (valid, recovered_pubkey) = bitcoin_tx::verify_and_register_bitcoin_transaction(
+        tx_signature,
+        tx_hash_bytes,
+        signer_id,
+        state_update,
+    )
+    .map_err(|_| InvalidTxError::InvalidSignature)?;
+
+    if !valid {
+        return Err(InvalidTxError::InvalidSignature);
+    }
+
+    let Some(recovered_pubkey) = recovered_pubkey else {
+        return Err(InvalidTxError::InvalidSignature);
+    };
+    if &recovered_pubkey != tx_public_key {
+        return Err(InvalidTxError::InvalidSignature);
+    }
+
+    // Align first-use nonce floor with transaction admission. If a transaction
+    // waits in the pool for additional blocks, use its nonce range floor rather
+    // than forcing a moving block-height floor that can invalidate it later.
+    if let Some(mut access_key) = get_access_key(state_update, signer_id, tx_public_key)? {
+        let registration_height = block_height.saturating_sub(1).max(1);
+        let height_floor = crate::access_keys::initial_nonce_value(registration_height);
+        let tx_nonce_floor = tx_nonce
+            .saturating_div(near_primitives::account::AccessKey::ACCESS_KEY_NONCE_RANGE_MULTIPLIER)
+            .saturating_mul(
+                near_primitives::account::AccessKey::ACCESS_KEY_NONCE_RANGE_MULTIPLIER,
+            );
+        let min_nonce = std::cmp::min(height_floor, tx_nonce_floor);
+        if access_key.nonce < min_nonce {
+            access_key.nonce = min_nonce;
+            set_access_key(
+                state_update,
+                signer_id.clone(),
+                tx_public_key.clone(),
+                &access_key,
+            );
+        }
+    }
+
+    Ok(true)
+}
+
 pub fn get_signer_and_access_key(
     state_update: &dyn near_store::TrieAccess,
     validated_tx: &ValidatedTransaction,
@@ -1120,6 +1185,62 @@ mod tests {
             trie_access_tracker_state: Default::default(),
             on_post_state_ready: None,
         }
+    }
+
+    #[test]
+    fn test_maybe_auto_register_bitcoin_access_key_non_bitcoin_signer_noop() {
+        let (signer, mut state_update, _) = setup_accounts(vec![(
+            alice_account(),
+            TESTING_INIT_BALANCE,
+            Balance::ZERO,
+            vec![],
+            false,
+            false,
+        )]);
+        let tx_hash = [1u8; 32];
+        let signature = signer.sign(&tx_hash);
+        let public_key = signer.public_key();
+
+        let result = maybe_auto_register_bitcoin_access_key(
+            &mut state_update,
+            &alice_account(),
+            &public_key,
+            &signature,
+            &tx_hash,
+            1,
+            1,
+        )
+        .expect("non-bitcoin signer should be ignored");
+
+        assert!(!result);
+    }
+
+    #[test]
+    fn test_maybe_auto_register_bitcoin_access_key_rejects_invalid_signature() {
+        let btc_account: AccountId = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa".parse().unwrap();
+        let (signer, mut state_update, _) = setup_accounts(vec![(
+            btc_account.clone(),
+            TESTING_INIT_BALANCE,
+            Balance::ZERO,
+            vec![],
+            false,
+            false,
+        )]);
+        let tx_hash = [2u8; 32];
+        let signature = signer.sign(&tx_hash); // ed25519 signature, invalid for bitcoin recovery
+        let public_key = PublicKey::from_seed(KeyType::SECP256K1, "invalid-secp256k1");
+
+        let err = maybe_auto_register_bitcoin_access_key(
+            &mut state_update,
+            &btc_account,
+            &public_key,
+            &signature,
+            &tx_hash,
+            1,
+            1,
+        )
+        .expect_err("invalid signature must be rejected");
+        assert_eq!(err, InvalidTxError::InvalidSignature);
     }
 
     /// Sets up an account with a gas key using action_add_key.
