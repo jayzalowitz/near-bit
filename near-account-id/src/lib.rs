@@ -1,9 +1,8 @@
 //! NEAR Account ID with Bitcoin address support (Bitcoin Infinity fork).
 //!
 //! This is a fork of `near-account-id` v2.0.0 that adds Bitcoin address detection.
-//! Lowercased Bitcoin addresses (P2PKH, P2SH, Bech32) pass standard NEAR validation
-//! since they consist of lowercase alphanumeric characters. This fork adds
-//! `AccountType::BtcImplicitAccount` to identify them.
+//! Canonical Bitcoin addresses (Base58Check + Bech32/Bech32m) are accepted as
+//! account IDs, and this fork adds `AccountType::BtcImplicitAccount` to identify them.
 //!
 //! ## Account ID Rules (same as upstream)
 //!
@@ -14,11 +13,10 @@
 //!
 //! ## Bitcoin Address Support
 //!
-//! Bitcoin addresses are stored lowercased and detected by pattern:
-//! - P2PKH: starts with '1', 25-34 chars
-//! - P2SH: starts with '3', 33-34 chars
-//! - Bech32 P2WPKH/P2WSH: starts with "bc1q", 42-62 chars
-//! - Bech32m P2TR: starts with "bc1p", 62 chars
+//! Bitcoin addresses are detected via strict parser validation:
+//! - Base58Check P2PKH/P2SH (canonical casing preserved)
+//! - Bech32/Bech32m SegWit/Taproot
+//! A legacy lowercased Base58 compatibility path is retained for older snapshots.
 
 mod errors;
 

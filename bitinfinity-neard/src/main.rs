@@ -81,7 +81,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             genesis,
             neard_bin,
         } => {
-            cmd_init(&expand_home(&home), &chain_id, &account_id, genesis.as_deref(), &neard_bin)?;
+            cmd_init(
+                &expand_home(&home),
+                &chain_id,
+                &account_id,
+                genesis.as_deref(),
+                &neard_bin,
+            )?;
         }
 
         Commands::Run { home, neard_bin } => {
@@ -208,7 +214,10 @@ fn cmd_init(
     println!("  bitinfinity-neard run --home {}", home.display());
     println!();
     println!("To use a custom genesis from bitinfinity-tools:");
-    println!("  bitinfinity-neard init --home {} --genesis /path/to/genesis.json", home.display());
+    println!(
+        "  bitinfinity-neard init --home {} --genesis /path/to/genesis.json",
+        home.display()
+    );
 
     Ok(())
 }
@@ -219,7 +228,12 @@ fn cmd_init(
 
 fn cmd_run(home: &Path, neard_bin: &str) -> Result<(), Box<dyn std::error::Error>> {
     // Verify required files exist
-    let required_files = ["config.json", "genesis.json", "node_key.json", "validator_key.json"];
+    let required_files = [
+        "config.json",
+        "genesis.json",
+        "node_key.json",
+        "validator_key.json",
+    ];
     for file in &required_files {
         let path = home.join(file);
         if !path.exists() {
@@ -243,7 +257,14 @@ fn cmd_run(home: &Path, neard_bin: &str) -> Result<(), Box<dyn std::error::Error
     println!();
     println!("  Home: {}", home.display());
     println!("  Validator: {} ({})", vk.account_id, vk.public_key);
-    println!("  RPC: {}", config.rpc.as_ref().map(|r| r.addr.as_str()).unwrap_or("disabled"));
+    println!(
+        "  RPC: {}",
+        config
+            .rpc
+            .as_ref()
+            .map(|r| r.addr.as_str())
+            .unwrap_or("disabled")
+    );
     println!("  Network: {}", config.network.addr);
     println!();
 

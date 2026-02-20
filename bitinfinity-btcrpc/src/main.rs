@@ -11,17 +11,19 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-mod near_client;
-mod utxo_synth;
-mod tx_translator;
 mod keystore;
+mod near_client;
 mod near_tx_builder;
+mod tx_translator;
+mod utxo_synth;
 
+use keystore::{KeyEntry, Keystore};
 use near_client::NearClient;
+use near_tx_builder::{
+    decode_block_hash, NearAction, NearFunctionCallParams, NearTransferParams, NearTxBuilder,
+};
 use tx_translator::{ParsedBitcoinTx, TxOutput};
 use utxo_synth::SyntheticUtxo;
-use keystore::{Keystore, KeyEntry};
-use near_tx_builder::{NearTransferParams, NearFunctionCallParams, NearTxBuilder, NearAction, decode_block_hash};
 
 // ============================================================================
 // RPC Authentication (Bitcoin Core compatible cookie + user/pass)
@@ -41,7 +43,8 @@ fn generate_cookie_file(path: &std::path::Path) -> String {
         let seed = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_nanos())
-            .unwrap_or(0) ^ (std::process::id() as u128);
+            .unwrap_or(0)
+            ^ (std::process::id() as u128);
         for (i, b) in rng_bytes.iter_mut().enumerate() {
             *b = ((seed >> (i % 16 * 8)) & 0xff) as u8;
         }
@@ -126,7 +129,8 @@ async fn auth_middleware(
         return next.run(req).await;
     }
 
-    let auth_header = req.headers()
+    let auth_header = req
+        .headers()
         .get("authorization")
         .and_then(|v| v.to_str().ok());
 
@@ -212,7 +216,9 @@ struct TxCacheEntry {
 
 impl TxCache {
     fn new() -> Self {
-        TxCache { entries: HashMap::new() }
+        TxCache {
+            entries: HashMap::new(),
+        }
     }
 
     fn load() -> Self {
@@ -225,7 +231,10 @@ impl TxCache {
                         TxCache { entries }
                     }
                     Err(e) => {
-                        log::warn!("Failed to parse tx_cache.json ({}), starting with empty cache", e);
+                        log::warn!(
+                            "Failed to parse tx_cache.json ({}), starting with empty cache",
+                            e
+                        );
                         TxCache::new()
                     }
                 }
@@ -234,24 +243,49 @@ impl TxCache {
         }
     }
 
-    fn insert(&mut self, btc_txid: String, near_tx_hash: String, raw_hex: String, sender_id: String) {
-        self.entries.insert(btc_txid, TxCacheEntry {
-            near_tx_hash, raw_hex, sender_id,
-            receiver_id: String::new(), amount_satoshis: 0, block_height: 0, is_incoming: false,
-        });
+    fn insert(
+        &mut self,
+        btc_txid: String,
+        near_tx_hash: String,
+        raw_hex: String,
+        sender_id: String,
+    ) {
+        self.entries.insert(
+            btc_txid,
+            TxCacheEntry {
+                near_tx_hash,
+                raw_hex,
+                sender_id,
+                receiver_id: String::new(),
+                amount_satoshis: 0,
+                block_height: 0,
+                is_incoming: false,
+            },
+        );
         self.save_to_disk();
     }
 
-    fn insert_incoming(&mut self, btc_txid: String, near_tx_hash: String, sender_id: String, receiver_id: String, amount_satoshis: u64, block_height: u64) {
-        self.entries.insert(btc_txid, TxCacheEntry {
-            near_tx_hash,
-            raw_hex: format!("incoming:{}:{}", receiver_id, amount_satoshis),
-            sender_id,
-            receiver_id,
-            amount_satoshis,
-            block_height,
-            is_incoming: true,
-        });
+    fn insert_incoming(
+        &mut self,
+        btc_txid: String,
+        near_tx_hash: String,
+        sender_id: String,
+        receiver_id: String,
+        amount_satoshis: u64,
+        block_height: u64,
+    ) {
+        self.entries.insert(
+            btc_txid,
+            TxCacheEntry {
+                near_tx_hash,
+                raw_hex: format!("incoming:{}:{}", receiver_id, amount_satoshis),
+                sender_id,
+                receiver_id,
+                amount_satoshis,
+                block_height,
+                is_incoming: true,
+            },
+        );
         self.save_to_disk();
     }
 
@@ -271,7 +305,9 @@ impl TxCache {
 
     fn path() -> std::path::PathBuf {
         let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-        std::path::PathBuf::from(home).join(".bitinfinity").join("tx_cache.json")
+        std::path::PathBuf::from(home)
+            .join(".bitinfinity")
+            .join("tx_cache.json")
     }
 }
 
@@ -320,7 +356,11 @@ impl RpcState {
             keystore: RwLock::new(keystore),
             nonce_cache: RwLock::new(HashMap::new()),
             start_time: std::time::Instant::now(),
-            wallet_unlock_until: RwLock::new(if encrypted { None } else { Some(std::time::Instant::now() + std::time::Duration::from_secs(999_999_999)) }),
+            wallet_unlock_until: RwLock::new(if encrypted {
+                None
+            } else {
+                Some(std::time::Instant::now() + std::time::Duration::from_secs(999_999_999))
+            }),
             wallet_passphrase: RwLock::new(None),
             locked_utxos: RwLock::new(Vec::new()),
             last_indexed_height: RwLock::new(0),
@@ -365,7 +405,9 @@ impl RpcState {
                     log::error!("Failed to save encrypted keystore: {}", e);
                 }
             } else {
-                log::error!("Cannot save encrypted keystore: no cached passphrase (wallet locked?)");
+                log::error!(
+                    "Cannot save encrypted keystore: no cached passphrase (wallet locked?)"
+                );
             }
         } else if let Err(e) = keystore.save() {
             log::error!("Failed to save keystore: {}", e);
@@ -379,7 +421,11 @@ impl RpcState {
             cache.get(address).copied().unwrap_or(0)
         };
 
-        let chain_nonce = match self.near_client.view_access_key(address, near_pubkey_str).await {
+        let chain_nonce = match self
+            .near_client
+            .view_access_key(address, near_pubkey_str)
+            .await
+        {
             Ok(ak_result) => ak_result.get("nonce").and_then(|v| v.as_u64()).unwrap_or(0),
             Err(_) => 0, // Access key doesn't exist yet
         };
@@ -409,7 +455,11 @@ fn err_response(id: &serde_json::Value, code: i32, message: String) -> JsonRpcRe
         jsonrpc: "2.0".to_string(),
         id: id.clone(),
         result: None,
-        error: Some(JsonRpcError { code, message, data: None }),
+        error: Some(JsonRpcError {
+            code,
+            message,
+            data: None,
+        }),
     }
 }
 
@@ -470,14 +520,16 @@ fn base64_encode(input: &[u8]) -> String {
 
 /// Helper to extract a string param from positional params
 fn get_str_param<'a>(params: &'a serde_json::Value, index: usize) -> Option<&'a str> {
-    params.as_array()
+    params
+        .as_array()
         .and_then(|arr| arr.get(index))
         .and_then(|v| v.as_str())
 }
 
 /// Helper to extract a u64 param from positional params
 fn get_u64_param(params: &serde_json::Value, index: usize) -> Option<u64> {
-    params.as_array()
+    params
+        .as_array()
         .and_then(|arr| arr.get(index))
         .and_then(|v| v.as_u64())
 }
@@ -543,7 +595,9 @@ fn bech32_encode(hrp: &str, witness_version: u8, program: &[u8]) -> String {
     values.extend_from_slice(&data5);
     values.extend_from_slice(&[0, 0, 0, 0, 0, 0]);
     let poly = polymod(&values) ^ 1;
-    let checksum: Vec<u8> = (0..6).map(|i| ((poly >> (5 * (5 - i))) & 31) as u8).collect();
+    let checksum: Vec<u8> = (0..6)
+        .map(|i| ((poly >> (5 * (5 - i))) & 31) as u8)
+        .collect();
 
     let mut result = String::from(hrp);
     result.push('1');
@@ -560,11 +614,16 @@ fn derive_script_pub_key_hex(addr: &str, bech32_hrp: &str) -> String {
     let bech32_p = format!("{}1p", bech32_hrp);
 
     if addr.starts_with(&bech32_q) || addr.starts_with(&bech32_p) {
-        let prefix_len = if addr.starts_with(&bech32_q) { bech32_q.len() } else { bech32_p.len() };
+        let prefix_len = if addr.starts_with(&bech32_q) {
+            bech32_q.len()
+        } else {
+            bech32_p.len()
+        };
         let witness_version: u8 = if addr.starts_with(&bech32_p) { 1 } else { 0 };
         let data_part = &addr[prefix_len..];
         const BECH32_CHARSET: &str = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
-        let data5: Vec<u8> = data_part.chars()
+        let data5: Vec<u8> = data_part
+            .chars()
             .filter_map(|c| BECH32_CHARSET.find(c).map(|i| i as u8))
             .collect();
         if data5.len() > 6 {
@@ -620,14 +679,20 @@ fn derive_script_pub_key_asm(addr: &str, bech32_hrp: &str) -> String {
 
     if addr.starts_with(&bech32_q) {
         let hex = derive_script_pub_key_hex(addr, bech32_hrp);
-        if hex.len() >= 44 { // "0014" + 40 hex chars
+        if hex.len() >= 44 {
+            // "0014" + 40 hex chars
             format!("0 {}", &hex[4..])
-        } else { String::new() }
+        } else {
+            String::new()
+        }
     } else if addr.starts_with(&bech32_p) {
         let hex = derive_script_pub_key_hex(addr, bech32_hrp);
-        if hex.len() >= 68 { // "0120" + 64 hex chars
+        if hex.len() >= 68 {
+            // "0120" + 64 hex chars
             format!("1 {}", &hex[4..])
-        } else { String::new() }
+        } else {
+            String::new()
+        }
     } else if addr.starts_with('3') || addr.starts_with('2') {
         match bs58::decode(addr).into_vec() {
             Ok(decoded) if decoded.len() >= 25 => {
@@ -638,7 +703,10 @@ fn derive_script_pub_key_asm(addr: &str, bech32_hrp: &str) -> String {
     } else {
         match bs58::decode(addr).into_vec() {
             Ok(decoded) if decoded.len() >= 25 => {
-                format!("OP_DUP OP_HASH160 {} OP_EQUALVERIFY OP_CHECKSIG", hex::encode(&decoded[1..21]))
+                format!(
+                    "OP_DUP OP_HASH160 {} OP_EQUALVERIFY OP_CHECKSIG",
+                    hex::encode(&decoded[1..21])
+                )
             }
             _ => String::new(),
         }
@@ -652,34 +720,59 @@ fn classify_script_pub_key_hex(hex_str: &str) -> (String, String) {
     }
     // P2WPKH: 0014<20-byte hash>
     if hex_str.starts_with("0014") && hex_str.len() == 44 {
-        return ("witness_v0_keyhash".to_string(), format!("0 {}", &hex_str[4..]));
+        return (
+            "witness_v0_keyhash".to_string(),
+            format!("0 {}", &hex_str[4..]),
+        );
     }
     // P2WSH: 0020<32-byte hash>
     if hex_str.starts_with("0020") && hex_str.len() == 68 {
-        return ("witness_v0_scripthash".to_string(), format!("0 {}", &hex_str[4..]));
+        return (
+            "witness_v0_scripthash".to_string(),
+            format!("0 {}", &hex_str[4..]),
+        );
     }
     // P2TR: 5120<32-byte key>
     if hex_str.starts_with("5120") && hex_str.len() == 68 {
-        return ("witness_v1_taproot".to_string(), format!("1 {}", &hex_str[4..]));
+        return (
+            "witness_v1_taproot".to_string(),
+            format!("1 {}", &hex_str[4..]),
+        );
     }
     // P2PKH: 76a914<20-byte hash>88ac
     if hex_str.starts_with("76a914") && hex_str.ends_with("88ac") && hex_str.len() == 50 {
-        return ("pubkeyhash".to_string(), format!("OP_DUP OP_HASH160 {} OP_EQUALVERIFY OP_CHECKSIG", &hex_str[6..46]));
+        return (
+            "pubkeyhash".to_string(),
+            format!(
+                "OP_DUP OP_HASH160 {} OP_EQUALVERIFY OP_CHECKSIG",
+                &hex_str[6..46]
+            ),
+        );
     }
     // P2SH: a914<20-byte hash>87
     if hex_str.starts_with("a914") && hex_str.ends_with("87") && hex_str.len() == 46 {
-        return ("scripthash".to_string(), format!("OP_HASH160 {} OP_EQUAL", &hex_str[4..44]));
+        return (
+            "scripthash".to_string(),
+            format!("OP_HASH160 {} OP_EQUAL", &hex_str[4..44]),
+        );
     }
     // OP_RETURN: 6a...
     if hex_str.starts_with("6a") {
-        return ("nulldata".to_string(), format!("OP_RETURN {}", &hex_str[2..]));
+        return (
+            "nulldata".to_string(),
+            format!("OP_RETURN {}", &hex_str[2..]),
+        );
     }
     ("nonstandard".to_string(), hex_str.to_string())
 }
 
 /// Build a full Bitcoin Core compatible scriptPubKey JSON object from a TxOutput.
 /// Includes asm, hex, type, and address fields.
-fn build_script_pub_key_json(address: &str, is_op_return: bool, bech32_hrp: &str) -> serde_json::Value {
+fn build_script_pub_key_json(
+    address: &str,
+    is_op_return: bool,
+    bech32_hrp: &str,
+) -> serde_json::Value {
     if is_op_return {
         return json!({
             "asm": "OP_RETURN",
@@ -694,10 +787,15 @@ fn build_script_pub_key_json(address: &str, is_op_return: bool, bech32_hrp: &str
         // Fallback: classify from address prefix
         let bech32_q = format!("{}1q", bech32_hrp);
         let bech32_p = format!("{}1p", bech32_hrp);
-        let t = if address.starts_with(&bech32_q) { "witness_v0_keyhash" }
-            else if address.starts_with(&bech32_p) { "witness_v1_taproot" }
-            else if address.starts_with('3') || address.starts_with('2') { "scripthash" }
-            else { "pubkeyhash" };
+        let t = if address.starts_with(&bech32_q) {
+            "witness_v0_keyhash"
+        } else if address.starts_with(&bech32_p) {
+            "witness_v1_taproot"
+        } else if address.starts_with('3') || address.starts_with('2') {
+            "scripthash"
+        } else {
+            "pubkeyhash"
+        };
         (t.to_string(), String::new())
     };
     let mut obj = json!({
@@ -706,7 +804,9 @@ fn build_script_pub_key_json(address: &str, is_op_return: bool, bech32_hrp: &str
         "type": spk_type,
     });
     if !address.is_empty() {
-        obj.as_object_mut().unwrap().insert("address".to_string(), json!(address));
+        obj.as_object_mut()
+            .unwrap()
+            .insert("address".to_string(), json!(address));
     }
     obj
 }
@@ -721,7 +821,11 @@ async fn rpc_handler(
         Err(_) => {
             return (
                 StatusCode::BAD_REQUEST,
-                Json(err_response(&json!(null), -32700, "Parse error".to_string())),
+                Json(err_response(
+                    &json!(null),
+                    -32700,
+                    "Parse error".to_string(),
+                )),
             );
         }
     };
@@ -773,7 +877,9 @@ async fn rpc_handler(
         "getrawtransaction" => handle_getrawtransaction(&state, &request).await,
         "gettransaction" => handle_gettransaction(&state, &request).await,
         "decoderawtransaction" => handle_decoderawtransaction(&state, &request),
-        "signrawtransactionwithwallet" => handle_signrawtransactionwithwallet(&state, &request).await,
+        "signrawtransactionwithwallet" => {
+            handle_signrawtransactionwithwallet(&state, &request).await
+        }
         "createrawtransaction" => handle_createrawtransaction(&request),
         "fundrawtransaction" => handle_fundrawtransaction(&state, &request).await,
         "testmempoolaccept" => handle_testmempoolaccept(&state, &request).await,
@@ -902,6 +1008,7 @@ async fn rpc_handler(
         // Additional Bitcoin Core v27/v28 methods for full feature parity
         "addmultisigaddress" => handle_addmultisigaddress(&request),
         "addnode" => handle_addnode(&request),
+        "onetry" => handle_onetry(&request),
         "analyzepsbt" => handle_analyzepsbt(&request),
         "clearbanned" => handle_clearbanned(&request),
         "combinerawtransaction" => handle_combinerawtransaction(&request),
@@ -957,33 +1064,39 @@ async fn rpc_handler(
 
 async fn handle_getblockchaininfo(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     match state.near_client.status().await {
-        Ok(status) => ok_response(&request.id, json!({
-            "chain": status.chain_id,
-            "blocks": status.latest_block_height,
-            "headers": status.latest_block_height,
-            "bestblockhash": status.latest_block_hash,
-            "difficulty": 1.0,
-            "time": chrono::Utc::now().timestamp(),
-            "mediantime": chrono::Utc::now().timestamp(),
-            "verificationprogress": if status.syncing { 0.5 } else { 1.0 },
-            "initialblockdownload": status.syncing,
-            "chainwork": format!("{:064x}", status.latest_block_height as u128 * 0x100000000u128),
-            "size_on_disk": status.latest_block_height * 2048,
-            "pruned": false,
-            "warnings": ""
-        })),
-        Err(_) => ok_response(&request.id, json!({
-            "chain": state.chain_id,
-            "blocks": 0,
-            "headers": 0,
-            "bestblockhash": "",
-            "difficulty": 1.0,
-            "time": chrono::Utc::now().timestamp(),
-            "mediantime": chrono::Utc::now().timestamp(),
-            "verificationprogress": 0.0,
-            "initialblockdownload": true,
-            "warnings": "nearcore node not connected"
-        })),
+        Ok(status) => ok_response(
+            &request.id,
+            json!({
+                "chain": status.chain_id,
+                "blocks": status.latest_block_height,
+                "headers": status.latest_block_height,
+                "bestblockhash": status.latest_block_hash,
+                "difficulty": 1.0,
+                "time": chrono::Utc::now().timestamp(),
+                "mediantime": chrono::Utc::now().timestamp(),
+                "verificationprogress": if status.syncing { 0.5 } else { 1.0 },
+                "initialblockdownload": status.syncing,
+                "chainwork": format!("{:064x}", status.latest_block_height as u128 * 0x100000000u128),
+                "size_on_disk": status.latest_block_height * 2048,
+                "pruned": false,
+                "warnings": ""
+            }),
+        ),
+        Err(_) => ok_response(
+            &request.id,
+            json!({
+                "chain": state.chain_id,
+                "blocks": 0,
+                "headers": 0,
+                "bestblockhash": "",
+                "difficulty": 1.0,
+                "time": chrono::Utc::now().timestamp(),
+                "mediantime": chrono::Utc::now().timestamp(),
+                "verificationprogress": 0.0,
+                "initialblockdownload": true,
+                "warnings": "nearcore node not connected"
+            }),
+        ),
     }
 }
 
@@ -1004,11 +1117,17 @@ async fn handle_getbestblockhash(state: &RpcState, request: &JsonRpcRequest) -> 
 async fn handle_getblock(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     let block_id = get_str_param(&request.params, 0).unwrap_or("");
     if block_id.is_empty() {
-        return err_response(&request.id, -32602, "Missing block hash parameter".to_string());
+        return err_response(
+            &request.id,
+            -32602,
+            "Missing block hash parameter".to_string(),
+        );
     }
 
     // Verbosity: 0 = hex serialization, 1 = JSON (default), 2 = JSON with full tx objects
-    let verbosity = request.params.as_array()
+    let verbosity = request
+        .params
+        .as_array()
         .and_then(|arr| arr.get(1))
         .and_then(|v| v.as_u64())
         .unwrap_or(1);
@@ -1019,18 +1138,29 @@ async fn handle_getblock(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcR
             let header = block.get("header").unwrap_or(&block);
             let height = header.get("height").and_then(|v| v.as_u64()).unwrap_or(0);
             let hash = header.get("hash").and_then(|v| v.as_str()).unwrap_or("");
-            let prev_hash = header.get("prev_hash").and_then(|v| v.as_str()).unwrap_or("");
-            let timestamp = header.get("timestamp")
+            let prev_hash = header
+                .get("prev_hash")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let timestamp = header
+                .get("timestamp")
                 .and_then(|v| v.as_u64())
                 .or_else(|| header.get("timestamp_nanosec").and_then(|v| v.as_u64()))
                 .map(|ns| ns / 1_000_000_000)
                 .unwrap_or_else(|| chrono::Utc::now().timestamp() as u64);
 
             // Compute real confirmations
-            let current_height = state.near_client.status().await
+            let current_height = state
+                .near_client
+                .status()
+                .await
                 .map(|s| s.latest_block_height)
                 .unwrap_or(height);
-            let confirmations = if current_height >= height { current_height - height + 1 } else { 1 };
+            let confirmations = if current_height >= height {
+                current_height - height + 1
+            } else {
+                1
+            };
 
             // Collect chunk hashes for merkleroot computation and tx extraction
             let mut chunk_hashes: Vec<String> = Vec::new();
@@ -1040,9 +1170,12 @@ async fn handle_getblock(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcR
                     if let Some(ch) = chunk.get("chunk_hash").and_then(|v| v.as_str()) {
                         chunk_hashes.push(ch.to_string());
                         if let Ok(chunk_detail) = state.near_client.chunk_by_hash(ch).await {
-                            if let Some(txns) = chunk_detail.get("transactions").and_then(|v| v.as_array()) {
+                            if let Some(txns) =
+                                chunk_detail.get("transactions").and_then(|v| v.as_array())
+                            {
                                 for txn in txns {
-                                    if let Some(tx_hash) = txn.get("hash").and_then(|v| v.as_str()) {
+                                    if let Some(tx_hash) = txn.get("hash").and_then(|v| v.as_str())
+                                    {
                                         tx_hashes.push(tx_hash.to_string());
                                     }
                                 }
@@ -1056,7 +1189,7 @@ async fn handle_getblock(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcR
             let merkleroot = if chunk_hashes.is_empty() {
                 "0000000000000000000000000000000000000000000000000000000000000000".to_string()
             } else {
-                use sha2::{Sha256, Digest};
+                use sha2::{Digest, Sha256};
                 let mut hasher = Sha256::new();
                 for ch in &chunk_hashes {
                     hasher.update(ch.as_bytes());
@@ -1068,7 +1201,11 @@ async fn handle_getblock(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcR
 
             // Get block size estimate from gas_used
             let gas_used = header.get("gas_used").and_then(|v| v.as_u64()).unwrap_or(0);
-            let chunk_count = block.get("chunks").and_then(|c| c.as_array()).map(|a| a.len()).unwrap_or(0);
+            let chunk_count = block
+                .get("chunks")
+                .and_then(|c| c.as_array())
+                .map(|a| a.len())
+                .unwrap_or(0);
 
             // Verbosity 0: return hex-encoded 80-byte Bitcoin block header
             if verbosity == 0 {
@@ -1076,14 +1213,23 @@ async fn handle_getblock(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcR
                 // version(4) + prev_hash(32) + merkle_root(32) + time(4) + bits(4) + nonce(4) = 80
                 let mut header_bytes = Vec::with_capacity(80);
                 header_bytes.extend_from_slice(&0x20000000u32.to_le_bytes()); // version
-                // prev_hash: decode hex or pad with zeros
-                let prev_bytes = hex::decode(prev_hash.replace("0x", "")).unwrap_or_else(|_| vec![0u8; 32]);
-                if prev_bytes.len() >= 32 { header_bytes.extend_from_slice(&prev_bytes[..32]); }
-                else { header_bytes.extend_from_slice(&prev_bytes); header_bytes.resize(4 + 32, 0); }
+                                                                              // prev_hash: decode hex or pad with zeros
+                let prev_bytes =
+                    hex::decode(prev_hash.replace("0x", "")).unwrap_or_else(|_| vec![0u8; 32]);
+                if prev_bytes.len() >= 32 {
+                    header_bytes.extend_from_slice(&prev_bytes[..32]);
+                } else {
+                    header_bytes.extend_from_slice(&prev_bytes);
+                    header_bytes.resize(4 + 32, 0);
+                }
                 // merkle_root
                 let mr_bytes = hex::decode(&merkleroot).unwrap_or_else(|_| vec![0u8; 32]);
-                if mr_bytes.len() >= 32 { header_bytes.extend_from_slice(&mr_bytes[..32]); }
-                else { header_bytes.extend_from_slice(&mr_bytes); header_bytes.resize(4 + 32 + 32, 0); }
+                if mr_bytes.len() >= 32 {
+                    header_bytes.extend_from_slice(&mr_bytes[..32]);
+                } else {
+                    header_bytes.extend_from_slice(&mr_bytes);
+                    header_bytes.resize(4 + 32 + 32, 0);
+                }
                 header_bytes.extend_from_slice(&(timestamp as u32).to_le_bytes()); // time
                 header_bytes.extend_from_slice(&0x1d00ffffu32.to_le_bytes()); // bits (difficulty)
                 header_bytes.extend_from_slice(&(height as u32).to_le_bytes()); // nonce (use height)
@@ -1098,20 +1244,38 @@ async fn handle_getblock(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcR
                     for chunk in chunks {
                         if let Some(ch) = chunk.get("chunk_hash").and_then(|v| v.as_str()) {
                             if let Ok(chunk_detail) = state.near_client.chunk_by_hash(ch).await {
-                                if let Some(txns) = chunk_detail.get("transactions").and_then(|v| v.as_array()) {
+                                if let Some(txns) =
+                                    chunk_detail.get("transactions").and_then(|v| v.as_array())
+                                {
                                     for txn in txns {
-                                        let tx_hash = txn.get("hash").and_then(|v| v.as_str()).unwrap_or("");
-                                        let signer = txn.get("signer_id").and_then(|v| v.as_str()).unwrap_or("");
-                                        let receiver = txn.get("receiver_id").and_then(|v| v.as_str()).unwrap_or("");
+                                        let tx_hash =
+                                            txn.get("hash").and_then(|v| v.as_str()).unwrap_or("");
+                                        let signer = txn
+                                            .get("signer_id")
+                                            .and_then(|v| v.as_str())
+                                            .unwrap_or("");
+                                        let receiver = txn
+                                            .get("receiver_id")
+                                            .and_then(|v| v.as_str())
+                                            .unwrap_or("");
                                         let actions = txn.get("actions").and_then(|v| v.as_array());
                                         let mut vout_entries = Vec::new();
                                         if let Some(acts) = actions {
                                             for (i, act) in acts.iter().enumerate() {
-                                                let (addr, amt) = if let Some(transfer) = act.get("Transfer") {
-                                                    let deposit = transfer.get("deposit").and_then(|v| v.as_str()).unwrap_or("0");
+                                                let (addr, amt) = if let Some(transfer) =
+                                                    act.get("Transfer")
+                                                {
+                                                    let deposit = transfer
+                                                        .get("deposit")
+                                                        .and_then(|v| v.as_str())
+                                                        .unwrap_or("0");
                                                     let yocto: u128 = deposit.parse().unwrap_or(0);
-                                                    let sat = yocto / crate::tx_translator::YOCTO_PER_SATOSHI;
-                                                    (receiver.to_string(), sat as f64 / 100_000_000.0)
+                                                    let sat = yocto
+                                                        / crate::tx_translator::YOCTO_PER_SATOSHI;
+                                                    (
+                                                        receiver.to_string(),
+                                                        sat as f64 / 100_000_000.0,
+                                                    )
                                                 } else {
                                                     (receiver.to_string(), 0.0)
                                                 };
@@ -1149,27 +1313,30 @@ async fn handle_getblock(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcR
                 json!(tx_hashes)
             };
 
-            ok_response(&request.id, json!({
-                "hash": hash,
-                "height": height,
-                "confirmations": confirmations,
-                "time": timestamp,
-                "mediantime": timestamp,
-                "previousblockhash": prev_hash,
-                "merkleroot": merkleroot,
-                "tx": tx_field,
-                "nTx": tx_hashes.len(),
-                "difficulty": 1.0,
-                "chainwork": format!("{:064x}", height as u128 * 0x100000000u128),
-                "nonce": 0,
-                "bits": "1d00ffff",
-                "size": gas_used / 1000,
-                "strippedsize": gas_used / 1000,
-                "weight": gas_used / 250,
-                "version": 1,
-                "versionHex": "00000001",
-                "nchunks": chunk_count
-            }))
+            ok_response(
+                &request.id,
+                json!({
+                    "hash": hash,
+                    "height": height,
+                    "confirmations": confirmations,
+                    "time": timestamp,
+                    "mediantime": timestamp,
+                    "previousblockhash": prev_hash,
+                    "merkleroot": merkleroot,
+                    "tx": tx_field,
+                    "nTx": tx_hashes.len(),
+                    "difficulty": 1.0,
+                    "chainwork": format!("{:064x}", height as u128 * 0x100000000u128),
+                    "nonce": 0,
+                    "bits": "1d00ffff",
+                    "size": gas_used / 1000,
+                    "strippedsize": gas_used / 1000,
+                    "weight": gas_used / 250,
+                    "version": 1,
+                    "versionHex": "00000001",
+                    "nchunks": chunk_count
+                }),
+            )
         }
         Err(e) => {
             log::warn!("getblock failed for {}: {}", block_id, e);
@@ -1181,21 +1348,20 @@ async fn handle_getblock(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcR
 async fn handle_getblockhash(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     let height = get_u64_param(&request.params, 0);
     match height {
-        Some(h) => {
-            match state.near_client.block_by_height(h).await {
-                Ok(block) => {
-                    let hash = block.get("header")
-                        .and_then(|h| h.get("hash"))
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("");
-                    ok_response(&request.id, json!(hash))
-                }
-                Err(e) => {
-                    log::warn!("getblockhash failed for height {}: {}", h, e);
-                    err_response(&request.id, -8, format!("Block height {} out of range", h))
-                }
+        Some(h) => match state.near_client.block_by_height(h).await {
+            Ok(block) => {
+                let hash = block
+                    .get("header")
+                    .and_then(|h| h.get("hash"))
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                ok_response(&request.id, json!(hash))
             }
-        }
+            Err(e) => {
+                log::warn!("getblockhash failed for height {}: {}", h, e);
+                err_response(&request.id, -8, format!("Block height {} out of range", h))
+            }
+        },
         None => err_response(&request.id, -32602, "Missing height parameter".to_string()),
     }
 }
@@ -1208,9 +1374,17 @@ async fn handle_getbalance(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
     let account_id = if let Some(params) = request.params.as_array() {
         // Bitcoin Core: getbalance("*") or getbalance("") or getbalance() all mean "total wallet balance"
         let first = params.first().and_then(|v| v.as_str()).unwrap_or("");
-        if first == "*" || first.is_empty() { "" } else { first }
+        if first == "*" || first.is_empty() {
+            ""
+        } else {
+            first
+        }
     } else if let Some(addr) = request.params.as_str() {
-        if addr == "*" { "" } else { addr }
+        if addr == "*" {
+            ""
+        } else {
+            addr
+        }
     } else {
         ""
     };
@@ -1257,31 +1431,42 @@ async fn handle_getaccount(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
     }
 
     match state.near_client.view_account(account_id).await {
-        Ok(account) => ok_response(&request.id, json!({
-            "address": account_id,
-            "balance": account.balance_as_btc(),
-            "balance_satoshis": account.balance_as_satoshis(),
-            "balance_yocto": account.amount,
-            "staked": account.locked_as_btc(),
-            "staked_yocto": account.locked,
-            "block_height": account.block_height,
-            "block_hash": account.block_hash
-        })),
+        Ok(account) => ok_response(
+            &request.id,
+            json!({
+                "address": account_id,
+                "balance": account.balance_as_btc(),
+                "balance_satoshis": account.balance_as_satoshis(),
+                "balance_yocto": account.amount,
+                "staked": account.locked_as_btc(),
+                "staked_yocto": account.locked,
+                "block_height": account.block_height,
+                "block_hash": account.block_hash
+            }),
+        ),
         Err(e) => err_response(&request.id, -32000, format!("Account not found: {}", e)),
     }
 }
 
 async fn handle_listunspent(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     // listunspent [minconf] [maxconf] [addresses]
-    let explicit_addresses: Vec<String> = request.params.as_array()
+    let explicit_addresses: Vec<String> = request
+        .params
+        .as_array()
         .and_then(|arr| arr.get(2))
         .and_then(|v| v.as_array())
-        .map(|addrs| addrs.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect())
+        .map(|addrs| {
+            addrs
+                .iter()
+                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                .collect()
+        })
         .unwrap_or_default();
 
     // If no addresses specified, use all keystore addresses including watch-only
     let keystore = state.keystore.read().await;
-    let watch_only_set: std::collections::HashSet<String> = keystore.watch_only_addresses().iter().cloned().collect();
+    let watch_only_set: std::collections::HashSet<String> =
+        keystore.watch_only_addresses().iter().cloned().collect();
     let addresses: Vec<String> = if explicit_addresses.is_empty() {
         keystore.all_addresses()
     } else {
@@ -1321,14 +1506,20 @@ async fn handle_listunspent(state: &RpcState, request: &JsonRpcRequest) -> JsonR
 
 async fn handle_getnewaddress(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     if !state.is_wallet_unlocked().await {
-        return err_response(&request.id, -13, "Error: Please enter the wallet passphrase with walletpassphrase first.".to_string());
+        return err_response(
+            &request.id,
+            -13,
+            "Error: Please enter the wallet passphrase with walletpassphrase first.".to_string(),
+        );
     }
 
     // Generate a real secp256k1 keypair
     use sha2::Digest;
 
     // Check address_type parameter: "legacy" for P2PKH, "bech32" (default) for P2WPKH
-    let addr_type = request.params.as_array()
+    let addr_type = request
+        .params
+        .as_array()
         .and_then(|arr| arr.get(1))
         .and_then(|v| v.as_str())
         .unwrap_or("bech32");
@@ -1346,7 +1537,8 @@ async fn handle_getnewaddress(state: &RpcState, request: &JsonRpcRequest) -> Jso
     p2pkh_payload.extend_from_slice(&pubkey_hash);
     let checksum = sha2::Sha256::digest(&sha2::Sha256::digest(&p2pkh_payload));
     p2pkh_payload.extend_from_slice(&checksum[..4]);
-    let p2pkh_address = bs58::encode(&p2pkh_payload).into_string().to_lowercase();
+    let p2pkh_address = bs58::encode(&p2pkh_payload).into_string();
+    let p2pkh_legacy = p2pkh_address.to_lowercase();
     let bech32_address = bech32_encode(state.bech32_hrp(), 0, &pubkey_hash);
 
     let address = if addr_type == "legacy" {
@@ -1369,6 +1561,9 @@ async fn handle_getnewaddress(state: &RpcState, request: &JsonRpcRequest) -> Jso
     {
         let mut keystore = state.keystore.write().await;
         keystore.insert(p2pkh_address.clone(), entry.clone());
+        if p2pkh_legacy != p2pkh_address {
+            keystore.insert(p2pkh_legacy, entry.clone());
+        }
         keystore.insert(bech32_address.clone(), entry);
         state.save_keystore(&keystore).await;
     }
@@ -1400,10 +1595,15 @@ async fn handle_validateaddress(state: &RpcState, request: &JsonRpcRequest) -> J
         (None, None)
     };
 
-    let script_type = if addr.starts_with(&bech32_q) { "witness_v0_keyhash" }
-        else if addr.starts_with(&bech32_p) { "witness_v1_taproot" }
-        else if addr.starts_with("3") { "scripthash" }
-        else { "pubkeyhash" };
+    let script_type = if addr.starts_with(&bech32_q) {
+        "witness_v0_keyhash"
+    } else if addr.starts_with(&bech32_p) {
+        "witness_v1_taproot"
+    } else if addr.starts_with("3") {
+        "scripthash"
+    } else {
+        "pubkeyhash"
+    };
 
     // Check if account exists on-chain
     let is_on_chain = state.near_client.view_account(addr).await.is_ok();
@@ -1441,7 +1641,11 @@ async fn handle_validateaddress(state: &RpcState, request: &JsonRpcRequest) -> J
 
 async fn handle_dumpprivkey(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     if !state.is_wallet_unlocked().await {
-        return err_response(&request.id, -13, "Error: Please enter the wallet passphrase with walletpassphrase first.".to_string());
+        return err_response(
+            &request.id,
+            -13,
+            "Error: Please enter the wallet passphrase with walletpassphrase first.".to_string(),
+        );
     }
     let addr = match get_str_param(&request.params, 0) {
         Some(a) => a,
@@ -1455,7 +1659,11 @@ async fn handle_dumpprivkey(state: &RpcState, request: &JsonRpcRequest) -> JsonR
             let wif = privkey_hex_to_wif(&entry.private_key_hex, state.is_testnet());
             ok_response(&request.id, json!(wif))
         }
-        None => err_response(&request.id, -4, format!("Private key not available for {}", addr)),
+        None => err_response(
+            &request.id,
+            -4,
+            format!("Private key not available for {}", addr),
+        ),
     }
 }
 
@@ -1481,7 +1689,8 @@ fn privkey_hex_to_wif(hex_key: &str, testnet: bool) -> String {
 /// Returns (hex_string, compressed) or error.
 fn wif_to_privkey_hex(wif: &str) -> Result<(String, bool), String> {
     use sha2::Digest;
-    let bytes = bs58::decode(wif).into_vec()
+    let bytes = bs58::decode(wif)
+        .into_vec()
         .map_err(|e| format!("Invalid WIF base58: {}", e))?;
     if bytes.len() < 5 {
         return Err("WIF too short".to_string());
@@ -1510,7 +1719,11 @@ fn wif_to_privkey_hex(wif: &str) -> Result<(String, bool), String> {
 
 async fn handle_importprivkey(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     if !state.is_wallet_unlocked().await {
-        return err_response(&request.id, -13, "Error: Please enter the wallet passphrase with walletpassphrase first.".to_string());
+        return err_response(
+            &request.id,
+            -13,
+            "Error: Please enter the wallet passphrase with walletpassphrase first.".to_string(),
+        );
     }
     let privkey_input = match get_str_param(&request.params, 0) {
         Some(k) => k,
@@ -1525,7 +1738,13 @@ async fn handle_importprivkey(state: &RpcState, request: &JsonRpcRequest) -> Jso
         // Try WIF decode
         match wif_to_privkey_hex(privkey_input) {
             Ok((hex_key, _compressed)) => hex_key,
-            Err(e) => return err_response(&request.id, -5, format!("Invalid private key (expected WIF or 64-char hex): {}", e)),
+            Err(e) => {
+                return err_response(
+                    &request.id,
+                    -5,
+                    format!("Invalid private key (expected WIF or 64-char hex): {}", e),
+                )
+            }
         }
     };
 
@@ -1550,12 +1769,17 @@ async fn handle_importprivkey(state: &RpcState, request: &JsonRpcRequest) -> Jso
     let pubkey_hash = ripemd::Ripemd160::digest(&sha_hash);
 
     // P2PKH address (dynamic version byte)
-    let version_byte: u8 = if state.bech32_hrp() == "bc" { 0x00 } else { 0x6F };
+    let version_byte: u8 = if state.bech32_hrp() == "bc" {
+        0x00
+    } else {
+        0x6F
+    };
     let mut payload = vec![version_byte];
     payload.extend_from_slice(&pubkey_hash);
     let checksum = sha2::Sha256::digest(&sha2::Sha256::digest(&payload));
     payload.extend_from_slice(&checksum[..4]);
-    let p2pkh_address = bs58::encode(&payload).into_string().to_lowercase();
+    let p2pkh_address = bs58::encode(&payload).into_string();
+    let p2pkh_legacy = p2pkh_address.to_lowercase();
 
     // P2WPKH (bech32) address
     let bech32_address = bech32_encode(state.bech32_hrp(), 0, &pubkey_hash);
@@ -1573,15 +1797,25 @@ async fn handle_importprivkey(state: &RpcState, request: &JsonRpcRequest) -> Jso
         let mut keystore = state.keystore.write().await;
         // Store under both P2PKH and bech32 addresses so either can be used as sender
         keystore.insert(p2pkh_address.clone(), entry.clone());
+        if p2pkh_legacy != p2pkh_address {
+            keystore.insert(p2pkh_legacy, entry.clone());
+        }
         keystore.insert(bech32_address.clone(), entry);
         state.save_keystore(&keystore).await;
     }
 
-    log::info!("Imported private key for addresses: {} and {}", p2pkh_address, bech32_address);
+    log::info!(
+        "Imported private key for addresses: {} and {}",
+        p2pkh_address,
+        bech32_address
+    );
     ok_response(&request.id, json!(p2pkh_address))
 }
 
-async fn handle_listaddressgroupings(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+async fn handle_listaddressgroupings(
+    state: &RpcState,
+    request: &JsonRpcRequest,
+) -> JsonRpcResponse {
     let keystore = state.keystore.read().await;
     let addrs: Vec<String> = keystore.all_addresses();
     drop(keystore);
@@ -1613,13 +1847,25 @@ async fn handle_getaddressesbylabel(state: &RpcState, request: &JsonRpcRequest) 
 async fn handle_sendrawtransaction(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     let raw_hex = match get_str_param(&request.params, 0) {
         Some(hex) => hex,
-        None => return err_response(&request.id, -32602, "Missing raw transaction hex".to_string()),
+        None => {
+            return err_response(
+                &request.id,
+                -32602,
+                "Missing raw transaction hex".to_string(),
+            )
+        }
     };
 
     // Check if this is a bitinfinity signed intent (from signrawtransactionwithwallet)
     let decoded_bytes = match hex::decode(raw_hex) {
         Ok(b) => b,
-        Err(e) => return err_response(&request.id, -22, format!("TX decode failed: invalid hex: {}", e)),
+        Err(e) => {
+            return err_response(
+                &request.id,
+                -22,
+                format!("TX decode failed: invalid hex: {}", e),
+            )
+        }
     };
     let decoded_str = String::from_utf8(decoded_bytes).unwrap_or_default();
 
@@ -1628,30 +1874,52 @@ async fn handle_sendrawtransaction(state: &RpcState, request: &JsonRpcRequest) -
         let json_str = &decoded_str[SIGNED_INTENT_PREFIX.len()..];
         let payload: serde_json::Value = match serde_json::from_str(json_str) {
             Ok(v) => v,
-            Err(e) => return err_response(&request.id, -22, format!("Invalid signed intent: {}", e)),
+            Err(e) => {
+                return err_response(&request.id, -22, format!("Invalid signed intent: {}", e))
+            }
         };
 
-        let sender = payload.get("sender").and_then(|v| v.as_str()).unwrap_or("").to_string();
-        let btc_txid = payload.get("btc_txid").and_then(|v| v.as_str()).unwrap_or("").to_string();
-        let total_amount_sat = payload.get("total_amount_sat").and_then(|v| v.as_u64())
+        let sender = payload
+            .get("sender")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let btc_txid = payload
+            .get("btc_txid")
+            .and_then(|v| v.as_str())
+            .unwrap_or("")
+            .to_string();
+        let total_amount_sat = payload
+            .get("total_amount_sat")
+            .and_then(|v| v.as_u64())
             .or_else(|| payload.get("amount_sat").and_then(|v| v.as_u64()))
             .unwrap_or(0);
 
         // Handle both new multi-tx format and old single-tx format
-        let near_txs: Vec<serde_json::Value> = if let Some(txs) = payload.get("near_txs").and_then(|v| v.as_array()) {
-            txs.clone()
-        } else if let Some(near_tx) = payload.get("near_tx").and_then(|v| v.as_str()) {
-            // Legacy single-tx format
-            vec![json!({
-                "near_tx": near_tx,
-                "nonce": payload.get("nonce").and_then(|v| v.as_u64()).unwrap_or(0),
-            })]
-        } else {
-            return err_response(&request.id, -22, "No NEAR transactions in signed intent".to_string());
-        };
+        let near_txs: Vec<serde_json::Value> =
+            if let Some(txs) = payload.get("near_txs").and_then(|v| v.as_array()) {
+                txs.clone()
+            } else if let Some(near_tx) = payload.get("near_tx").and_then(|v| v.as_str()) {
+                // Legacy single-tx format
+                vec![json!({
+                    "near_tx": near_tx,
+                    "nonce": payload.get("nonce").and_then(|v| v.as_u64()).unwrap_or(0),
+                })]
+            } else {
+                return err_response(
+                    &request.id,
+                    -22,
+                    "No NEAR transactions in signed intent".to_string(),
+                );
+            };
 
-        log::info!("sendrawtransaction (signed intent): sender={}, btc_txid={}, {} outputs, {} sat total",
-            sender, btc_txid, near_txs.len(), total_amount_sat);
+        log::info!(
+            "sendrawtransaction (signed intent): sender={}, btc_txid={}, {} outputs, {} sat total",
+            sender,
+            btc_txid,
+            near_txs.len(),
+            total_amount_sat
+        );
 
         // Submit all NEAR transactions
         let mut primary_hash = String::new();
@@ -1663,11 +1931,17 @@ async fn handle_sendrawtransaction(state: &RpcState, request: &JsonRpcRequest) -
                 Ok(hash) => {
                     log::info!("NEAR tx {} submitted: {} (btc_txid: {})", i, hash, btc_txid);
                     state.record_nonce(&sender, nonce).await;
-                    if i == 0 { primary_hash = hash; }
+                    if i == 0 {
+                        primary_hash = hash;
+                    }
                 }
                 Err(e) => {
                     log::error!("NEAR tx {} submission failed: {}", i, e);
-                    return err_response(&request.id, -25, format!("Transaction submission failed for output {}: {}", i, e));
+                    return err_response(
+                        &request.id,
+                        -25,
+                        format!("Transaction submission failed for output {}: {}", i, e),
+                    );
                 }
             }
         }
@@ -1675,7 +1949,12 @@ async fn handle_sendrawtransaction(state: &RpcState, request: &JsonRpcRequest) -
         // Cache the mapping
         {
             let mut cache = state.tx_cache.write().await;
-            cache.insert(btc_txid.clone(), primary_hash.clone(), raw_hex.to_string(), sender);
+            cache.insert(
+                btc_txid.clone(),
+                primary_hash.clone(),
+                raw_hex.to_string(),
+                sender,
+            );
         }
 
         return ok_response(&request.id, json!(btc_txid));
@@ -1691,7 +1970,9 @@ async fn handle_sendrawtransaction(state: &RpcState, request: &JsonRpcRequest) -
     let sender = parsed.sender_address.clone();
 
     // Collect all payment outputs (non-change, non-OP_RETURN)
-    let payment_outputs: Vec<&TxOutput> = parsed.outputs.iter()
+    let payment_outputs: Vec<&TxOutput> = parsed
+        .outputs
+        .iter()
         .filter(|o| !o.is_op_return && !o.address.is_empty() && o.address != sender)
         .collect();
 
@@ -1702,7 +1983,9 @@ async fn handle_sendrawtransaction(state: &RpcState, request: &JsonRpcRequest) -
     let total_sat: u64 = payment_outputs.iter().map(|o| o.amount_satoshis).sum();
     log::info!(
         "sendrawtransaction: {} -> {} outputs ({} sat total)",
-        sender, payment_outputs.len(), total_sat
+        sender,
+        payment_outputs.len(),
+        total_sat
     );
     for o in &payment_outputs {
         log::info!("  output: {} -> {} sat", o.address, o.amount_satoshis);
@@ -1717,7 +2000,10 @@ async fn handle_sendrawtransaction(state: &RpcState, request: &JsonRpcRequest) -
     let key_entry = match key_entry {
         Some(k) => k,
         None => {
-            log::error!("No private key found for sender {} — cannot sign transaction", sender);
+            log::error!(
+                "No private key found for sender {} — cannot sign transaction",
+                sender
+            );
             return err_response(&request.id, -4, format!(
                 "No private key found for address {}. Use getnewaddress to generate a key, or importprivkey to import one.",
                 sender
@@ -1762,7 +2048,9 @@ async fn handle_sendrawtransaction(state: &RpcState, request: &JsonRpcRequest) -
     if let Some(func_call) = parsed.decode_near_function_call() {
         log::info!(
             "OP_RETURN function call: {}.{}({})",
-            func_call.contract_id, func_call.method_name, func_call.args_base64
+            func_call.contract_id,
+            func_call.method_name,
+            func_call.args_base64
         );
 
         use base64::Engine;
@@ -1787,7 +2075,9 @@ async fn handle_sendrawtransaction(state: &RpcState, request: &JsonRpcRequest) -
 
         let signed_tx_base64 = match params.sign_and_encode(&secret_key) {
             Ok(encoded) => encoded,
-            Err(e) => return err_response(&request.id, -32000, format!("TX signing failed: {}", e)),
+            Err(e) => {
+                return err_response(&request.id, -32000, format!("TX signing failed: {}", e))
+            }
         };
 
         let near_tx_hash = match state.near_client.send_tx_async(&signed_tx_base64).await {
@@ -1798,12 +2088,21 @@ async fn handle_sendrawtransaction(state: &RpcState, request: &JsonRpcRequest) -
             }
             Err(e) => {
                 log::error!("NEAR tx submission failed: {} (btc_txid: {})", e, btc_txid);
-                return err_response(&request.id, -25, format!("Transaction submission failed: {}", e));
+                return err_response(
+                    &request.id,
+                    -25,
+                    format!("Transaction submission failed: {}", e),
+                );
             }
         };
 
         let mut cache = state.tx_cache.write().await;
-        cache.insert(btc_txid.clone(), near_tx_hash.clone(), raw_hex.to_string(), sender.clone());
+        cache.insert(
+            btc_txid.clone(),
+            near_tx_hash.clone(),
+            raw_hex.to_string(),
+            sender.clone(),
+        );
         return ok_response(&request.id, json!(btc_txid));
     }
 
@@ -1825,25 +2124,38 @@ async fn handle_sendrawtransaction(state: &RpcState, request: &JsonRpcRequest) -
 
         let signed_tx_base64 = match params.sign_and_encode(&secret_key) {
             Ok(encoded) => encoded,
-            Err(e) => return err_response(&request.id, -32000, format!("TX signing failed: {}", e)),
+            Err(e) => {
+                return err_response(&request.id, -32000, format!("TX signing failed: {}", e))
+            }
         };
 
         match state.near_client.send_tx_async(&signed_tx_base64).await {
             Ok(hash) => {
                 log::info!(
                     "NEAR tx submitted: {} -> {} ({} sat) near_hash={}",
-                    sender, output.address, output.amount_satoshis, hash
+                    sender,
+                    output.address,
+                    output.amount_satoshis,
+                    hash
                 );
                 near_tx_hashes.push(hash);
                 state.record_nonce(&sender, current_nonce).await;
                 current_nonce += 1;
             }
             Err(e) => {
-                log::error!("NEAR tx submission failed for output to {}: {}", output.address, e);
-                return err_response(&request.id, -25, format!(
-                    "Transaction submission failed for output to {}: {}",
-                    output.address, e
-                ));
+                log::error!(
+                    "NEAR tx submission failed for output to {}: {}",
+                    output.address,
+                    e
+                );
+                return err_response(
+                    &request.id,
+                    -25,
+                    format!(
+                        "Transaction submission failed for output to {}: {}",
+                        output.address, e
+                    ),
+                );
             }
         }
     }
@@ -1852,12 +2164,20 @@ async fn handle_sendrawtransaction(state: &RpcState, request: &JsonRpcRequest) -
     let primary_hash = near_tx_hashes.first().cloned().unwrap_or_default();
     {
         let mut cache = state.tx_cache.write().await;
-        cache.insert(btc_txid.clone(), primary_hash.clone(), raw_hex.to_string(), sender.clone());
+        cache.insert(
+            btc_txid.clone(),
+            primary_hash.clone(),
+            raw_hex.to_string(),
+            sender.clone(),
+        );
     }
 
     log::info!(
         "Transaction submitted: btc_txid={}, {} NEAR txs, sender={}, total={} sat",
-        btc_txid, near_tx_hashes.len(), sender, total_sat
+        btc_txid,
+        near_tx_hashes.len(),
+        sender,
+        total_sat
     );
 
     ok_response(&request.id, json!(btc_txid))
@@ -1872,7 +2192,9 @@ async fn handle_getrawtransaction(state: &RpcState, request: &JsonRpcRequest) ->
     let cache = state.tx_cache.read().await;
     match cache.get(txid) {
         Some(entry) => {
-            let verbose = request.params.as_array()
+            let verbose = request
+                .params
+                .as_array()
                 .and_then(|arr| arr.get(1))
                 .and_then(|v| v.as_u64())
                 .unwrap_or(0);
@@ -1883,37 +2205,54 @@ async fn handle_getrawtransaction(state: &RpcState, request: &JsonRpcRequest) ->
             } else {
                 // Return decoded verbose format
                 // Try to get real confirmations from NEAR
-                let (confirmations, blockhash, blocktime) = if entry.near_tx_hash.starts_with("pending:") || entry.near_tx_hash.starts_with("error:") {
-                    (0i64, String::new(), 0i64)
-                } else {
-                    match state.near_client.tx_status(&entry.near_tx_hash, &entry.sender_id).await {
-                        Ok(tx_result) => {
-                            let tx_block_hash = tx_result.get("transaction_outcome")
-                                .and_then(|o| o.get("block_hash"))
-                                .and_then(|v| v.as_str())
-                                .unwrap_or("")
-                                .to_string();
-                            if !tx_block_hash.is_empty() {
-                                match state.near_client.block_by_hash(&tx_block_hash).await {
-                                    Ok(block) => {
-                                        let header = block.get("header").unwrap_or(&block);
-                                        let ts = header.get("timestamp")
-                                            .and_then(|v| v.as_u64())
-                                            .map(|t| (t / 1_000_000_000) as i64)
-                                            .unwrap_or(0);
-                                        let h = header.get("height").and_then(|v| v.as_u64()).unwrap_or(0);
-                                        let current = state.near_client.status().await.map(|s| s.latest_block_height).unwrap_or(h);
-                                        ((current - h + 1) as i64, tx_block_hash, ts)
+                let (confirmations, blockhash, blocktime) =
+                    if entry.near_tx_hash.starts_with("pending:")
+                        || entry.near_tx_hash.starts_with("error:")
+                    {
+                        (0i64, String::new(), 0i64)
+                    } else {
+                        match state
+                            .near_client
+                            .tx_status(&entry.near_tx_hash, &entry.sender_id)
+                            .await
+                        {
+                            Ok(tx_result) => {
+                                let tx_block_hash = tx_result
+                                    .get("transaction_outcome")
+                                    .and_then(|o| o.get("block_hash"))
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("")
+                                    .to_string();
+                                if !tx_block_hash.is_empty() {
+                                    match state.near_client.block_by_hash(&tx_block_hash).await {
+                                        Ok(block) => {
+                                            let header = block.get("header").unwrap_or(&block);
+                                            let ts = header
+                                                .get("timestamp")
+                                                .and_then(|v| v.as_u64())
+                                                .map(|t| (t / 1_000_000_000) as i64)
+                                                .unwrap_or(0);
+                                            let h = header
+                                                .get("height")
+                                                .and_then(|v| v.as_u64())
+                                                .unwrap_or(0);
+                                            let current = state
+                                                .near_client
+                                                .status()
+                                                .await
+                                                .map(|s| s.latest_block_height)
+                                                .unwrap_or(h);
+                                            ((current - h + 1) as i64, tx_block_hash, ts)
+                                        }
+                                        Err(_) => (1, tx_block_hash, 0),
                                     }
-                                    Err(_) => (1, tx_block_hash, 0)
+                                } else {
+                                    (1, String::new(), 0)
                                 }
-                            } else {
-                                (1, String::new(), 0)
                             }
+                            Err(_) => (1, String::new(), 0),
                         }
-                        Err(_) => (1, String::new(), 0)
-                    }
-                };
+                    };
 
                 // Try parsing as actual Bitcoin tx, fall back to synthetic format
                 if entry.raw_hex.starts_with("sendtoaddress:") {
@@ -1922,106 +2261,115 @@ async fn handle_getrawtransaction(state: &RpcState, request: &JsonRpcRequest) ->
                     let recipient = parts.get(1).unwrap_or(&"");
                     let satoshis: u64 = parts.get(2).and_then(|s| s.parse().ok()).unwrap_or(0);
                     let est_size = 110u64; // estimated P2WPKH tx size
-                    ok_response(&request.id, json!({
-                        "txid": txid,
-                        "hash": txid,
-                        "size": est_size,
-                        "vsize": est_size,
-                        "weight": est_size * 4,
-                        "version": 2,
-                        "locktime": 0,
-                        "vin": [{
-                            "txid": "0000000000000000000000000000000000000000000000000000000000000000",
-                            "vout": 0,
-                            "scriptSig": { "asm": "", "hex": "" },
-                            "sequence": 4294967295u64
-                        }],
-                        "vout": [{
-                            "value": satoshis as f64 / 100_000_000.0,
-                            "n": 0,
-                            "scriptPubKey": build_script_pub_key_json(recipient, false, state.bech32_hrp())
-                        }],
-                        "blockhash": blockhash,
-                        "confirmations": confirmations,
-                        "blocktime": blocktime,
-                        "time": blocktime,
-                        "near_tx_hash": entry.near_tx_hash
-                    }))
+                    ok_response(
+                        &request.id,
+                        json!({
+                            "txid": txid,
+                            "hash": txid,
+                            "size": est_size,
+                            "vsize": est_size,
+                            "weight": est_size * 4,
+                            "version": 2,
+                            "locktime": 0,
+                            "vin": [{
+                                "txid": "0000000000000000000000000000000000000000000000000000000000000000",
+                                "vout": 0,
+                                "scriptSig": { "asm": "", "hex": "" },
+                                "sequence": 4294967295u64
+                            }],
+                            "vout": [{
+                                "value": satoshis as f64 / 100_000_000.0,
+                                "n": 0,
+                                "scriptPubKey": build_script_pub_key_json(recipient, false, state.bech32_hrp())
+                            }],
+                            "blockhash": blockhash,
+                            "confirmations": confirmations,
+                            "blocktime": blocktime,
+                            "time": blocktime,
+                            "near_tx_hash": entry.near_tx_hash
+                        }),
+                    )
                 } else if entry.is_incoming || entry.raw_hex.starts_with("incoming:") {
                     // Incoming transfer detected by indexer
                     let recv_addr = &entry.receiver_id;
                     let amount_sat = entry.amount_satoshis;
                     let est_size = 110u64;
-                    ok_response(&request.id, json!({
-                        "txid": txid,
-                        "hash": txid,
-                        "size": est_size,
-                        "vsize": est_size,
-                        "weight": est_size * 4,
-                        "version": 2,
-                        "locktime": 0,
-                        "vin": [{
-                            "txid": "0000000000000000000000000000000000000000000000000000000000000000",
-                            "vout": 0,
-                            "scriptSig": { "asm": "", "hex": "" },
-                            "sequence": 4294967295u64
-                        }],
-                        "vout": [{
-                            "value": amount_sat as f64 / 100_000_000.0,
-                            "n": 0,
-                            "scriptPubKey": build_script_pub_key_json(recv_addr, false, state.bech32_hrp())
-                        }],
-                        "blockhash": blockhash,
-                        "confirmations": confirmations,
-                        "blocktime": blocktime,
-                        "time": blocktime,
-                        "near_tx_hash": entry.near_tx_hash
-                    }))
+                    ok_response(
+                        &request.id,
+                        json!({
+                            "txid": txid,
+                            "hash": txid,
+                            "size": est_size,
+                            "vsize": est_size,
+                            "weight": est_size * 4,
+                            "version": 2,
+                            "locktime": 0,
+                            "vin": [{
+                                "txid": "0000000000000000000000000000000000000000000000000000000000000000",
+                                "vout": 0,
+                                "scriptSig": { "asm": "", "hex": "" },
+                                "sequence": 4294967295u64
+                            }],
+                            "vout": [{
+                                "value": amount_sat as f64 / 100_000_000.0,
+                                "n": 0,
+                                "scriptPubKey": build_script_pub_key_json(recv_addr, false, state.bech32_hrp())
+                            }],
+                            "blockhash": blockhash,
+                            "confirmations": confirmations,
+                            "blocktime": blocktime,
+                            "time": blocktime,
+                            "near_tx_hash": entry.near_tx_hash
+                        }),
+                    )
                 } else {
                     match ParsedBitcoinTx::from_hex_with_hrp(&entry.raw_hex, state.bech32_hrp()) {
                         Ok(parsed) => {
                             let vsize = (parsed.weight + 3) / 4;
-                            ok_response(&request.id, json!({
-                                "txid": parsed.txid,
-                                "hash": parsed.txid,
-                                "size": parsed.raw_hex.len() / 2,
-                                "vsize": vsize,
-                                "weight": parsed.weight,
-                                "version": parsed.version,
-                                "locktime": parsed.locktime,
-                                "vin": parsed.inputs.iter().map(|inp| {
-                                    let mut vin_obj = json!({
-                                        "txid": inp.txid,
-                                        "vout": inp.vout,
-                                        "scriptSig": {
-                                            "asm": inp.script_sig_asm,
-                                            "hex": inp.script_sig_hex
-                                        },
-                                        "sequence": inp.sequence
-                                    });
-                                    if !inp.txinwitness.is_empty() {
-                                        if let Some(obj) = vin_obj.as_object_mut() {
-                                            obj.insert(
-                                                "txinwitness".to_string(),
-                                                json!(inp.txinwitness)
-                                            );
+                            ok_response(
+                                &request.id,
+                                json!({
+                                    "txid": parsed.txid,
+                                    "hash": parsed.txid,
+                                    "size": parsed.raw_hex.len() / 2,
+                                    "vsize": vsize,
+                                    "weight": parsed.weight,
+                                    "version": parsed.version,
+                                    "locktime": parsed.locktime,
+                                    "vin": parsed.inputs.iter().map(|inp| {
+                                        let mut vin_obj = json!({
+                                            "txid": inp.txid,
+                                            "vout": inp.vout,
+                                            "scriptSig": {
+                                                "asm": inp.script_sig_asm,
+                                                "hex": inp.script_sig_hex
+                                            },
+                                            "sequence": inp.sequence
+                                        });
+                                        if !inp.txinwitness.is_empty() {
+                                            if let Some(obj) = vin_obj.as_object_mut() {
+                                                obj.insert(
+                                                    "txinwitness".to_string(),
+                                                    json!(inp.txinwitness)
+                                                );
+                                            }
                                         }
-                                    }
-                                    vin_obj
-                                }).collect::<Vec<_>>(),
-                                "vout": parsed.outputs.iter().enumerate().map(|(i, o)| {
-                                    json!({
-                                        "value": o.amount_satoshis as f64 / 100_000_000.0,
-                                        "n": i,
-                                        "scriptPubKey": build_script_pub_key_json(&o.address, o.is_op_return, state.bech32_hrp())
-                                    })
-                                }).collect::<Vec<_>>(),
-                                "blockhash": blockhash,
-                                "confirmations": confirmations,
-                                "blocktime": blocktime,
-                                "time": blocktime,
-                                "near_tx_hash": entry.near_tx_hash
-                            }))
+                                        vin_obj
+                                    }).collect::<Vec<_>>(),
+                                    "vout": parsed.outputs.iter().enumerate().map(|(i, o)| {
+                                        json!({
+                                            "value": o.amount_satoshis as f64 / 100_000_000.0,
+                                            "n": i,
+                                            "scriptPubKey": build_script_pub_key_json(&o.address, o.is_op_return, state.bech32_hrp())
+                                        })
+                                    }).collect::<Vec<_>>(),
+                                    "blockhash": blockhash,
+                                    "confirmations": confirmations,
+                                    "blocktime": blocktime,
+                                    "time": blocktime,
+                                    "near_tx_hash": entry.near_tx_hash
+                                }),
+                            )
                         }
                         Err(e) => err_response(&request.id, -5, format!("TX parse error: {}", e)),
                     }
@@ -2042,12 +2390,27 @@ async fn handle_gettransaction(state: &RpcState, request: &JsonRpcRequest) -> Js
     match cache.get(txid) {
         Some(entry) => {
             // Try to get NEAR transaction status and block info
-            let (confirmations, blockhash, blocktime, block_height, details) = if entry.near_tx_hash.starts_with("pending:") || entry.near_tx_hash.starts_with("error:") {
-                (0i64, String::new(), chrono::Utc::now().timestamp(), 0u64, vec![])
+            let (confirmations, blockhash, blocktime, block_height, details) = if entry
+                .near_tx_hash
+                .starts_with("pending:")
+                || entry.near_tx_hash.starts_with("error:")
+            {
+                (
+                    0i64,
+                    String::new(),
+                    chrono::Utc::now().timestamp(),
+                    0u64,
+                    vec![],
+                )
             } else {
-                match state.near_client.tx_status(&entry.near_tx_hash, &entry.sender_id).await {
+                match state
+                    .near_client
+                    .tx_status(&entry.near_tx_hash, &entry.sender_id)
+                    .await
+                {
                     Ok(tx_result) => {
-                        let tx_block_hash = tx_result.get("transaction_outcome")
+                        let tx_block_hash = tx_result
+                            .get("transaction_outcome")
                             .and_then(|o| o.get("block_hash"))
                             .and_then(|v| v.as_str())
                             .unwrap_or("")
@@ -2058,13 +2421,13 @@ async fn handle_gettransaction(state: &RpcState, request: &JsonRpcRequest) -> Js
                             match state.near_client.block_by_hash(&tx_block_hash).await {
                                 Ok(block) => {
                                     let header = block.get("header").unwrap_or(&block);
-                                    let ts = header.get("timestamp")
+                                    let ts = header
+                                        .get("timestamp")
                                         .and_then(|v| v.as_u64())
                                         .map(|t| (t / 1_000_000_000) as i64)
                                         .unwrap_or(chrono::Utc::now().timestamp());
-                                    let h = header.get("height")
-                                        .and_then(|v| v.as_u64())
-                                        .unwrap_or(0);
+                                    let h =
+                                        header.get("height").and_then(|v| v.as_u64()).unwrap_or(0);
                                     (ts, h)
                                 }
                                 Err(_) => (chrono::Utc::now().timestamp(), 0u64),
@@ -2074,7 +2437,10 @@ async fn handle_gettransaction(state: &RpcState, request: &JsonRpcRequest) -> Js
                         };
 
                         // Compute real confirmations
-                        let current_height = state.near_client.status().await
+                        let current_height = state
+                            .near_client
+                            .status()
+                            .await
                             .map(|s| s.latest_block_height)
                             .unwrap_or(bheight);
                         let confs = if bheight > 0 && current_height >= bheight {
@@ -2098,9 +2464,14 @@ async fn handle_gettransaction(state: &RpcState, request: &JsonRpcRequest) -> Js
                                     "fee": 0.0
                                 }));
                             }
-                        } else if let Ok(parsed) = ParsedBitcoinTx::from_hex_with_hrp(&entry.raw_hex, state.bech32_hrp()) {
+                        } else if let Ok(parsed) =
+                            ParsedBitcoinTx::from_hex_with_hrp(&entry.raw_hex, state.bech32_hrp())
+                        {
                             for output in &parsed.outputs {
-                                if !output.is_op_return && !output.address.is_empty() && output.address != entry.sender_id {
+                                if !output.is_op_return
+                                    && !output.address.is_empty()
+                                    && output.address != entry.sender_id
+                                {
                                     det.push(json!({
                                         "address": output.address,
                                         "category": "send",
@@ -2114,7 +2485,13 @@ async fn handle_gettransaction(state: &RpcState, request: &JsonRpcRequest) -> Js
 
                         (confs, tx_block_hash, btime, bheight, det)
                     }
-                    Err(_) => (0i64, String::new(), chrono::Utc::now().timestamp(), 0u64, vec![]),
+                    Err(_) => (
+                        0i64,
+                        String::new(),
+                        chrono::Utc::now().timestamp(),
+                        0u64,
+                        vec![],
+                    ),
                 }
             };
 
@@ -2122,27 +2499,33 @@ async fn handle_gettransaction(state: &RpcState, request: &JsonRpcRequest) -> Js
                 let parts: Vec<&str> = entry.raw_hex.splitn(3, ':').collect();
                 if parts.len() == 3 {
                     parts[2].parse::<u64>().unwrap_or(0) as f64 / 100_000_000.0
-                } else { 0.0 }
+                } else {
+                    0.0
+                }
             } else {
-                ParsedBitcoinTx::from_hex_with_hrp(&entry.raw_hex, state.bech32_hrp()).ok()
+                ParsedBitcoinTx::from_hex_with_hrp(&entry.raw_hex, state.bech32_hrp())
+                    .ok()
                     .map(|p| p.total_payment_satoshis() as f64 / 100_000_000.0)
                     .unwrap_or(0.0)
             };
 
-            ok_response(&request.id, json!({
-                "txid": txid,
-                "amount": amount,
-                "confirmations": confirmations,
-                "blockhash": blockhash,
-                "blockheight": block_height,
-                "blockindex": 0,
-                "blocktime": blocktime,
-                "time": blocktime,
-                "timereceived": blocktime,
-                "details": details,
-                "hex": entry.raw_hex,
-                "near_tx_hash": entry.near_tx_hash
-            }))
+            ok_response(
+                &request.id,
+                json!({
+                    "txid": txid,
+                    "amount": amount,
+                    "confirmations": confirmations,
+                    "blockhash": blockhash,
+                    "blockheight": block_height,
+                    "blockindex": 0,
+                    "blocktime": blocktime,
+                    "time": blocktime,
+                    "timereceived": blocktime,
+                    "details": details,
+                    "hex": entry.raw_hex,
+                    "near_tx_hash": entry.near_tx_hash
+                }),
+            )
         }
         None => err_response(&request.id, -5, format!("Transaction not found: {}", txid)),
     }
@@ -2151,48 +2534,57 @@ async fn handle_gettransaction(state: &RpcState, request: &JsonRpcRequest) -> Js
 fn handle_decoderawtransaction(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     let raw_hex = match get_str_param(&request.params, 0) {
         Some(hex) => hex,
-        None => return err_response(&request.id, -32602, "Missing raw transaction hex".to_string()),
+        None => {
+            return err_response(
+                &request.id,
+                -32602,
+                "Missing raw transaction hex".to_string(),
+            )
+        }
     };
 
     match ParsedBitcoinTx::from_hex_with_hrp(raw_hex, state.bech32_hrp()) {
         Ok(parsed) => {
             let vsize = (parsed.weight + 3) / 4; // ceil(weight/4)
-            ok_response(&request.id, json!({
-                "txid": parsed.txid,
-                "hash": parsed.txid,
-                "size": raw_hex.len() / 2,
-                "vsize": vsize,
-                "weight": parsed.weight,
-                "version": parsed.version,
-                "locktime": parsed.locktime,
-                "vin": parsed.inputs.iter().map(|inp| {
-                    let mut vin_obj = json!({
-                        "txid": inp.txid,
-                        "vout": inp.vout,
-                        "scriptSig": {
-                            "asm": inp.script_sig_asm,
-                            "hex": inp.script_sig_hex
-                        },
-                        "sequence": inp.sequence
-                    });
-                    if !inp.txinwitness.is_empty() {
-                        if let Some(obj) = vin_obj.as_object_mut() {
-                            obj.insert(
-                                "txinwitness".to_string(),
-                                json!(inp.txinwitness)
-                            );
+            ok_response(
+                &request.id,
+                json!({
+                    "txid": parsed.txid,
+                    "hash": parsed.txid,
+                    "size": raw_hex.len() / 2,
+                    "vsize": vsize,
+                    "weight": parsed.weight,
+                    "version": parsed.version,
+                    "locktime": parsed.locktime,
+                    "vin": parsed.inputs.iter().map(|inp| {
+                        let mut vin_obj = json!({
+                            "txid": inp.txid,
+                            "vout": inp.vout,
+                            "scriptSig": {
+                                "asm": inp.script_sig_asm,
+                                "hex": inp.script_sig_hex
+                            },
+                            "sequence": inp.sequence
+                        });
+                        if !inp.txinwitness.is_empty() {
+                            if let Some(obj) = vin_obj.as_object_mut() {
+                                obj.insert(
+                                    "txinwitness".to_string(),
+                                    json!(inp.txinwitness)
+                                );
+                            }
                         }
-                    }
-                    vin_obj
-                }).collect::<Vec<_>>(),
-                "vout": parsed.outputs.iter().enumerate().map(|(i, o)| {
-                    json!({
-                        "value": o.amount_satoshis as f64 / 100_000_000.0,
-                        "n": i,
-                        "scriptPubKey": build_script_pub_key_json(&o.address, o.is_op_return, state.bech32_hrp())
-                    })
-                }).collect::<Vec<_>>()
-            }))
+                        vin_obj
+                    }).collect::<Vec<_>>(),
+                    "vout": parsed.outputs.iter().enumerate().map(|(i, o)| {
+                        json!({
+                            "value": o.amount_satoshis as f64 / 100_000_000.0,
+                            "n": i,
+                            "scriptPubKey": build_script_pub_key_json(&o.address, o.is_op_return, state.bech32_hrp())
+                        })
+                    }).collect::<Vec<_>>()
+                }),
+            )
         }
         Err(e) => err_response(&request.id, -22, format!("TX decode failed: {}", e)),
     }
@@ -2206,7 +2598,10 @@ async fn handle_getnetworkinfo(state: &RpcState, request: &JsonRpcRequest) -> Js
     // Fetch live network info from nearcore
     let (peer_count, near_net) = match state.near_client.network_info().await {
         Ok(info) => {
-            let peers = info.get("num_active_peers").and_then(|v| v.as_u64()).unwrap_or(0);
+            let peers = info
+                .get("num_active_peers")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(0);
             (peers, Some(info))
         }
         Err(_) => (0, None),
@@ -2243,7 +2638,8 @@ async fn handle_getnetworkinfo(state: &RpcState, request: &JsonRpcRequest) -> Js
 
 async fn handle_getconnectioncount(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     let count = match state.near_client.network_info().await {
-        Ok(info) => info.get("num_active_peers")
+        Ok(info) => info
+            .get("num_active_peers")
             .and_then(|v| v.as_u64())
             .unwrap_or(0),
         Err(_) => 0,
@@ -2271,26 +2667,29 @@ async fn handle_getinfo(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcRe
         }
     }
 
-    ok_response(&request.id, json!({
-        "version": state.version,
-        "protocolversion": 70015,
-        "walletversion": 160300,
-        "balance": total_balance,
-        "blocks": block_height,
-        "timeoffset": 0,
-        "connections": match state.near_client.network_info().await {
-            Ok(info) => info.get("num_active_peers").and_then(|v| v.as_u64()).unwrap_or(0),
-            Err(_) => 0,
-        },
-        "difficulty": 1.0,
-        "testnet": state.is_testnet(),
-        "keypoololdest": 0,
-        "keypoolsize": addresses.len(),
-        "unlocked_until": 0,
-        "paytxfee": 0.00001,
-        "relayfee": 0.00001,
-        "warnings": format!("Bitcoin Infinity ({})", state.chain_id)
-    }))
+    ok_response(
+        &request.id,
+        json!({
+            "version": state.version,
+            "protocolversion": 70015,
+            "walletversion": 160300,
+            "balance": total_balance,
+            "blocks": block_height,
+            "timeoffset": 0,
+            "connections": match state.near_client.network_info().await {
+                Ok(info) => info.get("num_active_peers").and_then(|v| v.as_u64()).unwrap_or(0),
+                Err(_) => 0,
+            },
+            "difficulty": 1.0,
+            "testnet": state.is_testnet(),
+            "keypoololdest": 0,
+            "keypoolsize": addresses.len(),
+            "unlocked_until": 0,
+            "paytxfee": 0.00001,
+            "relayfee": 0.00001,
+            "warnings": format!("Bitcoin Infinity ({})", state.chain_id)
+        }),
+    )
 }
 
 // ============================================================================
@@ -2319,10 +2718,13 @@ async fn handle_estimatesmartfee(state: &RpcState, request: &JsonRpcRequest) -> 
         Err(_) => 0.00001, // fallback minimum
     };
 
-    ok_response(&request.id, json!({
-        "feerate": feerate,
-        "blocks": conf_target
-    }))
+    ok_response(
+        &request.id,
+        json!({
+            "feerate": feerate,
+            "blocks": conf_target
+        }),
+    )
 }
 
 // ============================================================================
@@ -2333,25 +2735,41 @@ async fn handle_getmempoolinfo(state: &RpcState, _request: &JsonRpcRequest) -> J
     // NEAR has ~1s finality, so the "mempool" is effectively always empty.
     // Only count pending (unconfirmed) entries as mempool items.
     let tx_cache = state.tx_cache.read().await;
-    let pending: Vec<_> = tx_cache.entries.values()
+    let pending: Vec<_> = tx_cache
+        .entries
+        .values()
         .filter(|e| e.near_tx_hash.starts_with("pending:"))
         .collect();
     let size = pending.len();
-    let bytes: usize = pending.iter().map(|e| if e.raw_hex.is_empty() { 250 } else { e.raw_hex.len() / 2 }).sum();
+    let bytes: usize = pending
+        .iter()
+        .map(|e| {
+            if e.raw_hex.is_empty() {
+                250
+            } else {
+                e.raw_hex.len() / 2
+            }
+        })
+        .sum();
     drop(tx_cache);
-    ok_response(&_request.id, json!({
-        "loaded": true,
-        "size": size,
-        "bytes": bytes,
-        "usage": bytes * 2,
-        "maxmempool": 300000000,
-        "mempoolminfee": 0.00001,
-        "minrelaytxfee": 0.00001
-    }))
+    ok_response(
+        &_request.id,
+        json!({
+            "loaded": true,
+            "size": size,
+            "bytes": bytes,
+            "usage": bytes * 2,
+            "maxmempool": 300000000,
+            "mempoolminfee": 0.00001,
+            "minrelaytxfee": 0.00001
+        }),
+    )
 }
 
 async fn handle_getrawmempool(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
-    let verbose = request.params.as_array()
+    let verbose = request
+        .params
+        .as_array()
         .and_then(|arr| arr.get(0))
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
@@ -2359,7 +2777,9 @@ async fn handle_getrawmempool(state: &RpcState, request: &JsonRpcRequest) -> Jso
     let tx_cache = state.tx_cache.read().await;
 
     // Only show pending (unconfirmed) entries as mempool items
-    let pending_entries: Vec<_> = tx_cache.entries.iter()
+    let pending_entries: Vec<_> = tx_cache
+        .entries
+        .iter()
         .filter(|(_, e)| e.near_tx_hash.starts_with("pending:"))
         .collect();
 
@@ -2372,25 +2792,32 @@ async fn handle_getrawmempool(state: &RpcState, request: &JsonRpcRequest) -> Jso
     let now = chrono::Utc::now().timestamp();
     let mut result = serde_json::Map::new();
     for (txid, entry) in &pending_entries {
-        let size = if entry.raw_hex.is_empty() { 250 } else { entry.raw_hex.len() / 2 };
-        result.insert((*txid).clone(), json!({
-            "vsize": size,
-            "weight": size * 4,
-            "fee": 0.00001,
-            "modifiedfee": 0.00001,
-            "time": now,
-            "height": entry.block_height,
-            "descendantcount": 1,
-            "descendantsize": size,
-            "descendantfees": 1000,
-            "ancestorcount": 1,
-            "ancestorsize": size,
-            "ancestorfees": 1000,
-            "depends": [],
-            "spentby": [],
-            "bip125-replaceable": false,
-            "unbroadcast": false
-        }));
+        let size = if entry.raw_hex.is_empty() {
+            250
+        } else {
+            entry.raw_hex.len() / 2
+        };
+        result.insert(
+            (*txid).clone(),
+            json!({
+                "vsize": size,
+                "weight": size * 4,
+                "fee": 0.00001,
+                "modifiedfee": 0.00001,
+                "time": now,
+                "height": entry.block_height,
+                "descendantcount": 1,
+                "descendantsize": size,
+                "descendantfees": 1000,
+                "ancestorcount": 1,
+                "ancestorsize": size,
+                "ancestorfees": 1000,
+                "depends": [],
+                "spentby": [],
+                "bip125-replaceable": false,
+                "unbroadcast": false
+            }),
+        );
     }
     ok_response(&request.id, json!(result))
 }
@@ -2406,13 +2833,26 @@ async fn handle_getrawmempool(state: &RpcState, request: &JsonRpcRequest) -> Jso
 /// 2. Bitinfinity intent hex (from createrawtransaction) → decode intent, build NEAR signed tx
 ///
 /// Returns a "bitinfinity:" prefixed signed payload that sendrawtransaction can submit.
-async fn handle_signrawtransactionwithwallet(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+async fn handle_signrawtransactionwithwallet(
+    state: &RpcState,
+    request: &JsonRpcRequest,
+) -> JsonRpcResponse {
     if !state.is_wallet_unlocked().await {
-        return err_response(&request.id, -13, "Error: Please enter the wallet passphrase with walletpassphrase first.".to_string());
+        return err_response(
+            &request.id,
+            -13,
+            "Error: Please enter the wallet passphrase with walletpassphrase first.".to_string(),
+        );
     }
     let raw_hex = match get_str_param(&request.params, 0) {
         Some(hex) => hex,
-        None => return err_response(&request.id, -32602, "Missing raw transaction hex".to_string()),
+        None => {
+            return err_response(
+                &request.id,
+                -32602,
+                "Missing raw transaction hex".to_string(),
+            )
+        }
     };
 
     // Try to decode as bitinfinity intent first (from createrawtransaction)
@@ -2424,22 +2864,31 @@ async fn handle_signrawtransactionwithwallet(state: &RpcState, request: &JsonRpc
         address: String,
         amount_satoshis: u64,
     }
-    let (sender_addr, all_outputs) = if let Ok(intent_json) = serde_json::from_str::<serde_json::Value>(&intent_str) {
+    let (sender_addr, all_outputs) = if let Ok(intent_json) =
+        serde_json::from_str::<serde_json::Value>(&intent_str)
+    {
         let outputs = intent_json.get("outputs").and_then(|o| o.as_array());
         match outputs {
             Some(outs) if !outs.is_empty() => {
-                let parsed_outputs: Vec<OutputInfo> = outs.iter().map(|out| {
-                    OutputInfo {
-                        address: out.get("address").and_then(|v| v.as_str()).unwrap_or("").to_string(),
-                        amount_satoshis: (out.get("amount").and_then(|v| v.as_f64()).unwrap_or(0.0) * 100_000_000.0) as u64,
-                    }
-                }).collect();
+                let parsed_outputs: Vec<OutputInfo> = outs
+                    .iter()
+                    .map(|out| OutputInfo {
+                        address: out
+                            .get("address")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string(),
+                        amount_satoshis: (out.get("amount").and_then(|v| v.as_f64()).unwrap_or(0.0)
+                            * 100_000_000.0) as u64,
+                    })
+                    .collect();
 
                 let total_sat: u64 = parsed_outputs.iter().map(|o| o.amount_satoshis).sum();
 
                 // Find a funded sender from keystore
                 let keystore = state.keystore.read().await;
-                let addresses: Vec<String> = keystore.addresses().iter().map(|a| a.to_string()).collect();
+                let addresses: Vec<String> =
+                    keystore.addresses().iter().map(|a| a.to_string()).collect();
                 drop(keystore);
 
                 let mut found_sender = None;
@@ -2454,27 +2903,43 @@ async fn handle_signrawtransactionwithwallet(state: &RpcState, request: &JsonRpc
 
                 match found_sender {
                     Some(s) => (s, parsed_outputs),
-                    None => return ok_response(&request.id, json!({
-                        "hex": raw_hex,
-                        "complete": false,
-                        "errors": [{"error": "Insufficient funds or no wallet keys"}]
-                    })),
+                    None => {
+                        return ok_response(
+                            &request.id,
+                            json!({
+                                "hex": raw_hex,
+                                "complete": false,
+                                "errors": [{"error": "Insufficient funds or no wallet keys"}]
+                            }),
+                        )
+                    }
                 }
             }
             _ => return err_response(&request.id, -22, "Invalid intent format".to_string()),
         }
     } else if let Ok(parsed) = ParsedBitcoinTx::from_hex_with_hrp(raw_hex, state.bech32_hrp()) {
         // Real Bitcoin transaction — collect all non-change, non-OP_RETURN outputs
-        let payment_outputs: Vec<OutputInfo> = parsed.outputs.iter()
-            .filter(|o| !o.is_op_return && o.address != parsed.sender_address && !o.address.is_empty())
-            .map(|o| OutputInfo { address: o.address.clone(), amount_satoshis: o.amount_satoshis })
+        let payment_outputs: Vec<OutputInfo> = parsed
+            .outputs
+            .iter()
+            .filter(|o| {
+                !o.is_op_return && o.address != parsed.sender_address && !o.address.is_empty()
+            })
+            .map(|o| OutputInfo {
+                address: o.address.clone(),
+                amount_satoshis: o.amount_satoshis,
+            })
             .collect();
         if payment_outputs.is_empty() {
             return err_response(&request.id, -25, "No payment outputs found".to_string());
         }
         (parsed.sender_address.clone(), payment_outputs)
     } else {
-        return err_response(&request.id, -22, format!("TX decode failed: not a valid Bitcoin tx or bitinfinity intent"));
+        return err_response(
+            &request.id,
+            -22,
+            format!("TX decode failed: not a valid Bitcoin tx or bitinfinity intent"),
+        );
     };
 
     // Look up sender's key
@@ -2485,11 +2950,16 @@ async fn handle_signrawtransactionwithwallet(state: &RpcState, request: &JsonRpc
 
     let key_entry = match key_entry {
         Some(k) => k,
-        None => return ok_response(&request.id, json!({
-            "hex": raw_hex,
-            "complete": false,
-            "errors": [{"error": format!("Key not found for {}", sender_addr)}]
-        })),
+        None => {
+            return ok_response(
+                &request.id,
+                json!({
+                    "hex": raw_hex,
+                    "complete": false,
+                    "errors": [{"error": format!("Key not found for {}", sender_addr)}]
+                }),
+            )
+        }
     };
 
     // Get block hash
@@ -2541,7 +3011,13 @@ async fn handle_signrawtransactionwithwallet(state: &RpcState, request: &JsonRpc
 
         let signed_tx_base64 = match params.sign_and_encode(&secret_key) {
             Ok(encoded) => encoded,
-            Err(e) => return err_response(&request.id, -32000, format!("TX signing failed for output {}: {}", i, e)),
+            Err(e) => {
+                return err_response(
+                    &request.id,
+                    -32000,
+                    format!("TX signing failed for output {}: {}", i, e),
+                )
+            }
         };
 
         near_txs.push(json!({
@@ -2559,7 +3035,13 @@ async fn handle_signrawtransactionwithwallet(state: &RpcState, request: &JsonRpc
 
     // Generate a deterministic "bitcoin txid"
     use sha2::{Digest as _, Sha256};
-    let btc_txid = hex::encode(Sha256::digest(format!("{}:{}:{}:{}", sender_addr, all_outputs[0].address, total_sat, base_nonce).as_bytes()));
+    let btc_txid = hex::encode(Sha256::digest(
+        format!(
+            "{}:{}:{}:{}",
+            sender_addr, all_outputs[0].address, total_sat, base_nonce
+        )
+        .as_bytes(),
+    ));
 
     // Encode as bitinfinity signed format with all transactions
     let signed_payload = json!({
@@ -2568,26 +3050,39 @@ async fn handle_signrawtransactionwithwallet(state: &RpcState, request: &JsonRpc
         "total_amount_sat": total_sat,
         "btc_txid": btc_txid,
     });
-    let signed_hex = hex::encode(format!("{}{}", SIGNED_INTENT_PREFIX, signed_payload.to_string()));
+    let signed_hex = hex::encode(format!(
+        "{}{}",
+        SIGNED_INTENT_PREFIX,
+        signed_payload.to_string()
+    ));
 
-    ok_response(&request.id, json!({
-        "hex": signed_hex,
-        "complete": true,
-        "errors": []
-    }))
+    ok_response(
+        &request.id,
+        json!({
+            "hex": signed_hex,
+            "complete": true,
+            "errors": []
+        }),
+    )
 }
 
 /// sendtoaddress - high-level send that constructs, signs, and submits a NEAR transfer
 async fn handle_sendtoaddress(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     if !state.is_wallet_unlocked().await {
-        return err_response(&request.id, -13, "Error: Please enter the wallet passphrase with walletpassphrase first.".to_string());
+        return err_response(
+            &request.id,
+            -13,
+            "Error: Please enter the wallet passphrase with walletpassphrase first.".to_string(),
+        );
     }
     let recipient = match get_str_param(&request.params, 0) {
         Some(addr) => addr.to_string(),
         None => return err_response(&request.id, -32602, "Missing address parameter".to_string()),
     };
 
-    let amount_btc: f64 = request.params.as_array()
+    let amount_btc: f64 = request
+        .params
+        .as_array()
         .and_then(|arr| arr.get(1))
         .and_then(|v| v.as_f64())
         .unwrap_or(0.0);
@@ -2598,7 +3093,9 @@ async fn handle_sendtoaddress(state: &RpcState, request: &JsonRpcRequest) -> Jso
 
     // Bitcoin Core param 5 (index 5): subtractfeefromamount (bool)
     // When true, the fee is deducted from the send amount rather than added on top
-    let subtract_fee = request.params.as_array()
+    let subtract_fee = request
+        .params
+        .as_array()
         .and_then(|arr| arr.get(5))
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
@@ -2633,7 +3130,13 @@ async fn handle_sendtoaddress(state: &RpcState, request: &JsonRpcRequest) -> Jso
 
     let sender = match sender_addr {
         Some(s) => s,
-        None => return err_response(&request.id, -6, "Insufficient funds or no wallet keys".to_string()),
+        None => {
+            return err_response(
+                &request.id,
+                -6,
+                "Insufficient funds or no wallet keys".to_string(),
+            )
+        }
     };
     let key_entry = match sender_entry {
         Some(e) => e,
@@ -2690,7 +3193,13 @@ async fn handle_sendtoaddress(state: &RpcState, request: &JsonRpcRequest) -> Jso
     // Submit
     match state.near_client.send_tx_async(&signed_tx_base64).await {
         Ok(near_tx_hash) => {
-            log::info!("sendtoaddress: {} -> {} ({} sat), near_tx: {}", sender, recipient, amount_satoshis, near_tx_hash);
+            log::info!(
+                "sendtoaddress: {} -> {} ({} sat), near_tx: {}",
+                sender,
+                recipient,
+                amount_satoshis,
+                near_tx_hash
+            );
 
             // Record nonce for future transactions
             state.record_nonce(&sender, nonce).await;
@@ -2716,11 +3225,13 @@ async fn handle_getpeerinfo(state: &RpcState, request: &JsonRpcRequest) -> JsonR
             let mut peers = Vec::new();
             if let Some(active_peers) = info.get("active_peers").and_then(|v| v.as_array()) {
                 for (i, peer) in active_peers.iter().enumerate() {
-                    let addr = peer.get("addr")
+                    let addr = peer
+                        .get("addr")
                         .or_else(|| peer.get("peer_info").and_then(|p| p.get("addr")))
                         .and_then(|v| v.as_str())
                         .unwrap_or("unknown");
-                    let peer_id = peer.get("id")
+                    let peer_id = peer
+                        .get("id")
                         .or_else(|| peer.get("peer_info").and_then(|p| p.get("id")))
                         .and_then(|v| v.as_str())
                         .unwrap_or("unknown");
@@ -2751,7 +3262,7 @@ async fn handle_getpeerinfo(state: &RpcState, request: &JsonRpcRequest) -> JsonR
                 }));
             }
             ok_response(&request.id, json!(peers))
-        },
+        }
         Err(_) => ok_response(&request.id, json!([])),
     }
 }
@@ -2807,25 +3318,28 @@ async fn handle_getwalletinfo(state: &RpcState, request: &JsonRpcRequest) -> Jso
         0
     };
 
-    ok_response(&request.id, json!({
-        "walletname": "bitinfinity",
-        "walletversion": 160300,
-        "format": "bitinfinity",
-        "balance": total_balance,
-        "unconfirmed_balance": 0.0,
-        "immature_balance": 0.0,
-        "txcount": tx_count,
-        "keypoololdest": 0,
-        "keypoolsize": key_count,
-        "keypoolsize_hd_internal": 0,
-        "paytxfee": 0.00001,
-        "private_keys_enabled": true,
-        "avoid_reuse": false,
-        "scanning": false,
-        "descriptors": false,
-        "unlocked_until": unlocked_until,
-        "encrypted": is_encrypted
-    }))
+    ok_response(
+        &request.id,
+        json!({
+            "walletname": "bitinfinity",
+            "walletversion": 160300,
+            "format": "bitinfinity",
+            "balance": total_balance,
+            "unconfirmed_balance": 0.0,
+            "immature_balance": 0.0,
+            "txcount": tx_count,
+            "keypoololdest": 0,
+            "keypoolsize": key_count,
+            "keypoolsize_hd_internal": 0,
+            "paytxfee": 0.00001,
+            "private_keys_enabled": true,
+            "avoid_reuse": false,
+            "scanning": false,
+            "descriptors": false,
+            "unlocked_until": unlocked_until,
+            "encrypted": is_encrypted
+        }),
+    )
 }
 
 fn handle_listwallets(request: &JsonRpcRequest) -> JsonRpcResponse {
@@ -2836,12 +3350,15 @@ fn handle_listwallets(request: &JsonRpcRequest) -> JsonRpcResponse {
 /// In account-based model, we just encode the intent as a minimal valid-looking tx
 fn handle_createrawtransaction(request: &JsonRpcRequest) -> JsonRpcResponse {
     // params: [inputs, outputs, locktime, replaceable]
-    let inputs = request.params.as_array()
+    let inputs = request
+        .params
+        .as_array()
         .and_then(|arr| arr.get(0))
         .and_then(|v| v.as_array());
-    let outputs = request.params.as_array()
-        .and_then(|arr| arr.get(1));
-    let locktime = request.params.as_array()
+    let outputs = request.params.as_array().and_then(|arr| arr.get(1));
+    let locktime = request
+        .params
+        .as_array()
         .and_then(|arr| arr.get(2))
         .and_then(|v| v.as_u64())
         .unwrap_or(0) as u32;
@@ -2860,9 +3377,11 @@ fn handle_createrawtransaction(request: &JsonRpcRequest) -> JsonRpcResponse {
     } else if let Some(arr) = outputs.as_array() {
         arr.iter()
             .filter_map(|o| o.as_object())
-            .flat_map(|obj| obj.iter()
-                .filter(|(k, _)| k.as_str() != "data")
-                .filter_map(|(k, v)| v.as_f64().map(|amt| (k.clone(), amt))))
+            .flat_map(|obj| {
+                obj.iter()
+                    .filter(|(k, _)| k.as_str() != "data")
+                    .filter_map(|(k, v)| v.as_f64().map(|amt| (k.clone(), amt)))
+            })
             .collect()
     } else {
         return err_response(&request.id, -32602, "Invalid outputs format".to_string());
@@ -2881,7 +3400,10 @@ fn handle_createrawtransaction(request: &JsonRpcRequest) -> JsonRpcResponse {
     if let Some(ins) = inputs {
         for inp in ins {
             let zero_txid = "0".repeat(64);
-            let txid_hex = inp.get("txid").and_then(|v| v.as_str()).unwrap_or(&zero_txid);
+            let txid_hex = inp
+                .get("txid")
+                .and_then(|v| v.as_str())
+                .unwrap_or(&zero_txid);
             let vout = inp.get("vout").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
             if let Ok(mut txid_bytes) = hex::decode(txid_hex) {
                 txid_bytes.reverse(); // Bitcoin internal byte order
@@ -2925,28 +3447,36 @@ fn handle_createrawtransaction(request: &JsonRpcRequest) -> JsonRpcResponse {
 async fn handle_fundrawtransaction(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     let raw_hex = match get_str_param(&request.params, 0) {
         Some(hex) => hex,
-        None => return err_response(&request.id, -32602, "Missing raw transaction hex".to_string()),
+        None => {
+            return err_response(
+                &request.id,
+                -32602,
+                "Missing raw transaction hex".to_string(),
+            )
+        }
     };
 
     // Decode the intent to find total output amount
     let intent_bytes = hex::decode(raw_hex).unwrap_or_default();
     let intent_str = String::from_utf8(intent_bytes).unwrap_or_default();
 
-    let total_amount_sat: u64 = if let Ok(intent_json) = serde_json::from_str::<serde_json::Value>(&intent_str) {
-        intent_json.get("outputs")
-            .and_then(|o| o.as_array())
-            .map(|outs| {
-                outs.iter()
-                    .filter_map(|o| o.get("amount").and_then(|v| v.as_f64()))
-                    .map(|btc| (btc * 100_000_000.0) as u64)
-                    .sum()
-            })
-            .unwrap_or(0)
-    } else if let Ok(parsed) = ParsedBitcoinTx::from_hex_with_hrp(raw_hex, state.bech32_hrp()) {
-        parsed.total_payment_satoshis()
-    } else {
-        return err_response(&request.id, -22, "Invalid transaction format".to_string());
-    };
+    let total_amount_sat: u64 =
+        if let Ok(intent_json) = serde_json::from_str::<serde_json::Value>(&intent_str) {
+            intent_json
+                .get("outputs")
+                .and_then(|o| o.as_array())
+                .map(|outs| {
+                    outs.iter()
+                        .filter_map(|o| o.get("amount").and_then(|v| v.as_f64()))
+                        .map(|btc| (btc * 100_000_000.0) as u64)
+                        .sum()
+                })
+                .unwrap_or(0)
+        } else if let Ok(parsed) = ParsedBitcoinTx::from_hex_with_hrp(raw_hex, state.bech32_hrp()) {
+            parsed.total_payment_satoshis()
+        } else {
+            return err_response(&request.id, -22, "Invalid transaction format".to_string());
+        };
 
     // Find a funded address from keystore
     let keystore = state.keystore.read().await;
@@ -2978,39 +3508,52 @@ async fn handle_fundrawtransaction(state: &RpcState, request: &JsonRpcRequest) -
         Err(_) => 0.00001,
     };
 
-    ok_response(&request.id, json!({
-        "hex": raw_hex,
-        "fee": fee_btc,
-        "changepos": -1,
-        "funded_address": funded_addr
-    }))
+    ok_response(
+        &request.id,
+        json!({
+            "hex": raw_hex,
+            "fee": fee_btc,
+            "changepos": -1,
+            "funded_address": funded_addr
+        }),
+    )
 }
 
 /// listtransactions - list recent wallet transactions
 /// Params: [label, count, skip, include_watchonly]
 async fn handle_listtransactions(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     let label = get_str_param(&request.params, 0).unwrap_or("*");
-    let count = request.params.as_array()
+    let count = request
+        .params
+        .as_array()
         .and_then(|arr| arr.get(1))
         .and_then(|v| v.as_u64())
         .unwrap_or(10) as usize;
-    let skip = request.params.as_array()
+    let skip = request
+        .params
+        .as_array()
         .and_then(|arr| arr.get(2))
         .and_then(|v| v.as_u64())
         .unwrap_or(0) as usize;
-    let include_watchonly = request.params.as_array()
+    let include_watchonly = request
+        .params
+        .as_array()
         .and_then(|arr| arr.get(3))
         .and_then(|v| v.as_bool())
         .unwrap_or(true);
 
     // Get current block height for confirmation calculation
-    let current_height = state.near_client.status().await
+    let current_height = state
+        .near_client
+        .status()
+        .await
         .map(|s| s.latest_block_height)
         .unwrap_or(0);
 
     // Collect wallet addresses for category detection (includes watch-only)
     let keystore = state.keystore.read().await;
-    let wallet_addrs: std::collections::HashSet<String> = keystore.all_addresses().into_iter().collect();
+    let wallet_addrs: std::collections::HashSet<String> =
+        keystore.all_addresses().into_iter().collect();
     drop(keystore);
 
     // Return cached transactions (most recent first, limited by count)
@@ -3020,15 +3563,23 @@ async fn handle_listtransactions(state: &RpcState, request: &JsonRpcRequest) -> 
         // Parse amount and recipient from synthetic or real tx
         let (amount_btc, recipient) = if entry.is_incoming {
             // Incoming transfer detected by indexer
-            (entry.amount_satoshis as f64 / 100_000_000.0, entry.receiver_id.clone())
+            (
+                entry.amount_satoshis as f64 / 100_000_000.0,
+                entry.receiver_id.clone(),
+            )
         } else if entry.raw_hex.starts_with("sendtoaddress:") {
             let parts: Vec<&str> = entry.raw_hex.splitn(3, ':').collect();
             let r = parts.get(1).unwrap_or(&"").to_string();
             let sat: u64 = parts.get(2).and_then(|s| s.parse().ok()).unwrap_or(0);
             (sat as f64 / 100_000_000.0, r)
-        } else if let Ok(parsed) = ParsedBitcoinTx::from_hex_with_hrp(&entry.raw_hex, state.bech32_hrp()) {
+        } else if let Ok(parsed) =
+            ParsedBitcoinTx::from_hex_with_hrp(&entry.raw_hex, state.bech32_hrp())
+        {
             let amt = parsed.total_payment_satoshis() as f64 / 100_000_000.0;
-            let recip = parsed.payment_output().map(|o| o.address.clone()).unwrap_or_default();
+            let recip = parsed
+                .payment_output()
+                .map(|o| o.address.clone())
+                .unwrap_or_default();
             (amt, recip)
         } else {
             (0.0, String::new())
@@ -3036,24 +3587,37 @@ async fn handle_listtransactions(state: &RpcState, request: &JsonRpcRequest) -> 
 
         let (confirmations, blocktime) = if entry.is_incoming && entry.block_height > 0 {
             // Incoming transfers: use stored block height directly (no NEAR tx hash to query)
-            let confs = if current_height >= entry.block_height { (current_height - entry.block_height + 1) as i64 } else { 1 };
+            let confs = if current_height >= entry.block_height {
+                (current_height - entry.block_height + 1) as i64
+            } else {
+                1
+            };
             // Get block timestamp
             let ts = match state.near_client.block_by_height(entry.block_height).await {
                 Ok(block) => {
                     let header = block.get("header").unwrap_or(&block);
-                    header.get("timestamp").and_then(|v| v.as_u64())
+                    header
+                        .get("timestamp")
+                        .and_then(|v| v.as_u64())
                         .map(|t| (t / 1_000_000_000) as i64)
                         .unwrap_or(chrono::Utc::now().timestamp())
                 }
                 Err(_) => chrono::Utc::now().timestamp(),
             };
             (confs, ts)
-        } else if entry.near_tx_hash.starts_with("pending:") || entry.near_tx_hash.starts_with("error:") {
+        } else if entry.near_tx_hash.starts_with("pending:")
+            || entry.near_tx_hash.starts_with("error:")
+        {
             (0i64, chrono::Utc::now().timestamp())
         } else {
-            match state.near_client.tx_status(&entry.near_tx_hash, &entry.sender_id).await {
+            match state
+                .near_client
+                .tx_status(&entry.near_tx_hash, &entry.sender_id)
+                .await
+            {
                 Ok(tx_result) => {
-                    let tx_block_hash = tx_result.get("transaction_outcome")
+                    let tx_block_hash = tx_result
+                        .get("transaction_outcome")
                         .and_then(|o| o.get("block_hash"))
                         .and_then(|v| v.as_str())
                         .unwrap_or("");
@@ -3062,10 +3626,16 @@ async fn handle_listtransactions(state: &RpcState, request: &JsonRpcRequest) -> 
                             Ok(block) => {
                                 let header = block.get("header").unwrap_or(&block);
                                 let h = header.get("height").and_then(|v| v.as_u64()).unwrap_or(0);
-                                let ts = header.get("timestamp").and_then(|v| v.as_u64())
+                                let ts = header
+                                    .get("timestamp")
+                                    .and_then(|v| v.as_u64())
                                     .map(|t| (t / 1_000_000_000) as i64)
                                     .unwrap_or(chrono::Utc::now().timestamp());
-                                let confs = if h > 0 && current_height >= h { (current_height - h + 1) as i64 } else { 1 };
+                                let confs = if h > 0 && current_height >= h {
+                                    (current_height - h + 1) as i64
+                                } else {
+                                    1
+                                };
                                 (confs, ts)
                             }
                             Err(_) => (1i64, chrono::Utc::now().timestamp()),
@@ -3137,9 +3707,7 @@ async fn handle_listtransactions(state: &RpcState, request: &JsonRpcRequest) -> 
 
     // Filter by label if not "*" (label = address in our model)
     if label != "*" && !label.is_empty() {
-        txs.retain(|tx| {
-            tx.get("address").and_then(|v| v.as_str()).unwrap_or("") == label
-        });
+        txs.retain(|tx| tx.get("address").and_then(|v| v.as_str()).unwrap_or("") == label);
     }
 
     // Filter out watch-only transactions if not included
@@ -3163,7 +3731,10 @@ async fn handle_listtransactions(state: &RpcState, request: &JsonRpcRequest) -> 
 }
 
 /// getreceivedbyaddress - get total amount received by an address
-async fn handle_getreceivedbyaddress(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+async fn handle_getreceivedbyaddress(
+    state: &RpcState,
+    request: &JsonRpcRequest,
+) -> JsonRpcResponse {
     let addr = match get_str_param(&request.params, 0) {
         Some(a) => a,
         None => return err_response(&request.id, -32602, "Missing address parameter".to_string()),
@@ -3188,8 +3759,13 @@ async fn handle_getreceivedbyaddress(state: &RpcState, request: &JsonRpcRequest)
             }
         }
         // Check parsed Bitcoin tx outputs
-        if !entry.is_incoming && !entry.raw_hex.starts_with("sendtoaddress:") && !entry.raw_hex.starts_with("incoming:") {
-            if let Ok(parsed) = ParsedBitcoinTx::from_hex_with_hrp(&entry.raw_hex, state.bech32_hrp()) {
+        if !entry.is_incoming
+            && !entry.raw_hex.starts_with("sendtoaddress:")
+            && !entry.raw_hex.starts_with("incoming:")
+        {
+            if let Ok(parsed) =
+                ParsedBitcoinTx::from_hex_with_hrp(&entry.raw_hex, state.bech32_hrp())
+            {
                 for out in &parsed.outputs {
                     if !out.is_op_return && out.address == addr {
                         total_received_satoshis += out.amount_satoshis;
@@ -3225,26 +3801,28 @@ async fn handle_getmininginfo(state: &RpcState, request: &JsonRpcRequest) -> Jso
     let pooled = tx_cache.entries.len();
     drop(tx_cache);
 
-    // Derive networkhashps from validator count (each validator ≈ 1 TH/s equivalent)
-    let networkhashps = match state.near_client.validators().await {
-        Ok(info) => {
-            let count = info.get("current_validators")
-                .and_then(|v| v.as_array())
-                .map(|a| a.len())
-                .unwrap_or(1);
-            count as u64 * 1_000_000_000_000
-        }
-        Err(_) => 1_000_000_000_000,
+    let validator_count = match state.near_client.validators().await {
+        Ok(info) => info
+            .get("current_validators")
+            .and_then(|v| v.as_array())
+            .map(|a| a.len() as u64)
+            .unwrap_or(0),
+        Err(_) => 0,
     };
 
-    ok_response(&request.id, json!({
-        "blocks": block_height,
-        "difficulty": 1.0,
-        "networkhashps": networkhashps,
-        "pooledtx": pooled,
-        "chain": chain_id,
-        "warnings": ""
-    }))
+    ok_response(
+        &request.id,
+        json!({
+            "blocks": block_height,
+            "difficulty": 0.0,
+            "networkhashps": 0,
+            "pooledtx": pooled,
+            "chain": chain_id,
+            "consensus": "proof-of-stake",
+            "validators": validator_count,
+            "warnings": "Bitcoin-style PoW mining fields are not applicable on this chain."
+        }),
+    )
 }
 
 /// uptime - return server uptime in seconds
@@ -3266,44 +3844,72 @@ async fn handle_getaddressinfo(state: &RpcState, request: &JsonRpcRequest) -> Js
     let keystore = state.keystore.read().await;
     let is_mine = keystore.get(addr).is_some();
     let is_watch_only = keystore.is_watch_only(addr);
-    let pubkey = keystore.get(addr).map(|e| e.public_key_compressed_hex.clone());
+    let pubkey = keystore
+        .get(addr)
+        .map(|e| e.public_key_compressed_hex.clone());
     drop(keystore);
 
     let hrp = state.bech32_hrp();
     let bech32_prefix = format!("{}1", hrp);
+    let bech32_q_prefix = format!("{}1q", hrp);
+    let bech32_p_prefix = format!("{}1p", hrp);
     let is_witness = addr.starts_with(&bech32_prefix);
     let is_script = addr.starts_with("3") || addr.starts_with("2");
-    let script_type = if is_witness { "witness_v0_keyhash" } else if is_script { "scripthash" } else { "pubkeyhash" };
 
     // Check if the account exists on chain
     let on_chain = state.near_client.view_account(addr).await.is_ok();
 
     // Derive scriptPubKey from address using shared helper
     let script_pub_key = derive_script_pub_key_hex(addr, hrp);
+    let (script_type, _script_asm) = classify_script_pub_key_hex(&script_pub_key);
 
-    ok_response(&request.id, json!({
-        "address": addr,
-        "scriptPubKey": script_pub_key,
-        "ismine": is_mine && !is_watch_only,
-        "solvable": is_mine && !is_watch_only,
-        "desc": if is_mine {
-            let pk = pubkey.as_deref().unwrap_or("");
-            if is_witness { format!("wpkh({})", pk) }
-            else if is_script { format!("sh(wpkh({}))", pk) }
-            else { format!("pkh({})", pk) }
-        } else { String::new() },
-        "iswatchonly": is_watch_only,
-        "isscript": is_script,
-        "iswitness": is_witness,
-        "witness_version": if is_witness { Some(0) } else { None },
-        "pubkey": pubkey.unwrap_or_default(),
-        "iscompressed": true,
-        "ischange": false,
-        "timestamp": 0,
-        "labels": [],
-        "script_type": script_type,
-        "on_chain": on_chain,
-    }))
+    let witness_version: Option<u8> = if addr.starts_with(&bech32_q_prefix) {
+        Some(0)
+    } else if addr.starts_with(&bech32_p_prefix) {
+        Some(1)
+    } else {
+        None
+    };
+
+    let witness_program: Option<String> =
+        if script_pub_key.starts_with("0014") && script_pub_key.len() == 44 {
+            Some(script_pub_key[4..].to_string())
+        } else if script_pub_key.starts_with("0020") && script_pub_key.len() == 68 {
+            Some(script_pub_key[4..].to_string())
+        } else if script_pub_key.starts_with("5120") && script_pub_key.len() == 68 {
+            Some(script_pub_key[4..].to_string())
+        } else {
+            None
+        };
+
+    ok_response(
+        &request.id,
+        json!({
+            "address": addr,
+            "scriptPubKey": script_pub_key,
+            "ismine": is_mine && !is_watch_only,
+            "solvable": is_mine && !is_watch_only,
+            "desc": if is_mine {
+                let pk = pubkey.as_deref().unwrap_or("");
+                if is_witness { format!("wpkh({})", pk) }
+                else if is_script { format!("sh(wpkh({}))", pk) }
+                else { format!("pkh({})", pk) }
+            } else { String::new() },
+            "iswatch": is_watch_only,
+            "iswatchonly": is_watch_only,
+            "isscript": is_script,
+            "iswitness": is_witness,
+            "witness_version": witness_version,
+            "witness_program": witness_program,
+            "pubkey": pubkey.unwrap_or_default(),
+            "iscompressed": true,
+            "ischange": false,
+            "timestamp": 0,
+            "labels": [],
+            "script_type": script_type,
+            "on_chain": on_chain,
+        }),
+    )
 }
 
 /// getbalances - detailed balance breakdown
@@ -3327,19 +3933,22 @@ async fn handle_getbalances(state: &RpcState, request: &JsonRpcRequest) -> JsonR
         }
     }
 
-    ok_response(&request.id, json!({
-        "mine": {
-            "trusted": trusted,
-            "untrusted_pending": 0.0,
-            "immature": 0.0,
-            "used": 0.0
-        },
-        "watchonly": {
-            "trusted": watchonly_trusted,
-            "untrusted_pending": 0.0,
-            "immature": 0.0
-        }
-    }))
+    ok_response(
+        &request.id,
+        json!({
+            "mine": {
+                "trusted": trusted,
+                "untrusted_pending": 0.0,
+                "immature": 0.0,
+                "used": 0.0
+            },
+            "watchonly": {
+                "trusted": watchonly_trusted,
+                "untrusted_pending": 0.0,
+                "immature": 0.0
+            }
+        }),
+    )
 }
 
 /// gettxout - get details about an unspent transaction output
@@ -3363,57 +3972,89 @@ async fn handle_gettxout(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcR
         };
 
         // Get real confirmations
-        let (confirmations, bestblock) = if !entry.near_tx_hash.starts_with("pending:") && !entry.near_tx_hash.starts_with("error:") {
-            match state.near_client.tx_status(&entry.near_tx_hash, &entry.sender_id).await {
+        let (confirmations, bestblock) = if !entry.near_tx_hash.starts_with("pending:")
+            && !entry.near_tx_hash.starts_with("error:")
+        {
+            match state
+                .near_client
+                .tx_status(&entry.near_tx_hash, &entry.sender_id)
+                .await
+            {
                 Ok(tx_result) => {
-                    let bh = tx_result.get("transaction_outcome")
+                    let bh = tx_result
+                        .get("transaction_outcome")
                         .and_then(|o| o.get("block_hash"))
-                        .and_then(|v| v.as_str()).unwrap_or("").to_string();
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_string();
                     if !bh.is_empty() {
                         match state.near_client.block_by_hash(&bh).await {
                             Ok(block) => {
-                                let h = block.get("header").unwrap_or(&block)
-                                    .get("height").and_then(|v| v.as_u64()).unwrap_or(0);
-                                let current = state.near_client.status().await.map(|s| s.latest_block_height).unwrap_or(h);
+                                let h = block
+                                    .get("header")
+                                    .unwrap_or(&block)
+                                    .get("height")
+                                    .and_then(|v| v.as_u64())
+                                    .unwrap_or(0);
+                                let current = state
+                                    .near_client
+                                    .status()
+                                    .await
+                                    .map(|s| s.latest_block_height)
+                                    .unwrap_or(h);
                                 ((current - h + 1) as i64, bh)
                             }
-                            Err(_) => (1, bh)
+                            Err(_) => (1, bh),
                         }
-                    } else { (1, String::new()) }
+                    } else {
+                        (1, String::new())
+                    }
                 }
-                Err(_) => (1, String::new())
+                Err(_) => (1, String::new()),
             }
-        } else { (0, String::new()) };
+        } else {
+            (0, String::new())
+        };
 
         let value_btc = if value_sat > 0 {
             value_sat as f64 / 100_000_000.0
         } else if let Ok(account) = state.near_client.view_account(&recipient).await {
             account.balance_as_btc()
-        } else { 0.0 };
+        } else {
+            0.0
+        };
 
         let hrp = state.bech32_hrp();
         let bech32_q = format!("{}1q", hrp);
         let bech32_p = format!("{}1p", hrp);
-        let script_type = if recipient.starts_with(&bech32_q) { "witness_v0_keyhash" }
-            else if recipient.starts_with(&bech32_p) { "witness_v1_taproot" }
-            else if recipient.starts_with("3") || recipient.starts_with("2") { "scripthash" }
-            else { "pubkeyhash" };
+        let script_type = if recipient.starts_with(&bech32_q) {
+            "witness_v0_keyhash"
+        } else if recipient.starts_with(&bech32_p) {
+            "witness_v1_taproot"
+        } else if recipient.starts_with("3") || recipient.starts_with("2") {
+            "scripthash"
+        } else {
+            "pubkeyhash"
+        };
 
         let spk_hex = derive_script_pub_key_hex(&recipient, hrp);
         let spk_asm = derive_script_pub_key_asm(&recipient, hrp);
 
-        return ok_response(&request.id, json!({
-            "bestblock": bestblock,
-            "confirmations": confirmations,
-            "value": value_btc,
-            "scriptPubKey": {
-                "asm": spk_asm,
-                "hex": spk_hex,
-                "type": script_type,
-                "addresses": [recipient]
-            },
-            "coinbase": false
-        }));
+        return ok_response(
+            &request.id,
+            json!({
+                "bestblock": bestblock,
+                "confirmations": confirmations,
+                "value": value_btc,
+                "scriptPubKey": {
+                    "asm": spk_asm,
+                    "hex": spk_hex,
+                    "type": script_type,
+                    "addresses": [recipient]
+                },
+                "coinbase": false
+            }),
+        );
     }
     drop(cache);
 
@@ -3423,7 +4064,11 @@ async fn handle_gettxout(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcR
 /// getrawchangeaddress - get a new address for receiving change
 async fn handle_getrawchangeaddress(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     if !state.is_wallet_unlocked().await {
-        return err_response(&request.id, -13, "Error: Please enter the wallet passphrase with walletpassphrase first.".to_string());
+        return err_response(
+            &request.id,
+            -13,
+            "Error: Please enter the wallet passphrase with walletpassphrase first.".to_string(),
+        );
     }
     // Generate a new bech32 address (same as getnewaddress but always bech32)
     use sha2::Digest as _;
@@ -3437,7 +4082,8 @@ async fn handle_getrawchangeaddress(state: &RpcState, request: &JsonRpcRequest) 
     p2pkh_payload.extend_from_slice(&pubkey_hash);
     let checksum = sha2::Sha256::digest(&sha2::Sha256::digest(&p2pkh_payload));
     p2pkh_payload.extend_from_slice(&checksum[..4]);
-    let p2pkh_address = bs58::encode(&p2pkh_payload).into_string().to_lowercase();
+    let p2pkh_address = bs58::encode(&p2pkh_payload).into_string();
+    let p2pkh_legacy = p2pkh_address.to_lowercase();
     let bech32_address = bech32_encode(state.bech32_hrp(), 0, &pubkey_hash);
 
     let pubkey_uncompressed_full = public_key.serialize_uncompressed();
@@ -3451,7 +4097,10 @@ async fn handle_getrawchangeaddress(state: &RpcState, request: &JsonRpcRequest) 
 
     {
         let mut keystore = state.keystore.write().await;
-        keystore.insert(p2pkh_address, entry.clone());
+        keystore.insert(p2pkh_address.clone(), entry.clone());
+        if p2pkh_legacy != p2pkh_address {
+            keystore.insert(p2pkh_legacy, entry.clone());
+        }
         keystore.insert(bech32_address.clone(), entry);
         state.save_keystore(&keystore).await;
     }
@@ -3460,15 +4109,22 @@ async fn handle_getrawchangeaddress(state: &RpcState, request: &JsonRpcRequest) 
 }
 
 /// listreceivedbyaddress - list amounts received by each address
-async fn handle_listreceivedbyaddress(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+async fn handle_listreceivedbyaddress(
+    state: &RpcState,
+    request: &JsonRpcRequest,
+) -> JsonRpcResponse {
     let _minconf = get_u64_param(&request.params, 0).unwrap_or(1);
 
     let keystore = state.keystore.read().await;
     let addresses: Vec<String> = keystore.addresses().iter().map(|a| a.to_string()).collect();
     drop(keystore);
 
-    let current_height = state.near_client.status().await
-        .map(|s| s.latest_block_height).unwrap_or(0);
+    let current_height = state
+        .near_client
+        .status()
+        .await
+        .map(|s| s.latest_block_height)
+        .unwrap_or(0);
 
     // Collect txids from cache for each address
     let cache = state.tx_cache.read().await;
@@ -3479,15 +4135,20 @@ async fn handle_listreceivedbyaddress(state: &RpcState, request: &JsonRpcRequest
             let btc = account.balance_as_btc();
             if btc > 0.0 {
                 // Find related txids in cache
-                let addr_txids: Vec<String> = cache.entries.iter()
+                let addr_txids: Vec<String> = cache
+                    .entries
+                    .iter()
                     .filter(|(_, e)| e.sender_id == *addr || e.raw_hex.contains(addr))
                     .map(|(txid, _)| txid.clone())
                     .collect();
 
                 // Confirmations based on account's block_height
-                let confirmations = if account.block_height > 0 && current_height >= account.block_height {
-                    current_height - account.block_height + 1
-                } else { 1 };
+                let confirmations =
+                    if account.block_height > 0 && current_height >= account.block_height {
+                        current_height - account.block_height + 1
+                    } else {
+                        1
+                    };
 
                 results.push(json!({
                     "address": addr,
@@ -3507,7 +4168,11 @@ async fn handle_listreceivedbyaddress(state: &RpcState, request: &JsonRpcRequest
 /// signmessage - sign a message with a private key
 async fn handle_signmessage(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     if !state.is_wallet_unlocked().await {
-        return err_response(&request.id, -13, "Error: Please enter the wallet passphrase with walletpassphrase first.".to_string());
+        return err_response(
+            &request.id,
+            -13,
+            "Error: Please enter the wallet passphrase with walletpassphrase first.".to_string(),
+        );
     }
     let addr = match get_str_param(&request.params, 0) {
         Some(a) => a,
@@ -3521,7 +4186,13 @@ async fn handle_signmessage(state: &RpcState, request: &JsonRpcRequest) -> JsonR
     let keystore = state.keystore.read().await;
     let key_entry = match keystore.get(addr) {
         Some(k) => k.clone(),
-        None => return err_response(&request.id, -3, format!("Address not found in wallet: {}", addr)),
+        None => {
+            return err_response(
+                &request.id,
+                -3,
+                format!("Address not found in wallet: {}", addr),
+            )
+        }
     };
     drop(keystore);
 
@@ -3561,40 +4232,35 @@ async fn handle_signmessage(state: &RpcState, request: &JsonRpcRequest) -> JsonR
     ok_response(&request.id, json!(sig_base64))
 }
 
-/// verifymessage - verify a signed message by recovering the pubkey and comparing the derived address
-fn handle_verifymessage(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
-    let addr = match get_str_param(&request.params, 0) {
-        Some(a) => a,
-        None => return err_response(&request.id, -32602, "Missing address parameter".to_string()),
-    };
-    let signature_b64 = match get_str_param(&request.params, 1) {
-        Some(s) => s,
-        None => return err_response(&request.id, -32602, "Missing signature parameter".to_string()),
-    };
-    let message = match get_str_param(&request.params, 2) {
-        Some(m) => m,
-        None => return err_response(&request.id, -32602, "Missing message parameter".to_string()),
-    };
-
+fn verify_bitcoin_message_signature(
+    addr: &str,
+    signature_b64: &str,
+    message: &str,
+    bech32_hrp: &str,
+) -> bool {
     // Decode base64 signature (65 bytes: 1 recovery byte + 64 sig bytes)
     use base64::Engine;
     let sig_bytes = match base64::engine::general_purpose::STANDARD.decode(signature_b64) {
         Ok(b) => b,
-        Err(_) => return ok_response(&request.id, json!(false)),
+        Err(_) => return false,
     };
     if sig_bytes.len() != 65 {
-        return ok_response(&request.id, json!(false));
+        return false;
     }
 
     // Extract recovery ID: byte 0 is 27 + rec_id (+ 4 if compressed)
     let header = sig_bytes[0];
-    let rec_id_raw = if header >= 31 { header - 31 } else if header >= 27 { header - 27 } else {
-        return ok_response(&request.id, json!(false));
+    let rec_id_raw = if header >= 31 {
+        header - 31
+    } else if header >= 27 {
+        header - 27
+    } else {
+        return false;
     };
     let compressed = header >= 31;
     let rec_id = match secp256k1::ecdsa::RecoveryId::from_i32(rec_id_raw as i32) {
         Ok(id) => id,
-        Err(_) => return ok_response(&request.id, json!(false)),
+        Err(_) => return false,
     };
 
     // Reconstruct message hash: SHA256(SHA256("\x18Bitcoin Signed Message:\n" + varint(len) + message))
@@ -3608,17 +4274,18 @@ fn handle_verifymessage(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcRe
     let secp = secp256k1::Secp256k1::new();
     let msg = match secp256k1::Message::from_digest_slice(&msg_hash) {
         Ok(m) => m,
-        Err(_) => return ok_response(&request.id, json!(false)),
+        Err(_) => return false,
     };
-    let recoverable_sig = match secp256k1::ecdsa::RecoverableSignature::from_compact(&sig_bytes[1..], rec_id) {
-        Ok(s) => s,
-        Err(_) => return ok_response(&request.id, json!(false)),
-    };
+    let recoverable_sig =
+        match secp256k1::ecdsa::RecoverableSignature::from_compact(&sig_bytes[1..], rec_id) {
+            Ok(s) => s,
+            Err(_) => return false,
+        };
 
     // Recover the public key
     let recovered_pubkey = match secp.recover_ecdsa(&msg, &recoverable_sig) {
         Ok(pk) => pk,
-        Err(_) => return ok_response(&request.id, json!(false)),
+        Err(_) => return false,
     };
 
     // Derive address from recovered pubkey and compare
@@ -3635,23 +4302,32 @@ fn handle_verifymessage(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcRe
 
     // Derive addresses from recovered pubkey and compare
     // Try both mainnet and testnet derivations since wallet may have legacy addresses
-    let hrps = if addr.starts_with("bc1") { vec!["bc"] }
-        else if addr.starts_with("tb1") { vec!["tb"] }
-        else if addr.starts_with("bcrt1") { vec!["bcrt"] }
-        else { vec![state.bech32_hrp(), "bc", "tb"] };
+    let hrps = if addr.starts_with("bc1") {
+        vec!["bc"]
+    } else if addr.starts_with("tb1") {
+        vec!["tb"]
+    } else if addr.starts_with("bcrt1") {
+        vec!["bcrt"]
+    } else {
+        vec![bech32_hrp, "bc", "tb"]
+    };
 
-    let version_bytes = if addr.starts_with('1') { vec![0x00] }
-        else if addr.starts_with('m') || addr.starts_with('n') { vec![0x6F] }
-        else { vec![0x00, 0x6F] };
+    let version_bytes = if addr.starts_with('1') {
+        vec![0x00]
+    } else if addr.starts_with('m') || addr.starts_with('n') {
+        vec![0x6F]
+    } else {
+        vec![0x00, 0x6F]
+    };
 
     for vb in &version_bytes {
         let mut payload = vec![*vb];
         payload.extend_from_slice(&pubkey_hash);
         let checksum = sha2::Sha256::digest(&sha2::Sha256::digest(&payload));
         payload.extend_from_slice(&checksum[..4]);
-        let p2pkh_addr = bs58::encode(&payload).into_string().to_lowercase();
-        if p2pkh_addr == addr {
-            return ok_response(&request.id, json!(true));
+        let p2pkh_addr = bs58::encode(&payload).into_string();
+        if p2pkh_addr == addr || p2pkh_addr.to_lowercase() == addr {
+            return true;
         }
     }
 
@@ -3660,49 +4336,101 @@ fn handle_verifymessage(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcRe
         for hrp in &hrps {
             let bech32_addr = bech32_encode(hrp, 0, &pubkey_hash);
             if bech32_addr == addr {
-                return ok_response(&request.id, json!(true));
+                return true;
             }
         }
     }
 
-    ok_response(&request.id, json!(false))
+    false
+}
+
+/// verifymessage - verify a signed message by recovering the pubkey and comparing the derived address
+fn handle_verifymessage(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    let addr = match get_str_param(&request.params, 0) {
+        Some(a) => a,
+        None => return err_response(&request.id, -32602, "Missing address parameter".to_string()),
+    };
+    let signature_b64 = match get_str_param(&request.params, 1) {
+        Some(s) => s,
+        None => {
+            return err_response(
+                &request.id,
+                -32602,
+                "Missing signature parameter".to_string(),
+            )
+        }
+    };
+    let message = match get_str_param(&request.params, 2) {
+        Some(m) => m,
+        None => return err_response(&request.id, -32602, "Missing message parameter".to_string()),
+    };
+
+    ok_response(
+        &request.id,
+        json!(verify_bitcoin_message_signature(
+            addr,
+            signature_b64,
+            message,
+            state.bech32_hrp()
+        )),
+    )
 }
 
 /// loadwallet / unloadwallet - wallet management stubs
 fn handle_loadwallet(request: &JsonRpcRequest) -> JsonRpcResponse {
     let name = get_str_param(&request.params, 0).unwrap_or("bitinfinity");
-    ok_response(&request.id, json!({
-        "name": name,
-        "warning": ""
-    }))
+    ok_response(
+        &request.id,
+        json!({
+            "name": name,
+            "warning": ""
+        }),
+    )
 }
 
 fn handle_unloadwallet(request: &JsonRpcRequest) -> JsonRpcResponse {
-    ok_response(&request.id, json!({
-        "warning": ""
-    }))
+    ok_response(
+        &request.id,
+        json!({
+            "warning": ""
+        }),
+    )
 }
 
 fn handle_createwallet(request: &JsonRpcRequest) -> JsonRpcResponse {
     let name = get_str_param(&request.params, 0).unwrap_or("bitinfinity");
-    ok_response(&request.id, json!({
-        "name": name,
-        "warning": ""
-    }))
+    ok_response(
+        &request.id,
+        json!({
+            "name": name,
+            "warning": ""
+        }),
+    )
 }
 
 /// walletpassphrase / walletlock - no-op (wallet not encrypted)
 async fn handle_walletpassphrase(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     let passphrase = match get_str_param(&request.params, 0) {
         Some(p) => p.to_string(),
-        None => return err_response(&request.id, -32602, "Missing passphrase parameter".to_string()),
+        None => {
+            return err_response(
+                &request.id,
+                -32602,
+                "Missing passphrase parameter".to_string(),
+            )
+        }
     };
     let timeout_secs = get_u64_param(&request.params, 1).unwrap_or(600);
 
     // Check if wallet is encrypted
     let keystore = state.keystore.read().await;
     if !keystore.encrypted {
-        return err_response(&request.id, -15, "Error: running with an unencrypted wallet, but walletpassphrase was called.".to_string());
+        return err_response(
+            &request.id,
+            -15,
+            "Error: running with an unencrypted wallet, but walletpassphrase was called."
+                .to_string(),
+        );
     }
     drop(keystore);
 
@@ -3730,7 +4458,11 @@ async fn handle_walletpassphrase(state: &RpcState, request: &JsonRpcRequest) -> 
 async fn handle_walletlock(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     let keystore = state.keystore.read().await;
     if !keystore.encrypted {
-        return err_response(&request.id, -15, "Error: running with an unencrypted wallet, but walletlock was called.".to_string());
+        return err_response(
+            &request.id,
+            -15,
+            "Error: running with an unencrypted wallet, but walletlock was called.".to_string(),
+        );
     }
     drop(keystore);
 
@@ -3740,7 +4472,11 @@ async fn handle_walletlock(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
         let keystore = state.keystore.read().await;
         if let Err(e) = keystore.save_encrypted(passphrase) {
             log::error!("Failed to re-encrypt wallet on lock: {}", e);
-            return err_response(&request.id, -4, format!("Failed to save encrypted wallet: {}", e));
+            return err_response(
+                &request.id,
+                -4,
+                format!("Failed to save encrypted wallet: {}", e),
+            );
         }
     }
     drop(pp);
@@ -3775,17 +4511,32 @@ async fn handle_getblockheader(state: &RpcState, request: &JsonRpcRequest) -> Js
         Ok(block) => {
             let header = block.get("header").unwrap_or(&block);
             let height = header.get("height").and_then(|v| v.as_u64()).unwrap_or(0);
-            let timestamp = header.get("timestamp")
+            let timestamp = header
+                .get("timestamp")
                 .and_then(|v| v.as_u64())
                 .map(|t| t / 1_000_000_000)
                 .unwrap_or(0);
-            let prev_hash = header.get("prev_hash").and_then(|v| v.as_str()).unwrap_or("");
-            let next_hash = header.get("next_bp_hash").and_then(|v| v.as_str()).unwrap_or("");
+            let prev_hash = header
+                .get("prev_hash")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let next_hash = header
+                .get("next_bp_hash")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
 
             // Real confirmations
-            let current_height = state.near_client.status().await
-                .map(|s| s.latest_block_height).unwrap_or(height);
-            let confirmations = if current_height >= height { current_height - height + 1 } else { 1 };
+            let current_height = state
+                .near_client
+                .status()
+                .await
+                .map(|s| s.latest_block_height)
+                .unwrap_or(height);
+            let confirmations = if current_height >= height {
+                current_height - height + 1
+            } else {
+                1
+            };
 
             // Derive merkleroot from chunk hashes
             let mut chunk_hashes: Vec<String> = Vec::new();
@@ -3804,7 +4555,7 @@ async fn handle_getblockheader(state: &RpcState, request: &JsonRpcRequest) -> Js
             let merkleroot = if chunk_hashes.is_empty() {
                 "0000000000000000000000000000000000000000000000000000000000000000".to_string()
             } else {
-                use sha2::{Sha256, Digest};
+                use sha2::{Digest, Sha256};
                 let mut hasher = Sha256::new();
                 for ch in &chunk_hashes {
                     hasher.update(ch.as_bytes());
@@ -3814,23 +4565,26 @@ async fn handle_getblockheader(state: &RpcState, request: &JsonRpcRequest) -> Js
                 hex::encode(h2)
             };
 
-            ok_response(&request.id, json!({
-                "hash": hash,
-                "confirmations": confirmations,
-                "height": height,
-                "version": 1,
-                "versionHex": "00000001",
-                "merkleroot": merkleroot,
-                "time": timestamp,
-                "mediantime": timestamp,
-                "nonce": 0,
-                "bits": "1d00ffff",
-                "difficulty": 1.0,
-                "chainwork": format!("{:064x}", height as u128 * 0x100000000u128),
-                "nTx": n_tx,
-                "previousblockhash": prev_hash,
-                "nextblockhash": next_hash,
-            }))
+            ok_response(
+                &request.id,
+                json!({
+                    "hash": hash,
+                    "confirmations": confirmations,
+                    "height": height,
+                    "version": 1,
+                    "versionHex": "00000001",
+                    "merkleroot": merkleroot,
+                    "time": timestamp,
+                    "mediantime": timestamp,
+                    "nonce": 0,
+                    "bits": "1d00ffff",
+                    "difficulty": 1.0,
+                    "chainwork": format!("{:064x}", height as u128 * 0x100000000u128),
+                    "nTx": n_tx,
+                    "previousblockhash": prev_hash,
+                    "nextblockhash": next_hash,
+                }),
+            )
         }
         Err(e) => err_response(&request.id, -5, format!("Block not found: {}", e)),
     }
@@ -3859,16 +4613,19 @@ async fn handle_gettxoutsetinfo(state: &RpcState, request: &JsonRpcRequest) -> J
 
     let tx_count = state.tx_cache.read().await.entries.len();
 
-    ok_response(&request.id, json!({
-        "height": status.latest_block_height,
-        "bestblock": status.latest_block_hash,
-        "transactions": tx_count,
-        "txouts": addresses.len(),
-        "bogosize": addresses.len() * 50, // approximate UTXO entry size
-        "hash_serialized_2": status.latest_block_hash,
-        "disk_size": tx_count * 200, // rough estimate
-        "total_amount": total
-    }))
+    ok_response(
+        &request.id,
+        json!({
+            "height": status.latest_block_height,
+            "bestblock": status.latest_block_hash,
+            "transactions": tx_count,
+            "txouts": addresses.len(),
+            "bogosize": addresses.len() * 50, // approximate UTXO entry size
+            "hash_serialized_2": status.latest_block_hash,
+            "disk_size": tx_count * 200, // rough estimate
+            "total_amount": total
+        }),
+    )
 }
 
 /// getmempoolentry - mempool entry with gas-based fee estimation
@@ -3899,34 +4656,43 @@ async fn handle_getmempoolentry(state: &RpcState, request: &JsonRpcRequest) -> J
             Err(_) => 0,
         };
 
-        ok_response(&request.id, json!({
-            "vsize": vsize,
-            "weight": vsize * 4,
-            "fee": fee_btc,
-            "modifiedfee": fee_btc,
-            "time": chrono::Utc::now().timestamp(),
-            "height": height,
-            "descendantcount": 1,
-            "descendantsize": vsize,
-            "descendantfees": fee_sats,
-            "ancestorcount": 1,
-            "ancestorsize": vsize,
-            "ancestorfees": fee_sats,
-            "depends": [],
-            "spentby": [],
-            "bip125-replaceable": false,
-            "unbroadcast": false
-        }))
+        ok_response(
+            &request.id,
+            json!({
+                "vsize": vsize,
+                "weight": vsize * 4,
+                "fee": fee_btc,
+                "modifiedfee": fee_btc,
+                "time": chrono::Utc::now().timestamp(),
+                "height": height,
+                "descendantcount": 1,
+                "descendantsize": vsize,
+                "descendantfees": fee_sats,
+                "ancestorcount": 1,
+                "ancestorsize": vsize,
+                "ancestorfees": fee_sats,
+                "depends": [],
+                "spentby": [],
+                "bip125-replaceable": false,
+                "unbroadcast": false
+            }),
+        )
     } else {
         drop(tx_cache);
-        err_response(&request.id, -5, format!("Transaction {} not in mempool", txid))
+        err_response(
+            &request.id,
+            -5,
+            format!("Transaction {} not in mempool", txid),
+        )
     }
 }
 
 /// testmempoolaccept - test if a transaction would be accepted
 #[allow(unused_imports)]
 async fn handle_testmempoolaccept(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
-    let rawtxs = request.params.as_array()
+    let rawtxs = request
+        .params
+        .as_array()
         .and_then(|arr| arr.first())
         .and_then(|v| v.as_array());
 
@@ -3945,10 +4711,14 @@ async fn handle_testmempoolaccept(state: &RpcState, request: &JsonRpcRequest) ->
                 }
 
                 // Try to parse as a bitinfinity signed intent or a real Bitcoin tx
-                if hex_str.starts_with("626974696e66696e6974793a") || hex_str.starts_with("bitinfinity:") {
+                if hex_str.starts_with("626974696e66696e6974793a")
+                    || hex_str.starts_with("bitinfinity:")
+                {
                     // Signed intent — always valid
                     use sha2::Digest as _;
-                    let txid = hex::encode(&sha2::Sha256::digest(&sha2::Sha256::digest(hex_str.as_bytes())));
+                    let txid = hex::encode(&sha2::Sha256::digest(&sha2::Sha256::digest(
+                        hex_str.as_bytes(),
+                    )));
                     results.push(json!({
                         "txid": txid,
                         "allowed": true,
@@ -3971,7 +4741,9 @@ async fn handle_testmempoolaccept(state: &RpcState, request: &JsonRpcRequest) ->
                             match hex::decode(hex_str) {
                                 Ok(bytes) => {
                                     use sha2::Digest as _;
-                                    let txid = hex::encode(&sha2::Sha256::digest(&sha2::Sha256::digest(&bytes)));
+                                    let txid = hex::encode(&sha2::Sha256::digest(
+                                        &sha2::Sha256::digest(&bytes),
+                                    ));
                                     results.push(json!({
                                         "txid": txid,
                                         "allowed": true,
@@ -4000,10 +4772,16 @@ async fn handle_testmempoolaccept(state: &RpcState, request: &JsonRpcRequest) ->
 /// sendmany - send to multiple addresses in one go
 async fn handle_sendmany(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     if !state.is_wallet_unlocked().await {
-        return err_response(&request.id, -13, "Error: Please enter the wallet passphrase with walletpassphrase first.".to_string());
+        return err_response(
+            &request.id,
+            -13,
+            "Error: Please enter the wallet passphrase with walletpassphrase first.".to_string(),
+        );
     }
     // params: ["", {"addr1": amount1, "addr2": amount2, ...}]
-    let amounts = request.params.as_array()
+    let amounts = request
+        .params
+        .as_array()
         .and_then(|arr| arr.get(1))
         .and_then(|v| v.as_object());
 
@@ -4015,7 +4793,9 @@ async fn handle_sendmany(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcR
     let mut txids = Vec::new();
     for (recipient, amount_val) in amounts {
         let amount_btc = amount_val.as_f64().unwrap_or(0.0);
-        if amount_btc <= 0.0 { continue; }
+        if amount_btc <= 0.0 {
+            continue;
+        }
 
         let amount_satoshis = (amount_btc * 100_000_000.0) as u64;
         let amount_yocto = ParsedBitcoinTx::satoshis_to_yocto(amount_satoshis);
@@ -4092,8 +4872,14 @@ async fn handle_sendmany(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcR
                         use sha2::{Digest as _, Sha256};
                         let btc_txid = hex::encode(Sha256::digest(near_tx_hash.as_bytes()));
                         let mut cache = state.tx_cache.write().await;
-                        let synthetic_info = format!("sendtoaddress:{}:{}", recipient, amount_satoshis);
-                        cache.insert(btc_txid.clone(), near_tx_hash, synthetic_info, sender.clone());
+                        let synthetic_info =
+                            format!("sendtoaddress:{}:{}", recipient, amount_satoshis);
+                        cache.insert(
+                            btc_txid.clone(),
+                            near_tx_hash,
+                            synthetic_info,
+                            sender.clone(),
+                        );
                         txids.push(btc_txid);
                     }
                     Err(e) => return err_response(&request.id, -25, format!("TX failed: {}", e)),
@@ -4115,29 +4901,33 @@ async fn handle_getblockstats(state: &RpcState, request: &JsonRpcRequest) -> Jso
     match state.near_client.block_by_height(height).await {
         Ok(block) => {
             let header = block.get("header").unwrap_or(&block);
-            let timestamp = header.get("timestamp")
+            let timestamp = header
+                .get("timestamp")
                 .and_then(|v| v.as_u64())
                 .map(|t| t / 1_000_000_000)
                 .unwrap_or(0);
 
             // Count transactions from chunks in this block
-            let chunks = block.get("chunks")
+            let chunks = block
+                .get("chunks")
                 .and_then(|v| v.as_array())
                 .map(|arr| arr.len())
                 .unwrap_or(0);
-            let total_txs: u64 = block.get("chunks")
+            let total_txs: u64 = block
+                .get("chunks")
                 .and_then(|v| v.as_array())
-                .map(|arr| arr.iter()
-                    .filter_map(|c| c.get("height_included").and_then(|h| h.as_u64()))
-                    .filter(|&h| h == height)
-                    .count() as u64)
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|c| c.get("height_included").and_then(|h| h.as_u64()))
+                        .filter(|&h| h == height)
+                        .count() as u64
+                })
                 .unwrap_or(0);
 
             // Get gas used from header
-            let gas_used = header.get("gas_used")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(0);
-            let gas_price_val = header.get("gas_price")
+            let gas_used = header.get("gas_used").and_then(|v| v.as_u64()).unwrap_or(0);
+            let gas_price_val = header
+                .get("gas_price")
                 .and_then(|v| v.as_str())
                 .and_then(|s| s.parse::<u128>().ok())
                 .unwrap_or(100_000_000);
@@ -4145,36 +4935,43 @@ async fn handle_getblockstats(state: &RpcState, request: &JsonRpcRequest) -> Jso
             // Convert gas fees to satoshi-equivalent
             let total_fee_yocto = gas_used as u128 * gas_price_val;
             let total_fee_sat = total_fee_yocto / tx_translator::YOCTO_PER_SATOSHI;
-            let avg_fee = if total_txs > 0 { total_fee_sat / total_txs as u128 } else { 0 };
+            let avg_fee = if total_txs > 0 {
+                total_fee_sat / total_txs as u128
+            } else {
+                0
+            };
 
-            ok_response(&request.id, json!({
-                "avgfee": avg_fee,
-                "avgfeerate": if gas_used > 0 { gas_price_val / 10u128.pow(12) } else { 0u128 },
-                "avgtxsize": 250,
-                "blockhash": header.get("hash").and_then(|v| v.as_str()).unwrap_or(""),
-                "height": height,
-                "ins": total_txs,
-                "maxfee": total_fee_sat,
-                "maxfeerate": gas_price_val / 10u128.pow(12),
-                "maxtxsize": 250,
-                "medianfee": avg_fee,
-                "mediantime": timestamp,
-                "mediantxsize": 250,
-                "minfee": 0,
-                "minfeerate": 0,
-                "mintxsize": 250,
-                "outs": total_txs,
-                "subsidy": 0,
-                "time": timestamp,
-                "total_out": 0,
-                "total_size": total_txs * 250,
-                "total_weight": total_txs * 1000,
-                "totalfee": total_fee_sat,
-                "txs": std::cmp::max(total_txs, 1),
-                "utxo_increase": 0,
-                "utxo_size_inc": 0,
-                "shard_count": chunks
-            }))
+            ok_response(
+                &request.id,
+                json!({
+                    "avgfee": avg_fee,
+                    "avgfeerate": if gas_used > 0 { gas_price_val / 10u128.pow(12) } else { 0u128 },
+                    "avgtxsize": 250,
+                    "blockhash": header.get("hash").and_then(|v| v.as_str()).unwrap_or(""),
+                    "height": height,
+                    "ins": total_txs,
+                    "maxfee": total_fee_sat,
+                    "maxfeerate": gas_price_val / 10u128.pow(12),
+                    "maxtxsize": 250,
+                    "medianfee": avg_fee,
+                    "mediantime": timestamp,
+                    "mediantxsize": 250,
+                    "minfee": 0,
+                    "minfeerate": 0,
+                    "mintxsize": 250,
+                    "outs": total_txs,
+                    "subsidy": 0,
+                    "time": timestamp,
+                    "total_out": 0,
+                    "total_size": total_txs * 250,
+                    "total_weight": total_txs * 1000,
+                    "totalfee": total_fee_sat,
+                    "txs": std::cmp::max(total_txs, 1),
+                    "utxo_increase": 0,
+                    "utxo_size_inc": 0,
+                    "shard_count": chunks
+                }),
+            )
         }
         Err(e) => err_response(&request.id, -5, format!("Block not found: {}", e)),
     }
@@ -4191,16 +4988,21 @@ async fn handle_scantxoutset(state: &RpcState, request: &JsonRpcRequest) -> Json
 
     // Parse scanobjects parameter to extract addresses
     let mut scan_addresses: Vec<String> = Vec::new();
-    if let Some(scanobjects) = request.params.as_array().and_then(|arr| arr.get(1)).and_then(|v| v.as_array()) {
+    if let Some(scanobjects) = request
+        .params
+        .as_array()
+        .and_then(|arr| arr.get(1))
+        .and_then(|v| v.as_array())
+    {
         for obj in scanobjects {
             if let Some(s) = obj.as_str() {
                 // Could be "addr(ADDRESS)" descriptor or raw address
                 if s.starts_with("addr(") && s.ends_with(')') {
-                    scan_addresses.push(s[5..s.len()-1].to_string());
+                    scan_addresses.push(s[5..s.len() - 1].to_string());
                 } else if s.starts_with("pkh(") || s.starts_with("wpkh(") || s.starts_with("sh(") {
                     // Descriptor with address inside
                     if let Some(start) = s.find('(') {
-                        let inner = &s[start+1..];
+                        let inner = &s[start + 1..];
                         if let Some(end) = inner.find(')') {
                             scan_addresses.push(inner[..end].to_string());
                         }
@@ -4211,7 +5013,7 @@ async fn handle_scantxoutset(state: &RpcState, request: &JsonRpcRequest) -> Json
                 }
             } else if let Some(desc) = obj.get("desc").and_then(|v| v.as_str()) {
                 if desc.starts_with("addr(") && desc.ends_with(')') {
-                    scan_addresses.push(desc[5..desc.len()-1].to_string());
+                    scan_addresses.push(desc[5..desc.len() - 1].to_string());
                 }
             }
         }
@@ -4226,7 +5028,10 @@ async fn handle_scantxoutset(state: &RpcState, request: &JsonRpcRequest) -> Json
 
     let status = state.near_client.status().await;
     let block_height = status.as_ref().map(|s| s.latest_block_height).unwrap_or(0);
-    let bestblock = status.as_ref().map(|s| s.latest_block_hash.clone()).unwrap_or_default();
+    let bestblock = status
+        .as_ref()
+        .map(|s| s.latest_block_hash.clone())
+        .unwrap_or_default();
     let hrp = state.bech32_hrp();
 
     let mut utxos = Vec::new();
@@ -4249,14 +5054,17 @@ async fn handle_scantxoutset(state: &RpcState, request: &JsonRpcRequest) -> Json
         }
     }
 
-    ok_response(&request.id, json!({
-        "success": true,
-        "txouts": utxos.len(),
-        "height": block_height,
-        "bestblock": bestblock,
-        "unspents": utxos,
-        "total_amount": total
-    }))
+    ok_response(
+        &request.id,
+        json!({
+            "success": true,
+            "txouts": utxos.len(),
+            "height": block_height,
+            "bestblock": bestblock,
+            "unspents": utxos,
+            "total_amount": total
+        }),
+    )
 }
 
 /// PSBT stubs — Bitcoin wallets need these even if we don't fully implement
@@ -4268,10 +5076,20 @@ fn handle_decodepsbt(request: &JsonRpcRequest) -> JsonRpcResponse {
 
     let bytes = match base64_decode(psbt_b64) {
         Ok(b) => b,
-        Err(_) => return err_response(&request.id, -22, "Invalid PSBT: base64 decode failed".to_string()),
+        Err(_) => {
+            return err_response(
+                &request.id,
+                -22,
+                "Invalid PSBT: base64 decode failed".to_string(),
+            )
+        }
     };
     if bytes.len() < 5 || &bytes[..5] != b"psbt\xff" {
-        return err_response(&request.id, -22, "Invalid PSBT: missing magic bytes".to_string());
+        return err_response(
+            &request.id,
+            -22,
+            "Invalid PSBT: missing magic bytes".to_string(),
+        );
     }
 
     // Parse the global unsigned tx from the PSBT
@@ -4297,39 +5115,49 @@ fn handle_decodepsbt(request: &JsonRpcRequest) -> JsonRpcResponse {
     let psbt_inputs = parse_psbt_input_maps(&bytes, vin.len());
 
     // Build per-output info from vout scriptPubKeys
-    let psbt_outputs: Vec<serde_json::Value> = vout.iter().map(|v| {
-        let mut out = json!({});
-        if let Some(spk) = v.get("scriptPubKey").and_then(|s| s.get("hex")).and_then(|h| h.as_str()) {
-            if !spk.is_empty() {
-                out = json!({
-                    "witness_script": {},
-                    "bip32_derivs": []
-                });
+    let psbt_outputs: Vec<serde_json::Value> = vout
+        .iter()
+        .map(|v| {
+            let mut out = json!({});
+            if let Some(spk) = v
+                .get("scriptPubKey")
+                .and_then(|s| s.get("hex"))
+                .and_then(|h| h.as_str())
+            {
+                if !spk.is_empty() {
+                    out = json!({
+                        "witness_script": {},
+                        "bip32_derivs": []
+                    });
+                }
             }
-        }
-        out
-    }).collect();
+            out
+        })
+        .collect();
 
-    ok_response(&request.id, json!({
-        "tx": {
-            "txid": txid,
-            "hash": txid,
-            "version": tx_version,
-            "size": unsigned_tx_hex.len() / 2,
-            "vsize": unsigned_tx_hex.len() / 2,
-            "weight": (unsigned_tx_hex.len() / 2) * 4,
-            "locktime": locktime,
-            "vin": vin,
-            "vout": vout
-        },
-        "global_xpubs": [],
-        "psbt_version": 0,
-        "proprietary": [],
-        "unknown": {},
-        "inputs": psbt_inputs,
-        "outputs": psbt_outputs,
-        "fee": null
-    }))
+    ok_response(
+        &request.id,
+        json!({
+            "tx": {
+                "txid": txid,
+                "hash": txid,
+                "version": tx_version,
+                "size": unsigned_tx_hex.len() / 2,
+                "vsize": unsigned_tx_hex.len() / 2,
+                "weight": (unsigned_tx_hex.len() / 2) * 4,
+                "locktime": locktime,
+                "vin": vin,
+                "vout": vout
+            },
+            "global_xpubs": [],
+            "psbt_version": 0,
+            "proprietary": [],
+            "unknown": {},
+            "inputs": psbt_inputs,
+            "outputs": psbt_outputs,
+            "fee": null
+        }),
+    )
 }
 
 /// Parse per-input PSBT maps, extracting partial_sig, sighash_type, etc.
@@ -4337,13 +5165,17 @@ fn parse_psbt_input_maps(psbt_bytes: &[u8], num_inputs: usize) -> Vec<serde_json
     let mut inputs = Vec::new();
     // Skip to end of global map
     let mut pos = 5; // skip magic
-    // Skip global key-value pairs
+                     // Skip global key-value pairs
     while pos < psbt_bytes.len() {
         let (key_len, advance) = read_compact_size(psbt_bytes, pos);
         pos += advance;
-        if key_len == 0 { break; } // end of global map
+        if key_len == 0 {
+            break;
+        } // end of global map
         pos += key_len as usize; // skip key
-        if pos >= psbt_bytes.len() { break; }
+        if pos >= psbt_bytes.len() {
+            break;
+        }
         let (val_len, advance2) = read_compact_size(psbt_bytes, pos);
         pos += advance2;
         pos += val_len as usize; // skip value
@@ -4356,8 +5188,12 @@ fn parse_psbt_input_maps(psbt_bytes: &[u8], num_inputs: usize) -> Vec<serde_json
         while pos < psbt_bytes.len() {
             let (key_len, advance) = read_compact_size(psbt_bytes, pos);
             pos += advance;
-            if key_len == 0 { break; } // end of this input map
-            if pos >= psbt_bytes.len() { break; }
+            if key_len == 0 {
+                break;
+            } // end of this input map
+            if pos >= psbt_bytes.len() {
+                break;
+            }
             let key_type = psbt_bytes[pos];
             let key_data = if key_len > 1 && pos + key_len as usize <= psbt_bytes.len() {
                 psbt_bytes[pos + 1..pos + key_len as usize].to_vec()
@@ -4365,7 +5201,9 @@ fn parse_psbt_input_maps(psbt_bytes: &[u8], num_inputs: usize) -> Vec<serde_json
                 Vec::new()
             };
             pos += key_len as usize;
-            if pos >= psbt_bytes.len() { break; }
+            if pos >= psbt_bytes.len() {
+                break;
+            }
             let (val_len, advance2) = read_compact_size(psbt_bytes, pos);
             pos += advance2;
             let val_data = if pos + val_len as usize <= psbt_bytes.len() {
@@ -4384,15 +5222,26 @@ fn parse_psbt_input_maps(psbt_bytes: &[u8], num_inputs: usize) -> Vec<serde_json
                     if !input_info.contains_key("partial_signatures") {
                         input_info.insert("partial_signatures".to_string(), json!({}));
                     }
-                    if let Some(sigs) = input_info.get_mut("partial_signatures").and_then(|v| v.as_object_mut()) {
+                    if let Some(sigs) = input_info
+                        .get_mut("partial_signatures")
+                        .and_then(|v| v.as_object_mut())
+                    {
                         sigs.insert(pubkey_hex, json!(sig_hex));
                     }
                 }
                 0x03 => {
                     // PSBT_IN_SIGHASH_TYPE
                     if val_data.len() >= 4 {
-                        let sighash = u32::from_le_bytes([val_data[0], val_data[1], val_data[2], val_data[3]]);
-                        input_info.insert("sighash".to_string(), json!(format!("ALL|ANYONECANPAY+{}", sighash)));
+                        let sighash = u32::from_le_bytes([
+                            val_data[0],
+                            val_data[1],
+                            val_data[2],
+                            val_data[3],
+                        ]);
+                        input_info.insert(
+                            "sighash".to_string(),
+                            json!(format!("ALL|ANYONECANPAY+{}", sighash)),
+                        );
                     }
                 }
                 0x06 => {
@@ -4423,7 +5272,9 @@ fn parse_psbt_input_maps(psbt_bytes: &[u8], num_inputs: usize) -> Vec<serde_json
 }
 
 /// Parse the unsigned transaction from PSBT bytes, returning (vin, vout, version, locktime).
-fn parse_psbt_unsigned_tx(psbt_bytes: &[u8]) -> (Vec<serde_json::Value>, Vec<serde_json::Value>, u32, u32) {
+fn parse_psbt_unsigned_tx(
+    psbt_bytes: &[u8],
+) -> (Vec<serde_json::Value>, Vec<serde_json::Value>, u32, u32) {
     let empty = || (Vec::new(), Vec::new(), 2u32, 0u32);
     // Skip magic (5 bytes)
     let mut pos = 5;
@@ -4431,11 +5282,17 @@ fn parse_psbt_unsigned_tx(psbt_bytes: &[u8]) -> (Vec<serde_json::Value>, Vec<ser
     while pos < psbt_bytes.len() {
         let (key_len, advance) = read_compact_size(psbt_bytes, pos);
         pos += advance;
-        if key_len == 0 { break; } // end of global map
-        if pos >= psbt_bytes.len() { return empty(); }
+        if key_len == 0 {
+            break;
+        } // end of global map
+        if pos >= psbt_bytes.len() {
+            return empty();
+        }
         let key_type = psbt_bytes[pos];
         pos += key_len as usize;
-        if pos >= psbt_bytes.len() { return empty(); }
+        if pos >= psbt_bytes.len() {
+            return empty();
+        }
         // Read value
         let (val_len, advance2) = read_compact_size(psbt_bytes, pos);
         pos += advance2;
@@ -4443,7 +5300,9 @@ fn parse_psbt_unsigned_tx(psbt_bytes: &[u8]) -> (Vec<serde_json::Value>, Vec<ser
             // This is PSBT_GLOBAL_UNSIGNED_TX — parse it
             let tx_start = pos;
             let tx_end = pos + val_len as usize;
-            if tx_end > psbt_bytes.len() { return empty(); }
+            if tx_end > psbt_bytes.len() {
+                return empty();
+            }
             let tx_bytes = &psbt_bytes[tx_start..tx_end];
             return parse_raw_tx_for_psbt(tx_bytes);
         }
@@ -4453,7 +5312,9 @@ fn parse_psbt_unsigned_tx(psbt_bytes: &[u8]) -> (Vec<serde_json::Value>, Vec<ser
 }
 
 fn read_compact_size(data: &[u8], pos: usize) -> (u64, usize) {
-    if pos >= data.len() { return (0, 1); }
+    if pos >= data.len() {
+        return (0, 1);
+    }
     let first = data[pos];
     if first < 253 {
         (first as u64, 1)
@@ -4464,8 +5325,16 @@ fn read_compact_size(data: &[u8], pos: usize) -> (u64, usize) {
         let v = u32::from_le_bytes([data[pos + 1], data[pos + 2], data[pos + 3], data[pos + 4]]);
         (v as u64, 5)
     } else if first == 0xFF && pos + 8 < data.len() {
-        let v = u64::from_le_bytes([data[pos+1], data[pos+2], data[pos+3], data[pos+4],
-                                     data[pos+5], data[pos+6], data[pos+7], data[pos+8]]);
+        let v = u64::from_le_bytes([
+            data[pos + 1],
+            data[pos + 2],
+            data[pos + 3],
+            data[pos + 4],
+            data[pos + 5],
+            data[pos + 6],
+            data[pos + 7],
+            data[pos + 8],
+        ]);
         (v, 9)
     } else {
         (0, 1)
@@ -4476,7 +5345,9 @@ fn read_compact_size(data: &[u8], pos: usize) -> (u64, usize) {
 fn parse_raw_tx_for_psbt(tx: &[u8]) -> (Vec<serde_json::Value>, Vec<serde_json::Value>, u32, u32) {
     let mut vin = Vec::new();
     let mut vout = Vec::new();
-    if tx.len() < 10 { return (vin, vout, 2, 0); }
+    if tx.len() < 10 {
+        return (vin, vout, 2, 0);
+    }
 
     let mut pos = 0;
     // version (4 bytes)
@@ -4488,7 +5359,9 @@ fn parse_raw_tx_for_psbt(tx: &[u8]) -> (Vec<serde_json::Value>, Vec<serde_json::
     pos += adv;
 
     for _ in 0..in_count {
-        if pos + 36 > tx.len() { break; }
+        if pos + 36 > tx.len() {
+            break;
+        }
         // prevout hash (32 bytes, reversed for display)
         let mut txid_bytes = tx[pos..pos + 32].to_vec();
         txid_bytes.reverse();
@@ -4501,7 +5374,9 @@ fn parse_raw_tx_for_psbt(tx: &[u8]) -> (Vec<serde_json::Value>, Vec<serde_json::
         pos += adv;
         pos += script_len as usize;
         // sequence
-        if pos + 4 > tx.len() { break; }
+        if pos + 4 > tx.len() {
+            break;
+        }
         let sequence = u32::from_le_bytes([tx[pos], tx[pos + 1], tx[pos + 2], tx[pos + 3]]);
         pos += 4;
 
@@ -4518,9 +5393,19 @@ fn parse_raw_tx_for_psbt(tx: &[u8]) -> (Vec<serde_json::Value>, Vec<serde_json::
     pos += adv;
 
     for n in 0..out_count {
-        if pos + 8 > tx.len() { break; }
-        let value = u64::from_le_bytes([tx[pos], tx[pos+1], tx[pos+2], tx[pos+3],
-                                         tx[pos+4], tx[pos+5], tx[pos+6], tx[pos+7]]);
+        if pos + 8 > tx.len() {
+            break;
+        }
+        let value = u64::from_le_bytes([
+            tx[pos],
+            tx[pos + 1],
+            tx[pos + 2],
+            tx[pos + 3],
+            tx[pos + 4],
+            tx[pos + 5],
+            tx[pos + 6],
+            tx[pos + 7],
+        ]);
         pos += 8;
         let (script_len, adv) = read_compact_size(tx, pos);
         pos += adv;
@@ -4554,17 +5439,26 @@ fn parse_raw_tx_for_psbt(tx: &[u8]) -> (Vec<serde_json::Value>, Vec<serde_json::
     (vin, vout, version, locktime)
 }
 
-async fn handle_walletcreatefundedpsbt(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+async fn handle_walletcreatefundedpsbt(
+    state: &RpcState,
+    request: &JsonRpcRequest,
+) -> JsonRpcResponse {
     use sha2::Digest as _;
     // walletcreatefundedpsbt(inputs, outputs, locktime, options)
     // If inputs is empty, auto-select from wallet UTXOs
-    let inputs = request.params.as_array()
+    let inputs = request
+        .params
+        .as_array()
         .and_then(|arr| arr.get(0))
         .and_then(|v| v.as_array());
-    let outputs = request.params.as_array()
+    let outputs = request
+        .params
+        .as_array()
         .and_then(|arr| arr.get(1))
         .and_then(|v| v.as_array());
-    let locktime = request.params.as_array()
+    let locktime = request
+        .params
+        .as_array()
         .and_then(|arr| arr.get(2))
         .and_then(|v| v.as_u64())
         .unwrap_or(0) as u32;
@@ -4575,7 +5469,9 @@ async fn handle_walletcreatefundedpsbt(state: &RpcState, request: &JsonRpcReques
         for out_obj in outs {
             if let Some(obj) = out_obj.as_object() {
                 for (addr, amount_val) in obj {
-                    if addr == "data" { continue; } // skip OP_RETURN
+                    if addr == "data" {
+                        continue;
+                    } // skip OP_RETURN
                     if let Some(amt) = amount_val.as_f64() {
                         output_pairs.push((addr.clone(), amt));
                     }
@@ -4594,8 +5490,12 @@ async fn handle_walletcreatefundedpsbt(state: &RpcState, request: &JsonRpcReques
         let addrs: Vec<String> = keystore.addresses().iter().map(|a| a.to_string()).collect();
         drop(keystore);
 
-        let block_height = state.near_client.status().await
-            .map(|s| s.latest_block_height).unwrap_or(0);
+        let block_height = state
+            .near_client
+            .status()
+            .await
+            .map(|s| s.latest_block_height)
+            .unwrap_or(0);
 
         let mut selected = Vec::new();
         for addr in &addrs {
@@ -4603,7 +5503,7 @@ async fn handle_walletcreatefundedpsbt(state: &RpcState, request: &JsonRpcReques
                 let btc = account.balance_as_btc();
                 if btc >= total_output + fee_btc {
                     let txid = hex::encode(sha2::Sha256::digest(
-                        format!("bitinfinity-utxo:{}:{}", addr, block_height).as_bytes()
+                        format!("bitinfinity-utxo:{}:{}", addr, block_height).as_bytes(),
                     ));
                     selected.push((txid, 0u32));
                     break;
@@ -4612,11 +5512,19 @@ async fn handle_walletcreatefundedpsbt(state: &RpcState, request: &JsonRpcReques
         }
         selected
     } else {
-        inputs.unwrap().iter().map(|inp| {
-            let txid = inp.get("txid").and_then(|v| v.as_str()).unwrap_or(&"0".repeat(64)).to_string();
-            let vout = inp.get("vout").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
-            (txid, vout)
-        }).collect()
+        inputs
+            .unwrap()
+            .iter()
+            .map(|inp| {
+                let txid = inp
+                    .get("txid")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or(&"0".repeat(64))
+                    .to_string();
+                let vout = inp.get("vout").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+                (txid, vout)
+            })
+            .collect()
     };
 
     let num_inputs = use_inputs.len();
@@ -4653,16 +5561,23 @@ async fn handle_walletcreatefundedpsbt(state: &RpcState, request: &JsonRpcReques
     write_compact_size(&mut psbt, unsigned_tx.len() as u64);
     psbt.extend_from_slice(&unsigned_tx);
     psbt.push(0x00); // end global map
-    for _ in 0..num_inputs { psbt.push(0x00); }
-    for _ in 0..num_outputs { psbt.push(0x00); }
+    for _ in 0..num_inputs {
+        psbt.push(0x00);
+    }
+    for _ in 0..num_outputs {
+        psbt.push(0x00);
+    }
 
     let psbt_b64 = base64_encode(&psbt);
 
-    ok_response(&request.id, json!({
-        "psbt": psbt_b64,
-        "fee": fee_btc,
-        "changepos": -1
-    }))
+    ok_response(
+        &request.id,
+        json!({
+            "psbt": psbt_b64,
+            "fee": fee_btc,
+            "changepos": -1
+        }),
+    )
 }
 
 fn handle_finalizepsbt(request: &JsonRpcRequest) -> JsonRpcResponse {
@@ -4677,30 +5592,42 @@ fn handle_finalizepsbt(request: &JsonRpcRequest) -> JsonRpcResponse {
         Err(_) => return err_response(&request.id, -22, "Invalid PSBT base64".to_string()),
     };
     if psbt_bytes.len() < 5 || &psbt_bytes[..5] != b"psbt\xff" {
-        return err_response(&request.id, -22, "Invalid PSBT: missing magic bytes".to_string());
+        return err_response(
+            &request.id,
+            -22,
+            "Invalid PSBT: missing magic bytes".to_string(),
+        );
     }
 
     let tx_hex = extract_unsigned_tx_hex(&psbt_bytes);
     if tx_hex.is_empty() {
-        return ok_response(&request.id, json!({
-            "hex": "",
-            "complete": false,
-            "psbt": psbt_b64
-        }));
+        return ok_response(
+            &request.id,
+            json!({
+                "hex": "",
+                "complete": false,
+                "psbt": psbt_b64
+            }),
+        );
     }
 
     // Return the unsigned tx as the finalized hex (for our account-based model,
     // the actual signing happens in sendrawtransaction when this hex is broadcast)
-    ok_response(&request.id, json!({
-        "hex": tx_hex,
-        "complete": true
-    }))
+    ok_response(
+        &request.id,
+        json!({
+            "hex": tx_hex,
+            "complete": true
+        }),
+    )
 }
 
 fn handle_combinepsbt(request: &JsonRpcRequest) -> JsonRpcResponse {
     // Combine multiple PSBTs — merge partial signatures from each PSBT.
     // In our single-signer model, the first PSBT with signature data is the combined result.
-    let psbt_array = request.params.as_array()
+    let psbt_array = request
+        .params
+        .as_array()
         .and_then(|arr| arr.get(0))
         .and_then(|v| v.as_array());
 
@@ -4722,7 +5649,13 @@ fn handle_combinepsbt(request: &JsonRpcRequest) -> JsonRpcResponse {
 fn handle_deriveaddresses(request: &JsonRpcRequest) -> JsonRpcResponse {
     let descriptor = match get_str_param(&request.params, 0) {
         Some(d) => d,
-        None => return err_response(&request.id, -32602, "Missing descriptor parameter".to_string()),
+        None => {
+            return err_response(
+                &request.id,
+                -32602,
+                "Missing descriptor parameter".to_string(),
+            )
+        }
     };
 
     // Parse basic descriptor types: addr(ADDRESS), wpkh(KEY), pkh(KEY), sh(wpkh(KEY))
@@ -4732,7 +5665,7 @@ fn handle_deriveaddresses(request: &JsonRpcRequest) -> JsonRpcResponse {
     // addr(ADDRESS) — simplest: just return the address
     if desc_clean.starts_with("addr(") && desc_clean.ends_with(')') {
         let addr = &desc_clean[5..desc_clean.len() - 1];
-        return ok_response(&request.id, json!([addr.to_lowercase()]));
+        return ok_response(&request.id, json!([addr]));
     }
 
     // For key-based descriptors, extract the inner key/address
@@ -4753,19 +5686,25 @@ fn handle_deriveaddresses(request: &JsonRpcRequest) -> JsonRpcResponse {
         Some(key_or_addr) => {
             // If it looks like a Bitcoin address already, return it
             // Otherwise it's a hex pubkey or xpub which we can't derive without BIP32
-            if key_or_addr.starts_with('1') || key_or_addr.starts_with('3')
-                || key_or_addr.starts_with('m') || key_or_addr.starts_with('n')
+            if key_or_addr.starts_with('1')
+                || key_or_addr.starts_with('3')
+                || key_or_addr.starts_with('m')
+                || key_or_addr.starts_with('n')
                 || key_or_addr.starts_with('2')
-                || key_or_addr.starts_with("bc1") || key_or_addr.starts_with("tb1")
-                || key_or_addr.starts_with("bcrt1") {
-                ok_response(&request.id, json!([key_or_addr.to_lowercase()]))
+                || key_or_addr.starts_with("bc1")
+                || key_or_addr.starts_with("tb1")
+                || key_or_addr.starts_with("bcrt1")
+            {
+                ok_response(&request.id, json!([key_or_addr]))
             } else {
                 err_response(&request.id, -5, "Cannot derive address from extended key or raw pubkey — use addr() descriptor or getnewaddress".to_string())
             }
         }
-        None => {
-            err_response(&request.id, -5, format!("Unsupported descriptor type: {}", desc_clean))
-        }
+        None => err_response(
+            &request.id,
+            -5,
+            format!("Unsupported descriptor type: {}", desc_clean),
+        ),
     }
 }
 
@@ -4779,17 +5718,22 @@ fn handle_getdescriptorinfo(request: &JsonRpcRequest) -> JsonRpcResponse {
 
     let is_range = desc_clean.contains('*'); // range descriptors contain wildcard
     let has_private = desc_clean.contains("xprv") || desc_clean.contains("tprv");
-    let is_solvable = desc_clean.starts_with("wpkh(") || desc_clean.starts_with("pkh(")
-        || desc_clean.starts_with("sh(") || desc_clean.starts_with("addr(")
+    let is_solvable = desc_clean.starts_with("wpkh(")
+        || desc_clean.starts_with("pkh(")
+        || desc_clean.starts_with("sh(")
+        || desc_clean.starts_with("addr(")
         || desc_clean.starts_with("tr(");
 
-    ok_response(&request.id, json!({
-        "descriptor": descriptor_with_checksum,
-        "checksum": checksum,
-        "isrange": is_range,
-        "issolvable": is_solvable,
-        "hasprivatekeys": has_private
-    }))
+    ok_response(
+        &request.id,
+        json!({
+            "descriptor": descriptor_with_checksum,
+            "checksum": checksum,
+            "isrange": is_range,
+            "issolvable": is_solvable,
+            "hasprivatekeys": has_private
+        }),
+    )
 }
 
 /// Compute descriptor checksum (Bitcoin Core compatible, 8-char)
@@ -4800,11 +5744,21 @@ fn compute_descriptor_checksum(desc: &str) -> String {
     fn polymod(c: u64, val: u64) -> u64 {
         let c0 = c >> 35;
         let mut c = ((c & 0x7ffffffff) << 5) ^ val;
-        if c0 & 1 != 0 { c ^= 0xf5dee51989; }
-        if c0 & 2 != 0 { c ^= 0xa9fdca3312; }
-        if c0 & 4 != 0 { c ^= 0x1bab10e32d; }
-        if c0 & 8 != 0 { c ^= 0x3706b1677a; }
-        if c0 & 16 != 0 { c ^= 0x644d626ffd; }
+        if c0 & 1 != 0 {
+            c ^= 0xf5dee51989;
+        }
+        if c0 & 2 != 0 {
+            c ^= 0xa9fdca3312;
+        }
+        if c0 & 4 != 0 {
+            c ^= 0x1bab10e32d;
+        }
+        if c0 & 8 != 0 {
+            c ^= 0x3706b1677a;
+        }
+        if c0 & 16 != 0 {
+            c ^= 0x644d626ffd;
+        }
         c
     }
 
@@ -4843,10 +5797,13 @@ fn compute_descriptor_checksum(desc: &str) -> String {
 
 /// importdescriptors - import output descriptors (stub)
 fn handle_importdescriptors(request: &JsonRpcRequest) -> JsonRpcResponse {
-    ok_response(&request.id, json!([{
-        "success": true,
-        "warnings": ["Descriptors not natively supported; use importprivkey instead"]
-    }]))
+    ok_response(
+        &request.id,
+        json!([{
+            "success": true,
+            "warnings": ["Descriptors not natively supported; use importprivkey instead"]
+        }]),
+    )
 }
 
 /// getdifficulty - return current difficulty (always 1 for account-based)
@@ -4860,22 +5817,33 @@ async fn handle_getchaintips(state: &RpcState, request: &JsonRpcRequest) -> Json
         Ok(s) => s,
         Err(e) => return err_response(&request.id, -32000, format!("Node error: {}", e)),
     };
-    ok_response(&request.id, json!([{
-        "height": status.latest_block_height,
-        "hash": status.latest_block_hash,
-        "branchlen": 0,
-        "status": "active"
-    }]))
+    ok_response(
+        &request.id,
+        json!([{
+            "height": status.latest_block_height,
+            "hash": status.latest_block_hash,
+            "branchlen": 0,
+            "status": "active"
+        }]),
+    )
 }
 
 /// gettxoutproof - get proof for a transaction inclusion (not applicable to NEAR)
 fn handle_gettxoutproof(request: &JsonRpcRequest) -> JsonRpcResponse {
-    err_response(&request.id, -1, "Transaction inclusion proofs not supported in account-based model".to_string())
+    err_response(
+        &request.id,
+        -1,
+        "Transaction inclusion proofs not supported in account-based model".to_string(),
+    )
 }
 
 /// verifytxoutproof - verify a tx inclusion proof
 fn handle_verifytxoutproof(request: &JsonRpcRequest) -> JsonRpcResponse {
-    err_response(&request.id, -1, "Transaction inclusion proofs not supported in account-based model".to_string())
+    err_response(
+        &request.id,
+        -1,
+        "Transaction inclusion proofs not supported in account-based model".to_string(),
+    )
 }
 
 /// listsinceblock - list transactions since a block
@@ -4889,12 +5857,11 @@ async fn handle_listsinceblock(state: &RpcState, request: &JsonRpcRequest) -> Js
     let since_height = if let Some(blockhash) = get_str_param(&request.params, 0) {
         if !blockhash.is_empty() {
             match state.near_client.block_by_hash(blockhash).await {
-                Ok(block) => {
-                    block.get("header")
-                        .and_then(|h| h.get("height"))
-                        .and_then(|v| v.as_u64())
-                        .unwrap_or(0)
-                }
+                Ok(block) => block
+                    .get("header")
+                    .and_then(|h| h.get("height"))
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(0),
                 Err(_) => 0,
             }
         } else {
@@ -4908,7 +5875,8 @@ async fn handle_listsinceblock(state: &RpcState, request: &JsonRpcRequest) -> Js
 
     // Collect wallet addresses for category detection
     let keystore = state.keystore.read().await;
-    let wallet_addrs: std::collections::HashSet<String> = keystore.addresses().iter().map(|a| a.to_string()).collect();
+    let wallet_addrs: std::collections::HashSet<String> =
+        keystore.addresses().iter().map(|a| a.to_string()).collect();
     drop(keystore);
 
     let cache = state.tx_cache.read().await;
@@ -4925,10 +5893,17 @@ async fn handle_listsinceblock(state: &RpcState, request: &JsonRpcRequest) -> Js
                 continue;
             }
             let amount_btc = entry.amount_satoshis as f64 / 100_000_000.0;
-            let confs = if tx_height > 0 && current_height >= tx_height { (current_height - tx_height + 1) as i64 } else { 1 };
+            let confs = if tx_height > 0 && current_height >= tx_height {
+                (current_height - tx_height + 1) as i64
+            } else {
+                1
+            };
             let ts = match state.near_client.block_by_height(tx_height).await {
-                Ok(block) => block.get("header").unwrap_or(&block)
-                    .get("timestamp").and_then(|v| v.as_u64())
+                Ok(block) => block
+                    .get("header")
+                    .unwrap_or(&block)
+                    .get("timestamp")
+                    .and_then(|v| v.as_u64())
                     .map(|t| (t / 1_000_000_000) as i64)
                     .unwrap_or(chrono::Utc::now().timestamp()),
                 Err(_) => chrono::Utc::now().timestamp(),
@@ -4950,9 +5925,14 @@ async fn handle_listsinceblock(state: &RpcState, request: &JsonRpcRequest) -> Js
             continue;
         }
 
-        let (tx_height, blocktime, confirmations) = match state.near_client.tx_status(&entry.near_tx_hash, &entry.sender_id).await {
+        let (tx_height, blocktime, confirmations) = match state
+            .near_client
+            .tx_status(&entry.near_tx_hash, &entry.sender_id)
+            .await
+        {
             Ok(tx_result) => {
-                let tx_block_hash = tx_result.get("transaction_outcome")
+                let tx_block_hash = tx_result
+                    .get("transaction_outcome")
                     .and_then(|o| o.get("block_hash"))
                     .and_then(|v| v.as_str())
                     .unwrap_or("");
@@ -4961,10 +5941,16 @@ async fn handle_listsinceblock(state: &RpcState, request: &JsonRpcRequest) -> Js
                         Ok(block) => {
                             let header = block.get("header").unwrap_or(&block);
                             let h = header.get("height").and_then(|v| v.as_u64()).unwrap_or(0);
-                            let ts = header.get("timestamp").and_then(|v| v.as_u64())
+                            let ts = header
+                                .get("timestamp")
+                                .and_then(|v| v.as_u64())
                                 .map(|t| (t / 1_000_000_000) as i64)
                                 .unwrap_or(chrono::Utc::now().timestamp());
-                            let confs = if h > 0 && current_height >= h { (current_height - h + 1) as i64 } else { 1 };
+                            let confs = if h > 0 && current_height >= h {
+                                (current_height - h + 1) as i64
+                            } else {
+                                1
+                            };
                             (h, ts, confs)
                         }
                         Err(_) => (0u64, chrono::Utc::now().timestamp(), 1i64),
@@ -4985,9 +5971,14 @@ async fn handle_listsinceblock(state: &RpcState, request: &JsonRpcRequest) -> Js
             let r = parts.get(1).unwrap_or(&"").to_string();
             let sat: u64 = parts.get(2).and_then(|s| s.parse().ok()).unwrap_or(0);
             (sat as f64 / 100_000_000.0, r)
-        } else if let Ok(parsed) = ParsedBitcoinTx::from_hex_with_hrp(&entry.raw_hex, state.bech32_hrp()) {
+        } else if let Ok(parsed) =
+            ParsedBitcoinTx::from_hex_with_hrp(&entry.raw_hex, state.bech32_hrp())
+        {
             let amt = parsed.total_payment_satoshis() as f64 / 100_000_000.0;
-            let recip = parsed.payment_output().map(|o| o.address.clone()).unwrap_or_default();
+            let recip = parsed
+                .payment_output()
+                .map(|o| o.address.clone())
+                .unwrap_or_default();
             (amt, recip)
         } else {
             (0.0, String::new())
@@ -5037,55 +6028,80 @@ async fn handle_listsinceblock(state: &RpcState, request: &JsonRpcRequest) -> Js
         }
     }
 
-    ok_response(&request.id, json!({
-        "transactions": txs,
-        "removed": [],
-        "lastblock": status.latest_block_hash
-    }))
+    ok_response(
+        &request.id,
+        json!({
+            "transactions": txs,
+            "removed": [],
+            "lastblock": status.latest_block_hash
+        }),
+    )
 }
 
 /// listdescriptors - list wallet descriptors
 async fn handle_listdescriptors(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     let keystore = state.keystore.read().await;
-    let descriptors: Vec<serde_json::Value> = keystore.addresses().iter().filter_map(|addr| {
-        let entry = keystore.get(addr)?;
-        let bech32_prefix = format!("{}1", state.bech32_hrp());
-        let desc = if addr.starts_with(&bech32_prefix) {
-            format!("wpkh({})", entry.public_key_compressed_hex)
-        } else {
-            format!("pkh({})", entry.public_key_compressed_hex)
-        };
-        Some(json!({
-            "desc": desc,
-            "timestamp": chrono::Utc::now().timestamp(),
-            "active": true,
-            "internal": false,
-            "range": [0, 0],
-            "next": 0
-        }))
-    }).collect();
+    let descriptors: Vec<serde_json::Value> = keystore
+        .addresses()
+        .iter()
+        .filter_map(|addr| {
+            let entry = keystore.get(addr)?;
+            let bech32_prefix = format!("{}1", state.bech32_hrp());
+            let desc = if addr.starts_with(&bech32_prefix) {
+                format!("wpkh({})", entry.public_key_compressed_hex)
+            } else {
+                format!("pkh({})", entry.public_key_compressed_hex)
+            };
+            Some(json!({
+                "desc": desc,
+                "timestamp": chrono::Utc::now().timestamp(),
+                "active": true,
+                "internal": false,
+                "range": [0, 0],
+                "next": 0
+            }))
+        })
+        .collect();
 
-    ok_response(&request.id, json!({
-        "wallet_name": "bitinfinity",
-        "descriptors": descriptors
-    }))
+    ok_response(
+        &request.id,
+        json!({
+            "wallet_name": "bitinfinity",
+            "descriptors": descriptors
+        }),
+    )
 }
 
 /// signrawtransactionwithkey - sign a raw tx with externally provided private keys
 /// Params: [hexstring, privkeys_array, prevtxs, sighashtype]
-async fn handle_signrawtransactionwithkey(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+async fn handle_signrawtransactionwithkey(
+    state: &RpcState,
+    request: &JsonRpcRequest,
+) -> JsonRpcResponse {
     let raw_hex = match get_str_param(&request.params, 0) {
         Some(h) => h,
-        None => return err_response(&request.id, -32602, "Missing raw transaction hex".to_string()),
+        None => {
+            return err_response(
+                &request.id,
+                -32602,
+                "Missing raw transaction hex".to_string(),
+            )
+        }
     };
-    let privkeys = request.params.as_array()
+    let privkeys = request
+        .params
+        .as_array()
         .and_then(|arr| arr.get(1))
         .and_then(|v| v.as_array())
         .cloned()
         .unwrap_or_default();
 
     if privkeys.is_empty() {
-        return err_response(&request.id, -32602, "Missing private keys array".to_string());
+        return err_response(
+            &request.id,
+            -32602,
+            "Missing private keys array".to_string(),
+        );
     }
 
     // Import the provided keys into a temporary keystore for signing
@@ -5101,9 +6117,7 @@ async fn handle_signrawtransactionwithkey(state: &RpcState, request: &JsonRpcReq
         } else {
             // Decode WIF
             match bs58::decode(key_str).into_vec() {
-                Ok(decoded) if decoded.len() >= 33 => {
-                    hex::encode(&decoded[1..33])
-                }
+                Ok(decoded) if decoded.len() >= 33 => hex::encode(&decoded[1..33]),
                 _ => continue,
             }
         };
@@ -5123,18 +6137,24 @@ async fn handle_signrawtransactionwithkey(state: &RpcState, request: &JsonRpcReq
         let uncompressed = public_key.serialize_uncompressed();
 
         // Derive address
-        use sha2::{Sha256, Digest};
         use ripemd::Ripemd160;
+        use sha2::{Digest, Sha256};
         let sha_hash = Sha256::digest(&compressed);
         let pubkey_hash = Ripemd160::digest(&sha_hash);
         let bech32_hrp = state.bech32_hrp();
-        let address = crate::utxo_synth::SyntheticUtxo::derive_script_pub_key_address(&pubkey_hash, bech32_hrp);
+        let address = crate::utxo_synth::SyntheticUtxo::derive_script_pub_key_address(
+            &pubkey_hash,
+            bech32_hrp,
+        );
 
-        temp_keystore.insert(address, crate::keystore::KeyEntry {
-            private_key_hex: privkey_hex,
-            public_key_compressed_hex: hex::encode(&compressed),
-            public_key_uncompressed_hex: hex::encode(&uncompressed[1..]),
-        });
+        temp_keystore.insert(
+            address,
+            crate::keystore::KeyEntry {
+                private_key_hex: privkey_hex,
+                public_key_compressed_hex: hex::encode(&compressed),
+                public_key_uncompressed_hex: hex::encode(&uncompressed[1..]),
+            },
+        );
     }
 
     // Now sign using the same logic as signrawtransactionwithwallet
@@ -5149,17 +6169,23 @@ async fn handle_signrawtransactionwithkey(state: &RpcState, request: &JsonRpcReq
             let sender = parts[1];
             if temp_keystore.get(sender).is_some() {
                 let signed_payload = format!("bitinfinity:{}:{}:{}", sender, parts[2], parts[3]);
-                return ok_response(&request.id, json!({
-                    "hex": hex::encode(signed_payload.as_bytes()),
-                    "complete": true
-                }));
+                return ok_response(
+                    &request.id,
+                    json!({
+                        "hex": hex::encode(signed_payload.as_bytes()),
+                        "complete": true
+                    }),
+                );
             }
         }
-        return ok_response(&request.id, json!({
-            "hex": raw_hex,
-            "complete": false,
-            "errors": [{"error": "No matching key found for sender address"}]
-        }));
+        return ok_response(
+            &request.id,
+            json!({
+                "hex": raw_hex,
+                "complete": false,
+                "errors": [{"error": "No matching key found for sender address"}]
+            }),
+        );
     }
 
     // Try as real Bitcoin tx
@@ -5169,24 +6195,36 @@ async fn handle_signrawtransactionwithkey(state: &RpcState, request: &JsonRpcReq
             if temp_keystore.get(sender).is_some() {
                 // Build signed payload
                 if let Some(output) = parsed.payment_output() {
-                    let signed_payload = format!("bitinfinity:{}:{}:{}", sender, output.address, output.amount_satoshis);
-                    return ok_response(&request.id, json!({
-                        "hex": hex::encode(signed_payload.as_bytes()),
-                        "complete": true
-                    }));
+                    let signed_payload = format!(
+                        "bitinfinity:{}:{}:{}",
+                        sender, output.address, output.amount_satoshis
+                    );
+                    return ok_response(
+                        &request.id,
+                        json!({
+                            "hex": hex::encode(signed_payload.as_bytes()),
+                            "complete": true
+                        }),
+                    );
                 }
             }
-            ok_response(&request.id, json!({
+            ok_response(
+                &request.id,
+                json!({
+                    "hex": raw_hex,
+                    "complete": false,
+                    "errors": [{"error": "No matching key found for sender address"}]
+                }),
+            )
+        }
+        Err(_) => ok_response(
+            &request.id,
+            json!({
                 "hex": raw_hex,
                 "complete": false,
-                "errors": [{"error": "No matching key found for sender address"}]
-            }))
-        }
-        Err(_) => ok_response(&request.id, json!({
-            "hex": raw_hex,
-            "complete": false,
-            "errors": [{"error": "Could not parse transaction"}]
-        })),
+                "errors": [{"error": "Could not parse transaction"}]
+            }),
+        ),
     }
 }
 
@@ -5195,7 +6233,13 @@ async fn handle_signrawtransactionwithkey(state: &RpcState, request: &JsonRpcReq
 fn handle_converttopsbt(request: &JsonRpcRequest) -> JsonRpcResponse {
     let raw_hex = match get_str_param(&request.params, 0) {
         Some(h) => h,
-        None => return err_response(&request.id, -32602, "Missing hex string parameter".to_string()),
+        None => {
+            return err_response(
+                &request.id,
+                -32602,
+                "Missing hex string parameter".to_string(),
+            )
+        }
     };
 
     let tx_bytes = match hex::decode(raw_hex) {
@@ -5226,7 +6270,7 @@ fn handle_converttopsbt(request: &JsonRpcRequest) -> JsonRpcResponse {
     // Key: length(1) + type(1)
     psbt.push(0x01); // key length
     psbt.push(0x00); // key type: unsigned tx
-    // Value: compact_size(tx_bytes.len()) + tx_bytes
+                     // Value: compact_size(tx_bytes.len()) + tx_bytes
     write_compact_size(&mut psbt, tx_bytes.len() as u64);
     psbt.extend_from_slice(&tx_bytes);
     // End global map
@@ -5257,7 +6301,11 @@ fn handle_utxoupdatepsbt(request: &JsonRpcRequest) -> JsonRpcResponse {
             // Return unchanged — in account-based model, no UTXO data to add
             ok_response(&request.id, json!(psbt_base64))
         }
-        _ => err_response(&request.id, -22, "TX decode failed (invalid PSBT)".to_string()),
+        _ => err_response(
+            &request.id,
+            -22,
+            "TX decode failed (invalid PSBT)".to_string(),
+        ),
     }
 }
 
@@ -5274,7 +6322,11 @@ async fn handle_abandontransaction(state: &RpcState, request: &JsonRpcRequest) -
         ok_response(&request.id, json!(null))
     } else {
         drop(tx_cache);
-        err_response(&request.id, -5, format!("Transaction {} not found in cache", txid))
+        err_response(
+            &request.id,
+            -5,
+            format!("Transaction {} not found in cache", txid),
+        )
     }
 }
 
@@ -5293,12 +6345,13 @@ fn handle_bumpfee(request: &JsonRpcRequest) -> JsonRpcResponse {
 /// lockunspent / listlockunspent
 async fn handle_lockunspent(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     // lockunspent(unlock, [{"txid":..., "vout":...}, ...])
-    let unlock = request.params.get(0)
+    let unlock = request
+        .params
+        .get(0)
         .and_then(|v| v.as_bool())
         .unwrap_or(true);
 
-    let transactions = request.params.get(1)
-        .and_then(|v| v.as_array());
+    let transactions = request.params.get(1).and_then(|v| v.as_array());
 
     let mut locked = state.locked_utxos.write().await;
 
@@ -5310,7 +6363,11 @@ async fn handle_lockunspent(state: &RpcState, request: &JsonRpcRequest) -> JsonR
 
     if let Some(txs) = transactions {
         for tx in txs {
-            let txid = tx.get("txid").and_then(|v| v.as_str()).unwrap_or("").to_string();
+            let txid = tx
+                .get("txid")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_string();
             let vout = tx.get("vout").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
             if unlock {
                 locked.retain(|(t, v)| !(t == &txid && *v == vout));
@@ -5325,26 +6382,34 @@ async fn handle_lockunspent(state: &RpcState, request: &JsonRpcRequest) -> JsonR
 
 async fn handle_listlockunspent(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     let locked = state.locked_utxos.read().await;
-    let result: Vec<serde_json::Value> = locked.iter().map(|(txid, vout)| {
-        json!({"txid": txid, "vout": vout})
-    }).collect();
+    let result: Vec<serde_json::Value> = locked
+        .iter()
+        .map(|(txid, vout)| json!({"txid": txid, "vout": vout}))
+        .collect();
     ok_response(&request.id, json!(result))
 }
 
 /// rescanblockchain - no-op
 async fn handle_rescanblockchain(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     let start_height = get_u64_param(&request.params, 0).unwrap_or(0);
-    let current_height = state.near_client.status().await
-        .map(|s| s.latest_block_height).unwrap_or(0);
+    let current_height = state
+        .near_client
+        .status()
+        .await
+        .map(|s| s.latest_block_height)
+        .unwrap_or(0);
     let stop_height = get_u64_param(&request.params, 1).unwrap_or(current_height);
 
     // Reset the indexer to re-scan from start_height
     *state.last_indexed_height.write().await = start_height;
 
-    ok_response(&request.id, json!({
-        "start_height": start_height,
-        "stop_height": stop_height.min(current_height)
-    }))
+    ok_response(
+        &request.id,
+        json!({
+            "start_height": start_height,
+            "stop_height": stop_height.min(current_height)
+        }),
+    )
 }
 
 /// getblockfilter - compact block filter (stub)
@@ -5354,43 +6419,22 @@ fn handle_getblockfilter(request: &JsonRpcRequest) -> JsonRpcResponse {
 
 /// generate / generatetoaddress - mining stubs (could be useful for testing)
 async fn handle_generate(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
-    let nblocks = get_u64_param(&request.params, 0).unwrap_or(1);
-    generate_block_hashes(state, nblocks).await
+    let _ = state;
+    err_response(
+        &request.id,
+        -32601,
+        "generate is not supported: Bitcoin Infinity uses Proof-of-Stake (no CPU mining)."
+            .to_string(),
+    )
 }
 
 async fn handle_generatetoaddress(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
-    let nblocks = get_u64_param(&request.params, 0).unwrap_or(1);
-    // address param is ignored — NEAR produces blocks via PoS validators
-    generate_block_hashes(state, nblocks).await
-}
-
-/// Poll for n new blocks and return their hashes. NEAR produces blocks continuously,
-/// so we just wait for them to appear rather than mining.
-async fn generate_block_hashes(state: &RpcState, nblocks: u64) -> JsonRpcResponse {
-    let start_height = state.near_client.status().await
-        .map(|s| s.latest_block_height).unwrap_or(0);
-    let mut hashes = Vec::new();
-    let max_wait = 30; // max seconds to wait
-    let mut elapsed = 0;
-
-    while hashes.len() < nblocks as usize && elapsed < max_wait {
-        tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-        elapsed += 1;
-        if let Ok(status) = state.near_client.status().await {
-            let current = status.latest_block_height;
-            // Collect hashes for any new blocks
-            for h in (start_height + 1 + hashes.len() as u64)..=current {
-                if let Ok(block) = state.near_client.block_by_height(h).await {
-                    if let Some(hash) = block.get("header").and_then(|hdr| hdr.get("hash")).and_then(|v| v.as_str()) {
-                        hashes.push(json!(hash));
-                    }
-                }
-                if hashes.len() >= nblocks as usize { break; }
-            }
-        }
-    }
-
-    ok_response(&json!(null), json!(hashes))
+    let _ = state;
+    err_response(
+        &request.id,
+        -32601,
+        "generatetoaddress is not supported: Bitcoin Infinity uses Proof-of-Stake (no address-targeted mining).".to_string(),
+    )
 }
 
 /// stop - graceful shutdown
@@ -5407,8 +6451,10 @@ fn handle_ping(request: &JsonRpcRequest) -> JsonRpcResponse {
 fn handle_help(request: &JsonRpcRequest) -> JsonRpcResponse {
     let command = get_str_param(&request.params, 0).unwrap_or("");
     if command.is_empty() {
-        ok_response(&request.id, json!(
-            "== Blockchain ==\n\
+        ok_response(
+            &request.id,
+            json!(
+                "== Blockchain ==\n\
              getbestblockhash\ngetblock\ngetblockchaininfo\ngetblockcount\n\
              getblockfilter\ngetblockhash\ngetblockheader\ngetblockstats\n\
              getchaintips\ngetdifficulty\ngetmempoolentry\ngetmempoolinfo\n\
@@ -5463,9 +6509,16 @@ fn handle_help(request: &JsonRpcRequest) -> JsonRpcResponse {
              gettxreceipts\ngetvalidatorinfo\ngetvalidatorsordered\n\
              listaccountkeys\nqueryatblock\nsendneartx\nsendneartxwait\n\
              stakenearsatoshis\nunstake\nwithdrawgaskey"
-        ))
+            ),
+        )
     } else {
-        ok_response(&request.id, json!(format!("Help for '{}': Bitcoin Infinity implementation", command)))
+        ok_response(
+            &request.id,
+            json!(format!(
+                "Help for '{}': Bitcoin Infinity implementation",
+                command
+            )),
+        )
     }
 }
 
@@ -5478,11 +6531,23 @@ fn handle_help(request: &JsonRpcRequest) -> JsonRpcResponse {
 async fn handle_callcontract(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     let contract_id = match get_str_param(&request.params, 0) {
         Some(c) => c,
-        None => return err_response(&request.id, -32602, "Missing contract_id parameter".to_string()),
+        None => {
+            return err_response(
+                &request.id,
+                -32602,
+                "Missing contract_id parameter".to_string(),
+            )
+        }
     };
     let method_name = match get_str_param(&request.params, 1) {
         Some(m) => m,
-        None => return err_response(&request.id, -32602, "Missing method_name parameter".to_string()),
+        None => {
+            return err_response(
+                &request.id,
+                -32602,
+                "Missing method_name parameter".to_string(),
+            )
+        }
     };
     let args_str = get_str_param(&request.params, 2).unwrap_or("");
 
@@ -5498,31 +6563,47 @@ async fn handle_callcontract(state: &RpcState, request: &JsonRpcRequest) -> Json
         args_str.to_string()
     };
 
-    match state.near_client.call_function(contract_id, method_name, &args_base64).await {
+    match state
+        .near_client
+        .call_function(contract_id, method_name, &args_base64)
+        .await
+    {
         Ok(result) => {
             // Result contains "result" field which is a byte array
             if let Some(result_bytes) = result.get("result").and_then(|v| v.as_array()) {
-                let bytes: Vec<u8> = result_bytes.iter().filter_map(|v| v.as_u64().map(|n| n as u8)).collect();
+                let bytes: Vec<u8> = result_bytes
+                    .iter()
+                    .filter_map(|v| v.as_u64().map(|n| n as u8))
+                    .collect();
                 // Try to parse as JSON string
                 if let Ok(json_str) = String::from_utf8(bytes.clone()) {
                     if let Ok(json_val) = serde_json::from_str::<serde_json::Value>(&json_str) {
-                        return ok_response(&request.id, json!({
-                            "result": json_val,
-                            "logs": result.get("logs").cloned().unwrap_or(json!([])),
-                            "block_height": result.get("block_height"),
-                            "block_hash": result.get("block_hash")
-                        }));
+                        return ok_response(
+                            &request.id,
+                            json!({
+                                "result": json_val,
+                                "logs": result.get("logs").cloned().unwrap_or(json!([])),
+                                "block_height": result.get("block_height"),
+                                "block_hash": result.get("block_hash")
+                            }),
+                        );
                     }
-                    return ok_response(&request.id, json!({
-                        "result": json_str,
-                        "logs": result.get("logs").cloned().unwrap_or(json!([]))
-                    }));
+                    return ok_response(
+                        &request.id,
+                        json!({
+                            "result": json_str,
+                            "logs": result.get("logs").cloned().unwrap_or(json!([]))
+                        }),
+                    );
                 }
                 // Return raw bytes as hex
-                ok_response(&request.id, json!({
-                    "result_hex": hex::encode(&bytes),
-                    "logs": result.get("logs").cloned().unwrap_or(json!([]))
-                }))
+                ok_response(
+                    &request.id,
+                    json!({
+                        "result_hex": hex::encode(&bytes),
+                        "logs": result.get("logs").cloned().unwrap_or(json!([]))
+                    }),
+                )
             } else {
                 ok_response(&request.id, result)
             }
@@ -5536,7 +6617,13 @@ async fn handle_callcontract(state: &RpcState, request: &JsonRpcRequest) -> Json
 async fn handle_getcontractstate(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     let contract_id = match get_str_param(&request.params, 0) {
         Some(c) => c,
-        None => return err_response(&request.id, -32602, "Missing contract_id parameter".to_string()),
+        None => {
+            return err_response(
+                &request.id,
+                -32602,
+                "Missing contract_id parameter".to_string(),
+            )
+        }
     };
     let prefix = get_str_param(&request.params, 1).unwrap_or("");
 
@@ -5551,21 +6638,33 @@ async fn handle_getcontractstate(state: &RpcState, request: &JsonRpcRequest) -> 
 async fn handle_getcontractcode(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     let contract_id = match get_str_param(&request.params, 0) {
         Some(c) => c,
-        None => return err_response(&request.id, -32602, "Missing contract_id parameter".to_string()),
+        None => {
+            return err_response(
+                &request.id,
+                -32602,
+                "Missing contract_id parameter".to_string(),
+            )
+        }
     };
 
     match state.near_client.view_code(contract_id).await {
         Ok(result) => {
             // Result contains code_base64 and hash
-            let code_b64 = result.get("code_base64").and_then(|v| v.as_str()).unwrap_or("");
+            let code_b64 = result
+                .get("code_base64")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
             let hash = result.get("hash").and_then(|v| v.as_str()).unwrap_or("");
-            ok_response(&request.id, json!({
-                "code_hash": hash,
-                "code_size": code_b64.len() * 3 / 4, // approximate decoded size
-                "has_code": !code_b64.is_empty(),
-                "block_height": result.get("block_height"),
-                "block_hash": result.get("block_hash")
-            }))
+            ok_response(
+                &request.id,
+                json!({
+                    "code_hash": hash,
+                    "code_size": code_b64.len() * 3 / 4, // approximate decoded size
+                    "has_code": !code_b64.is_empty(),
+                    "block_height": result.get("block_height"),
+                    "block_hash": result.get("block_hash")
+                }),
+            )
         }
         Err(e) => err_response(&request.id, -32000, format!("View code failed: {}", e)),
     }
@@ -5576,11 +6675,23 @@ async fn handle_getcontractcode(state: &RpcState, request: &JsonRpcRequest) -> J
 async fn handle_deploynearcontract(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     let sender = match get_str_param(&request.params, 0) {
         Some(s) => s,
-        None => return err_response(&request.id, -32602, "Missing sender_address parameter".to_string()),
+        None => {
+            return err_response(
+                &request.id,
+                -32602,
+                "Missing sender_address parameter".to_string(),
+            )
+        }
     };
     let wasm_b64 = match get_str_param(&request.params, 1) {
         Some(w) => w,
-        None => return err_response(&request.id, -32602, "Missing wasm_base64 parameter".to_string()),
+        None => {
+            return err_response(
+                &request.id,
+                -32602,
+                "Missing wasm_base64 parameter".to_string(),
+            )
+        }
     };
 
     use base64::Engine;
@@ -5593,10 +6704,11 @@ async fn handle_deploynearcontract(state: &RpcState, request: &JsonRpcRequest) -
         Ok(v) => v,
         Err(resp) => return resp,
     };
-    let (block_hash, nonce) = match get_block_and_nonce(state, sender, &near_pubkey_str, &request.id).await {
-        Ok(v) => v,
-        Err(resp) => return resp,
-    };
+    let (block_hash, nonce) =
+        match get_block_and_nonce(state, sender, &near_pubkey_str, &request.id).await {
+            Ok(v) => v,
+            Err(resp) => return resp,
+        };
 
     let pk_uncompressed = match key_entry.public_key_uncompressed_bytes() {
         Ok(b) => b,
@@ -5604,7 +6716,11 @@ async fn handle_deploynearcontract(state: &RpcState, request: &JsonRpcRequest) -
     };
 
     let mut builder = NearTxBuilder::new(
-        sender.to_string(), pk_uncompressed, nonce, sender.to_string(), block_hash,
+        sender.to_string(),
+        pk_uncompressed,
+        nonce,
+        sender.to_string(),
+        block_hash,
     );
     builder.add_action(NearAction::deploy_contract(&wasm_bytes));
 
@@ -5612,10 +6728,13 @@ async fn handle_deploynearcontract(state: &RpcState, request: &JsonRpcRequest) -
         Ok(signed_tx) => match state.near_client.send_tx_async(&signed_tx).await {
             Ok(tx_hash) => {
                 state.record_nonce(sender, nonce).await;
-                ok_response(&request.id, json!({
-                    "near_tx_hash": tx_hash,
-                    "wasm_size": wasm_bytes.len()
-                }))
+                ok_response(
+                    &request.id,
+                    json!({
+                        "near_tx_hash": tx_hash,
+                        "wasm_size": wasm_bytes.len()
+                    }),
+                )
             }
             Err(e) => err_response(&request.id, -25, format!("TX submit failed: {}", e)),
         },
@@ -5630,7 +6749,9 @@ async fn handle_stake(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResp
         Some(a) => a,
         None => return err_response(&request.id, -32602, "Missing address parameter".to_string()),
     };
-    let amount_btc = request.params.as_array()
+    let amount_btc = request
+        .params
+        .as_array()
         .and_then(|arr| arr.get(1))
         .and_then(|v| v.as_f64())
         .unwrap_or(0.0);
@@ -5645,10 +6766,11 @@ async fn handle_stake(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResp
         Ok(v) => v,
         Err(resp) => return resp,
     };
-    let (block_hash, nonce) = match get_block_and_nonce(state, addr, &near_pubkey_str, &request.id).await {
-        Ok(v) => v,
-        Err(resp) => return resp,
-    };
+    let (block_hash, nonce) =
+        match get_block_and_nonce(state, addr, &near_pubkey_str, &request.id).await {
+            Ok(v) => v,
+            Err(resp) => return resp,
+        };
 
     let pk_uncompressed = match key_entry.public_key_uncompressed_bytes() {
         Ok(b) => b,
@@ -5656,7 +6778,11 @@ async fn handle_stake(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResp
     };
 
     let mut builder = NearTxBuilder::new(
-        addr.to_string(), pk_uncompressed, nonce, addr.to_string(), block_hash,
+        addr.to_string(),
+        pk_uncompressed,
+        nonce,
+        addr.to_string(),
+        block_hash,
     );
     builder.add_action(NearAction::stake(amount_yocto, &pk_uncompressed));
 
@@ -5664,10 +6790,13 @@ async fn handle_stake(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResp
         Ok(signed_tx) => match state.near_client.send_tx_async(&signed_tx).await {
             Ok(tx_hash) => {
                 state.record_nonce(addr, nonce).await;
-                ok_response(&request.id, json!({
-                    "near_tx_hash": tx_hash,
-                    "staked_btc": amount_btc
-                }))
+                ok_response(
+                    &request.id,
+                    json!({
+                        "near_tx_hash": tx_hash,
+                        "staked_btc": amount_btc
+                    }),
+                )
             }
             Err(e) => err_response(&request.id, -25, format!("Stake TX failed: {}", e)),
         },
@@ -5687,10 +6816,11 @@ async fn handle_unstake(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcRe
         Ok(v) => v,
         Err(resp) => return resp,
     };
-    let (block_hash, nonce) = match get_block_and_nonce(state, addr, &near_pubkey_str, &request.id).await {
-        Ok(v) => v,
-        Err(resp) => return resp,
-    };
+    let (block_hash, nonce) =
+        match get_block_and_nonce(state, addr, &near_pubkey_str, &request.id).await {
+            Ok(v) => v,
+            Err(resp) => return resp,
+        };
 
     let pk_uncompressed = match key_entry.public_key_uncompressed_bytes() {
         Ok(b) => b,
@@ -5698,7 +6828,11 @@ async fn handle_unstake(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcRe
     };
 
     let mut builder = NearTxBuilder::new(
-        addr.to_string(), pk_uncompressed, nonce, addr.to_string(), block_hash,
+        addr.to_string(),
+        pk_uncompressed,
+        nonce,
+        addr.to_string(),
+        block_hash,
     );
     builder.add_action(NearAction::stake(0, &pk_uncompressed)); // stake 0 = unstake
 
@@ -5723,7 +6857,13 @@ async fn handle_addnearkey(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
     };
     let new_pubkey_hex = match get_str_param(&request.params, 1) {
         Some(p) => p,
-        None => return err_response(&request.id, -32602, "Missing new_pubkey_hex (64-byte uncompressed)".to_string()),
+        None => {
+            return err_response(
+                &request.id,
+                -32602,
+                "Missing new_pubkey_hex (64-byte uncompressed)".to_string(),
+            )
+        }
     };
     let permission = get_str_param(&request.params, 2).unwrap_or("full_access");
 
@@ -5733,17 +6873,24 @@ async fn handle_addnearkey(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
             arr.copy_from_slice(&b);
             arr
         }
-        _ => return err_response(&request.id, -32602, "Invalid pubkey: must be 64 hex bytes (uncompressed, no 0x04 prefix)".to_string()),
+        _ => {
+            return err_response(
+                &request.id,
+                -32602,
+                "Invalid pubkey: must be 64 hex bytes (uncompressed, no 0x04 prefix)".to_string(),
+            )
+        }
     };
 
     let (key_entry, secret_key, near_pubkey_str) = match get_sender_key(state, addr).await {
         Ok(v) => v,
         Err(resp) => return resp,
     };
-    let (block_hash, nonce) = match get_block_and_nonce(state, addr, &near_pubkey_str, &request.id).await {
-        Ok(v) => v,
-        Err(resp) => return resp,
-    };
+    let (block_hash, nonce) =
+        match get_block_and_nonce(state, addr, &near_pubkey_str, &request.id).await {
+            Ok(v) => v,
+            Err(resp) => return resp,
+        };
 
     let pk_uncompressed = match key_entry.public_key_uncompressed_bytes() {
         Ok(b) => b,
@@ -5753,8 +6900,14 @@ async fn handle_addnearkey(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
     let action = if permission == "function_call" {
         let receiver_id = get_str_param(&request.params, 3).unwrap_or("");
         let methods_str = get_str_param(&request.params, 4).unwrap_or("");
-        let methods: Vec<&str> = if methods_str.is_empty() { vec![] } else { methods_str.split(',').collect() };
-        let allowance = request.params.as_array()
+        let methods: Vec<&str> = if methods_str.is_empty() {
+            vec![]
+        } else {
+            methods_str.split(',').collect()
+        };
+        let allowance = request
+            .params
+            .as_array()
             .and_then(|arr| arr.get(5))
             .and_then(|v| v.as_f64())
             .map(|btc| ParsedBitcoinTx::satoshis_to_yocto((btc * 100_000_000.0) as u64));
@@ -5764,7 +6917,11 @@ async fn handle_addnearkey(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
     };
 
     let mut builder = NearTxBuilder::new(
-        addr.to_string(), pk_uncompressed, nonce, addr.to_string(), block_hash,
+        addr.to_string(),
+        pk_uncompressed,
+        nonce,
+        addr.to_string(),
+        block_hash,
     );
     builder.add_action(action);
 
@@ -5772,11 +6929,14 @@ async fn handle_addnearkey(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
         Ok(signed_tx) => match state.near_client.send_tx_async(&signed_tx).await {
             Ok(tx_hash) => {
                 state.record_nonce(addr, nonce).await;
-                ok_response(&request.id, json!({
-                    "near_tx_hash": tx_hash,
-                    "added_key": new_pubkey_hex,
-                    "permission": permission
-                }))
+                ok_response(
+                    &request.id,
+                    json!({
+                        "near_tx_hash": tx_hash,
+                        "added_key": new_pubkey_hex,
+                        "permission": permission
+                    }),
+                )
             }
             Err(e) => err_response(&request.id, -25, format!("AddKey TX failed: {}", e)),
         },
@@ -5793,7 +6953,13 @@ async fn handle_deletenearkey(state: &RpcState, request: &JsonRpcRequest) -> Jso
     };
     let del_pubkey_hex = match get_str_param(&request.params, 1) {
         Some(p) => p,
-        None => return err_response(&request.id, -32602, "Missing pubkey_hex_to_delete".to_string()),
+        None => {
+            return err_response(
+                &request.id,
+                -32602,
+                "Missing pubkey_hex_to_delete".to_string(),
+            )
+        }
     };
 
     let del_pk_bytes = match hex::decode(del_pubkey_hex) {
@@ -5809,10 +6975,11 @@ async fn handle_deletenearkey(state: &RpcState, request: &JsonRpcRequest) -> Jso
         Ok(v) => v,
         Err(resp) => return resp,
     };
-    let (block_hash, nonce) = match get_block_and_nonce(state, addr, &near_pubkey_str, &request.id).await {
-        Ok(v) => v,
-        Err(resp) => return resp,
-    };
+    let (block_hash, nonce) =
+        match get_block_and_nonce(state, addr, &near_pubkey_str, &request.id).await {
+            Ok(v) => v,
+            Err(resp) => return resp,
+        };
 
     let pk_uncompressed = match key_entry.public_key_uncompressed_bytes() {
         Ok(b) => b,
@@ -5820,7 +6987,11 @@ async fn handle_deletenearkey(state: &RpcState, request: &JsonRpcRequest) -> Jso
     };
 
     let mut builder = NearTxBuilder::new(
-        addr.to_string(), pk_uncompressed, nonce, addr.to_string(), block_hash,
+        addr.to_string(),
+        pk_uncompressed,
+        nonce,
+        addr.to_string(),
+        block_hash,
     );
     builder.add_action(NearAction::delete_key(&del_pk_bytes));
 
@@ -5828,7 +6999,10 @@ async fn handle_deletenearkey(state: &RpcState, request: &JsonRpcRequest) -> Jso
         Ok(signed_tx) => match state.near_client.send_tx_async(&signed_tx).await {
             Ok(tx_hash) => {
                 state.record_nonce(addr, nonce).await;
-                ok_response(&request.id, json!({ "near_tx_hash": tx_hash, "deleted_key": del_pubkey_hex }))
+                ok_response(
+                    &request.id,
+                    json!({ "near_tx_hash": tx_hash, "deleted_key": del_pubkey_hex }),
+                )
             }
             Err(e) => err_response(&request.id, -25, format!("DeleteKey TX failed: {}", e)),
         },
@@ -5841,21 +7015,34 @@ async fn handle_deletenearkey(state: &RpcState, request: &JsonRpcRequest) -> Jso
 async fn handle_closenearaccount(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     let addr = match get_str_param(&request.params, 0) {
         Some(a) => a,
-        None => return err_response(&request.id, -32602, "Missing account_address parameter".to_string()),
+        None => {
+            return err_response(
+                &request.id,
+                -32602,
+                "Missing account_address parameter".to_string(),
+            )
+        }
     };
     let beneficiary = match get_str_param(&request.params, 1) {
         Some(b) => b,
-        None => return err_response(&request.id, -32602, "Missing beneficiary_address parameter".to_string()),
+        None => {
+            return err_response(
+                &request.id,
+                -32602,
+                "Missing beneficiary_address parameter".to_string(),
+            )
+        }
     };
 
     let (key_entry, secret_key, near_pubkey_str) = match get_sender_key(state, addr).await {
         Ok(v) => v,
         Err(resp) => return resp,
     };
-    let (block_hash, nonce) = match get_block_and_nonce(state, addr, &near_pubkey_str, &request.id).await {
-        Ok(v) => v,
-        Err(resp) => return resp,
-    };
+    let (block_hash, nonce) =
+        match get_block_and_nonce(state, addr, &near_pubkey_str, &request.id).await {
+            Ok(v) => v,
+            Err(resp) => return resp,
+        };
 
     let pk_uncompressed = match key_entry.public_key_uncompressed_bytes() {
         Ok(b) => b,
@@ -5863,7 +7050,11 @@ async fn handle_closenearaccount(state: &RpcState, request: &JsonRpcRequest) -> 
     };
 
     let mut builder = NearTxBuilder::new(
-        addr.to_string(), pk_uncompressed, nonce, addr.to_string(), block_hash,
+        addr.to_string(),
+        pk_uncompressed,
+        nonce,
+        addr.to_string(),
+        block_hash,
     );
     builder.add_action(NearAction::delete_account(beneficiary));
 
@@ -5871,11 +7062,14 @@ async fn handle_closenearaccount(state: &RpcState, request: &JsonRpcRequest) -> 
         Ok(signed_tx) => match state.near_client.send_tx_async(&signed_tx).await {
             Ok(tx_hash) => {
                 state.record_nonce(addr, nonce).await;
-                ok_response(&request.id, json!({
-                    "near_tx_hash": tx_hash,
-                    "deleted_account": addr,
-                    "beneficiary": beneficiary
-                }))
+                ok_response(
+                    &request.id,
+                    json!({
+                        "near_tx_hash": tx_hash,
+                        "deleted_account": addr,
+                        "beneficiary": beneficiary
+                    }),
+                )
             }
             Err(e) => err_response(&request.id, -25, format!("DeleteAccount TX failed: {}", e)),
         },
@@ -5887,7 +7081,11 @@ async fn handle_closenearaccount(state: &RpcState, request: &JsonRpcRequest) -> 
 async fn handle_getvalidatorinfo(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     match state.near_client.validators().await {
         Ok(result) => ok_response(&request.id, result),
-        Err(e) => err_response(&request.id, -32000, format!("Validators query failed: {}", e)),
+        Err(e) => err_response(
+            &request.id,
+            -32000,
+            format!("Validators query failed: {}", e),
+        ),
     }
 }
 
@@ -5896,12 +7094,22 @@ async fn handle_getvalidatorinfo(state: &RpcState, request: &JsonRpcRequest) -> 
 async fn handle_listaccountkeys(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     let addr = match get_str_param(&request.params, 0) {
         Some(a) => a,
-        None => return err_response(&request.id, -32602, "Missing account_address parameter".to_string()),
+        None => {
+            return err_response(
+                &request.id,
+                -32602,
+                "Missing account_address parameter".to_string(),
+            )
+        }
     };
 
     match state.near_client.view_access_key_list(addr).await {
         Ok(result) => ok_response(&request.id, result),
-        Err(e) => err_response(&request.id, -32000, format!("Access key list query failed: {}", e)),
+        Err(e) => err_response(
+            &request.id,
+            -32000,
+            format!("Access key list query failed: {}", e),
+        ),
     }
 }
 
@@ -5938,10 +7146,11 @@ async fn handle_sendneartx(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
         Ok(v) => v,
         Err(resp) => return resp,
     };
-    let (block_hash, nonce) = match get_block_and_nonce(state, sender, &near_pubkey_str, &request.id).await {
-        Ok(v) => v,
-        Err(resp) => return resp,
-    };
+    let (block_hash, nonce) =
+        match get_block_and_nonce(state, sender, &near_pubkey_str, &request.id).await {
+            Ok(v) => v,
+            Err(resp) => return resp,
+        };
 
     let pk_uncompressed = match key_entry.public_key_uncompressed_bytes() {
         Ok(b) => b,
@@ -5949,36 +7158,71 @@ async fn handle_sendneartx(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
     };
 
     let mut builder = NearTxBuilder::new(
-        sender.to_string(), pk_uncompressed, nonce, receiver.to_string(), block_hash,
+        sender.to_string(),
+        pk_uncompressed,
+        nonce,
+        receiver.to_string(),
+        block_hash,
     );
 
     for action_obj in actions_arr {
-        let action_type = action_obj.get("type").and_then(|v| v.as_str()).unwrap_or("");
+        let action_type = action_obj
+            .get("type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("");
         let action = match action_type {
             "transfer" => {
-                let btc = action_obj.get("amount_btc").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                let btc = action_obj
+                    .get("amount_btc")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(0.0);
                 let sat = (btc * 100_000_000.0) as u64;
                 NearAction::transfer(ParsedBitcoinTx::satoshis_to_yocto(sat))
             }
             "function_call" => {
-                let method = action_obj.get("method").and_then(|v| v.as_str()).unwrap_or("");
-                let args_str = action_obj.get("args").and_then(|v| v.as_str()).unwrap_or("{}");
-                let gas = action_obj.get("gas").and_then(|v| v.as_u64()).unwrap_or(300_000_000_000_000);
-                let deposit_btc = action_obj.get("deposit_btc").and_then(|v| v.as_f64()).unwrap_or(0.0);
-                let deposit_yocto = ParsedBitcoinTx::satoshis_to_yocto((deposit_btc * 100_000_000.0) as u64);
+                let method = action_obj
+                    .get("method")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                let args_str = action_obj
+                    .get("args")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("{}");
+                let gas = action_obj
+                    .get("gas")
+                    .and_then(|v| v.as_u64())
+                    .unwrap_or(300_000_000_000_000);
+                let deposit_btc = action_obj
+                    .get("deposit_btc")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(0.0);
+                let deposit_yocto =
+                    ParsedBitcoinTx::satoshis_to_yocto((deposit_btc * 100_000_000.0) as u64);
                 NearAction::function_call(method, args_str.as_bytes(), gas, deposit_yocto)
             }
             "create_account" => NearAction::create_account(),
             "deploy_contract" => {
-                let code_b64 = action_obj.get("code_base64").and_then(|v| v.as_str()).unwrap_or("");
+                let code_b64 = action_obj
+                    .get("code_base64")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
                 use base64::Engine;
                 match base64::engine::general_purpose::STANDARD.decode(code_b64) {
                     Ok(code) => NearAction::deploy_contract(&code),
-                    Err(e) => return err_response(&request.id, -32602, format!("Invalid code_base64: {}", e)),
+                    Err(e) => {
+                        return err_response(
+                            &request.id,
+                            -32602,
+                            format!("Invalid code_base64: {}", e),
+                        )
+                    }
                 }
             }
             "add_full_access_key" => {
-                let pk_hex = action_obj.get("pubkey_hex").and_then(|v| v.as_str()).unwrap_or("");
+                let pk_hex = action_obj
+                    .get("pubkey_hex")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
                 match hex::decode(pk_hex) {
                     Ok(b) if b.len() == 64 => {
                         let mut arr = [0u8; 64];
@@ -5994,7 +7238,10 @@ async fn handle_sendneartx(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
                 }
             }
             "delete_key" => {
-                let pk_hex = action_obj.get("pubkey_hex").and_then(|v| v.as_str()).unwrap_or("");
+                let pk_hex = action_obj
+                    .get("pubkey_hex")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
                 match hex::decode(pk_hex) {
                     Ok(b) if b.len() == 64 => {
                         let mut arr = [0u8; 64];
@@ -6010,20 +7257,41 @@ async fn handle_sendneartx(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
                 }
             }
             "delete_account" => {
-                let beneficiary = action_obj.get("beneficiary").and_then(|v| v.as_str()).unwrap_or("");
+                let beneficiary = action_obj
+                    .get("beneficiary")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
                 NearAction::delete_account(beneficiary)
             }
             "stake" => {
-                let btc = action_obj.get("amount_btc").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                let btc = action_obj
+                    .get("amount_btc")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(0.0);
                 let sat = (btc * 100_000_000.0) as u64;
                 NearAction::stake(ParsedBitcoinTx::satoshis_to_yocto(sat), &pk_uncompressed)
             }
             "add_function_call_key" => {
-                let pk_hex = action_obj.get("pubkey_hex").and_then(|v| v.as_str()).unwrap_or("");
-                let receiver_id = action_obj.get("receiver_id").and_then(|v| v.as_str()).unwrap_or("");
-                let methods_str = action_obj.get("method_names").and_then(|v| v.as_str()).unwrap_or("");
-                let methods: Vec<&str> = if methods_str.is_empty() { vec![] } else { methods_str.split(',').collect() };
-                let allowance = action_obj.get("allowance_btc").and_then(|v| v.as_f64())
+                let pk_hex = action_obj
+                    .get("pubkey_hex")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                let receiver_id = action_obj
+                    .get("receiver_id")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                let methods_str = action_obj
+                    .get("method_names")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                let methods: Vec<&str> = if methods_str.is_empty() {
+                    vec![]
+                } else {
+                    methods_str.split(',').collect()
+                };
+                let allowance = action_obj
+                    .get("allowance_btc")
+                    .and_then(|v| v.as_f64())
                     .map(|btc| ParsedBitcoinTx::satoshis_to_yocto((btc * 100_000_000.0) as u64));
                 match hex::decode(pk_hex) {
                     Ok(b) if b.len() == 64 => {
@@ -6031,15 +7299,30 @@ async fn handle_sendneartx(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
                         arr.copy_from_slice(&b);
                         NearAction::add_function_call_key(&arr, allowance, receiver_id, &methods)
                     }
-                    _ => return err_response(&request.id, -32602, "Invalid pubkey_hex for add_function_call_key".to_string()),
+                    _ => {
+                        return err_response(
+                            &request.id,
+                            -32602,
+                            "Invalid pubkey_hex for add_function_call_key".to_string(),
+                        )
+                    }
                 }
             }
             "deploy_global_contract" => {
-                let code_b64 = action_obj.get("code_base64").and_then(|v| v.as_str()).unwrap_or("");
+                let code_b64 = action_obj
+                    .get("code_base64")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
                 use base64::Engine;
                 match base64::engine::general_purpose::STANDARD.decode(code_b64) {
                     Ok(code) => NearAction::deploy_global_contract(&code),
-                    Err(e) => return err_response(&request.id, -32602, format!("Invalid code_base64: {}", e)),
+                    Err(e) => {
+                        return err_response(
+                            &request.id,
+                            -32602,
+                            format!("Invalid code_base64: {}", e),
+                        )
+                    }
                 }
             }
             "use_global_contract" => {
@@ -6050,17 +7333,35 @@ async fn handle_sendneartx(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
                             arr.copy_from_slice(&b);
                             NearAction::use_global_contract_by_hash(&arr)
                         }
-                        _ => return err_response(&request.id, -32602, "code_hash must be 32 hex bytes".to_string()),
+                        _ => {
+                            return err_response(
+                                &request.id,
+                                -32602,
+                                "code_hash must be 32 hex bytes".to_string(),
+                            )
+                        }
                     }
-                } else if let Some(account_id) = action_obj.get("account_id").and_then(|v| v.as_str()) {
+                } else if let Some(account_id) =
+                    action_obj.get("account_id").and_then(|v| v.as_str())
+                {
                     NearAction::use_global_contract_by_account(account_id)
                 } else {
-                    return err_response(&request.id, -32602, "use_global_contract needs code_hash or account_id".to_string());
+                    return err_response(
+                        &request.id,
+                        -32602,
+                        "use_global_contract needs code_hash or account_id".to_string(),
+                    );
                 }
             }
             "transfer_to_gas_key" => {
-                let pk_hex = action_obj.get("pubkey_hex").and_then(|v| v.as_str()).unwrap_or("");
-                let btc = action_obj.get("amount_btc").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                let pk_hex = action_obj
+                    .get("pubkey_hex")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                let btc = action_obj
+                    .get("amount_btc")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(0.0);
                 let deposit = ParsedBitcoinTx::satoshis_to_yocto((btc * 100_000_000.0) as u64);
                 match hex::decode(pk_hex) {
                     Ok(b) if b.len() == 64 => {
@@ -6068,12 +7369,24 @@ async fn handle_sendneartx(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
                         arr.copy_from_slice(&b);
                         NearAction::transfer_to_gas_key(&arr, deposit)
                     }
-                    _ => return err_response(&request.id, -32602, "Invalid pubkey_hex for transfer_to_gas_key".to_string()),
+                    _ => {
+                        return err_response(
+                            &request.id,
+                            -32602,
+                            "Invalid pubkey_hex for transfer_to_gas_key".to_string(),
+                        )
+                    }
                 }
             }
             "withdraw_from_gas_key" => {
-                let pk_hex = action_obj.get("pubkey_hex").and_then(|v| v.as_str()).unwrap_or("");
-                let btc = action_obj.get("amount_btc").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                let pk_hex = action_obj
+                    .get("pubkey_hex")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                let btc = action_obj
+                    .get("amount_btc")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(0.0);
                 let amount = ParsedBitcoinTx::satoshis_to_yocto((btc * 100_000_000.0) as u64);
                 match hex::decode(pk_hex) {
                     Ok(b) if b.len() == 64 => {
@@ -6081,23 +7394,41 @@ async fn handle_sendneartx(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
                         arr.copy_from_slice(&b);
                         NearAction::withdraw_from_gas_key(&arr, amount)
                     }
-                    _ => return err_response(&request.id, -32602, "Invalid pubkey_hex for withdraw_from_gas_key".to_string()),
+                    _ => {
+                        return err_response(
+                            &request.id,
+                            -32602,
+                            "Invalid pubkey_hex for withdraw_from_gas_key".to_string(),
+                        )
+                    }
                 }
             }
             "deterministic_state_init" => NearAction::deterministic_state_init(),
             "delegate" => {
-                let delegate_action_hex = action_obj.get("delegate_action_hex").and_then(|v| v.as_str()).unwrap_or("");
-                let signature_hex = action_obj.get("signature_hex").and_then(|v| v.as_str()).unwrap_or("");
+                let delegate_action_hex = action_obj
+                    .get("delegate_action_hex")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
+                let signature_hex = action_obj
+                    .get("signature_hex")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("");
                 let delegate_bytes = hex::decode(delegate_action_hex)
                     .map_err(|e| format!("Invalid delegate_action_hex: {}", e));
-                let sig_bytes = hex::decode(signature_hex)
-                    .map_err(|e| format!("Invalid signature_hex: {}", e));
+                let sig_bytes =
+                    hex::decode(signature_hex).map_err(|e| format!("Invalid signature_hex: {}", e));
                 match (delegate_bytes, sig_bytes) {
                     (Ok(d), Ok(s)) => NearAction::delegate(&d, &s),
                     (Err(e), _) | (_, Err(e)) => return err_response(&request.id, -32602, e),
                 }
             }
-            _ => return err_response(&request.id, -32602, format!("Unknown action type: {}", action_type)),
+            _ => {
+                return err_response(
+                    &request.id,
+                    -32602,
+                    format!("Unknown action type: {}", action_type),
+                )
+            }
         };
         builder.add_action(action);
     }
@@ -6106,10 +7437,13 @@ async fn handle_sendneartx(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
         Ok(signed_tx) => match state.near_client.send_tx_async(&signed_tx).await {
             Ok(tx_hash) => {
                 state.record_nonce(sender, nonce).await;
-                ok_response(&request.id, json!({
-                    "near_tx_hash": tx_hash,
-                    "actions_count": actions_arr.len()
-                }))
+                ok_response(
+                    &request.id,
+                    json!({
+                        "near_tx_hash": tx_hash,
+                        "actions_count": actions_arr.len()
+                    }),
+                )
             }
             Err(e) => err_response(&request.id, -25, format!("TX submit failed: {}", e)),
         },
@@ -6132,7 +7466,9 @@ async fn handle_createnearaccount(state: &RpcState, request: &JsonRpcRequest) ->
         Some(a) => a,
         None => return err_response(&request.id, -32602, "Missing new_account_id".to_string()),
     };
-    let initial_btc = request.params.as_array()
+    let initial_btc = request
+        .params
+        .as_array()
         .and_then(|arr| arr.get(2))
         .and_then(|v| v.as_f64())
         .unwrap_or(0.0);
@@ -6142,22 +7478,29 @@ async fn handle_createnearaccount(state: &RpcState, request: &JsonRpcRequest) ->
         Ok(v) => v,
         Err(resp) => return resp,
     };
-    let (block_hash, nonce) = match get_block_and_nonce(state, sender, &near_pubkey_str, &request.id).await {
-        Ok(v) => v,
-        Err(resp) => return resp,
-    };
+    let (block_hash, nonce) =
+        match get_block_and_nonce(state, sender, &near_pubkey_str, &request.id).await {
+            Ok(v) => v,
+            Err(resp) => return resp,
+        };
     let pk_uncompressed = match key_entry.public_key_uncompressed_bytes() {
         Ok(b) => b,
         Err(e) => return err_response(&request.id, -32000, format!("Key error: {}", e)),
     };
 
     let mut builder = NearTxBuilder::new(
-        sender.to_string(), pk_uncompressed, nonce, new_account_id.to_string(), block_hash,
+        sender.to_string(),
+        pk_uncompressed,
+        nonce,
+        new_account_id.to_string(),
+        block_hash,
     );
     builder.add_action(NearAction::create_account());
     if initial_btc > 0.0 {
         let sat = (initial_btc * 100_000_000.0) as u64;
-        builder.add_action(NearAction::transfer(ParsedBitcoinTx::satoshis_to_yocto(sat)));
+        builder.add_action(NearAction::transfer(ParsedBitcoinTx::satoshis_to_yocto(
+            sat,
+        )));
     }
     if let Some(hex) = new_pk_hex {
         if let Ok(b) = hex::decode(hex) {
@@ -6173,11 +7516,14 @@ async fn handle_createnearaccount(state: &RpcState, request: &JsonRpcRequest) ->
         Ok(signed_tx) => match state.near_client.send_tx_async(&signed_tx).await {
             Ok(tx_hash) => {
                 state.record_nonce(sender, nonce).await;
-                ok_response(&request.id, json!({
-                    "near_tx_hash": tx_hash,
-                    "new_account_id": new_account_id,
-                    "initial_balance_btc": initial_btc
-                }))
+                ok_response(
+                    &request.id,
+                    json!({
+                        "near_tx_hash": tx_hash,
+                        "new_account_id": new_account_id,
+                        "initial_balance_btc": initial_btc
+                    }),
+                )
             }
             Err(e) => err_response(&request.id, -25, format!("TX submit failed: {}", e)),
         },
@@ -6196,7 +7542,9 @@ async fn handle_fundgaskey(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
         Some(p) => p,
         None => return err_response(&request.id, -32602, "Missing pubkey_hex".to_string()),
     };
-    let btc = request.params.as_array()
+    let btc = request
+        .params
+        .as_array()
         .and_then(|arr| arr.get(2))
         .and_then(|v| v.as_f64())
         .unwrap_or(0.0);
@@ -6207,17 +7555,24 @@ async fn handle_fundgaskey(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
             arr.copy_from_slice(&b);
             arr
         }
-        _ => return err_response(&request.id, -32602, "pubkey_hex must be 64 hex bytes".to_string()),
+        _ => {
+            return err_response(
+                &request.id,
+                -32602,
+                "pubkey_hex must be 64 hex bytes".to_string(),
+            )
+        }
     };
 
     let (key_entry, secret_key, near_pubkey_str) = match get_sender_key(state, sender).await {
         Ok(v) => v,
         Err(resp) => return resp,
     };
-    let (block_hash, nonce) = match get_block_and_nonce(state, sender, &near_pubkey_str, &request.id).await {
-        Ok(v) => v,
-        Err(resp) => return resp,
-    };
+    let (block_hash, nonce) =
+        match get_block_and_nonce(state, sender, &near_pubkey_str, &request.id).await {
+            Ok(v) => v,
+            Err(resp) => return resp,
+        };
     let pk_uncompressed = match key_entry.public_key_uncompressed_bytes() {
         Ok(b) => b,
         Err(e) => return err_response(&request.id, -32000, format!("Key error: {}", e)),
@@ -6225,7 +7580,11 @@ async fn handle_fundgaskey(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
 
     let deposit = ParsedBitcoinTx::satoshis_to_yocto((btc * 100_000_000.0) as u64);
     let mut builder = NearTxBuilder::new(
-        sender.to_string(), pk_uncompressed, nonce, sender.to_string(), block_hash,
+        sender.to_string(),
+        pk_uncompressed,
+        nonce,
+        sender.to_string(),
+        block_hash,
     );
     builder.add_action(NearAction::transfer_to_gas_key(&gas_pk, deposit));
 
@@ -6233,10 +7592,13 @@ async fn handle_fundgaskey(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
         Ok(signed_tx) => match state.near_client.send_tx_async(&signed_tx).await {
             Ok(tx_hash) => {
                 state.record_nonce(sender, nonce).await;
-                ok_response(&request.id, json!({
-                    "near_tx_hash": tx_hash,
-                    "funded_btc": btc
-                }))
+                ok_response(
+                    &request.id,
+                    json!({
+                        "near_tx_hash": tx_hash,
+                        "funded_btc": btc
+                    }),
+                )
             }
             Err(e) => err_response(&request.id, -25, format!("TX submit failed: {}", e)),
         },
@@ -6255,7 +7617,9 @@ async fn handle_withdrawgaskey(state: &RpcState, request: &JsonRpcRequest) -> Js
         Some(p) => p,
         None => return err_response(&request.id, -32602, "Missing pubkey_hex".to_string()),
     };
-    let btc = request.params.as_array()
+    let btc = request
+        .params
+        .as_array()
         .and_then(|arr| arr.get(2))
         .and_then(|v| v.as_f64())
         .unwrap_or(0.0);
@@ -6266,17 +7630,24 @@ async fn handle_withdrawgaskey(state: &RpcState, request: &JsonRpcRequest) -> Js
             arr.copy_from_slice(&b);
             arr
         }
-        _ => return err_response(&request.id, -32602, "pubkey_hex must be 64 hex bytes".to_string()),
+        _ => {
+            return err_response(
+                &request.id,
+                -32602,
+                "pubkey_hex must be 64 hex bytes".to_string(),
+            )
+        }
     };
 
     let (key_entry, secret_key, near_pubkey_str) = match get_sender_key(state, sender).await {
         Ok(v) => v,
         Err(resp) => return resp,
     };
-    let (block_hash, nonce) = match get_block_and_nonce(state, sender, &near_pubkey_str, &request.id).await {
-        Ok(v) => v,
-        Err(resp) => return resp,
-    };
+    let (block_hash, nonce) =
+        match get_block_and_nonce(state, sender, &near_pubkey_str, &request.id).await {
+            Ok(v) => v,
+            Err(resp) => return resp,
+        };
     let pk_uncompressed = match key_entry.public_key_uncompressed_bytes() {
         Ok(b) => b,
         Err(e) => return err_response(&request.id, -32000, format!("Key error: {}", e)),
@@ -6284,7 +7655,11 @@ async fn handle_withdrawgaskey(state: &RpcState, request: &JsonRpcRequest) -> Js
 
     let amount = ParsedBitcoinTx::satoshis_to_yocto((btc * 100_000_000.0) as u64);
     let mut builder = NearTxBuilder::new(
-        sender.to_string(), pk_uncompressed, nonce, sender.to_string(), block_hash,
+        sender.to_string(),
+        pk_uncompressed,
+        nonce,
+        sender.to_string(),
+        block_hash,
     );
     builder.add_action(NearAction::withdraw_from_gas_key(&gas_pk, amount));
 
@@ -6292,10 +7667,13 @@ async fn handle_withdrawgaskey(state: &RpcState, request: &JsonRpcRequest) -> Js
         Ok(signed_tx) => match state.near_client.send_tx_async(&signed_tx).await {
             Ok(tx_hash) => {
                 state.record_nonce(sender, nonce).await;
-                ok_response(&request.id, json!({
-                    "near_tx_hash": tx_hash,
-                    "withdrawn_btc": btc
-                }))
+                ok_response(
+                    &request.id,
+                    json!({
+                        "near_tx_hash": tx_hash,
+                        "withdrawn_btc": btc
+                    }),
+                )
             }
             Err(e) => err_response(&request.id, -25, format!("TX submit failed: {}", e)),
         },
@@ -6314,11 +7692,17 @@ async fn handle_getchunk(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcR
     if let Some(chunk_hash) = first {
         // Try to parse as number (block height + shard)
         if let Ok(block_height) = chunk_hash.parse::<u64>() {
-            let shard_id = request.params.as_array()
+            let shard_id = request
+                .params
+                .as_array()
                 .and_then(|arr| arr.get(1))
                 .and_then(|v| v.as_u64())
                 .unwrap_or(0);
-            match state.near_client.chunk_by_block_shard(json!(block_height), shard_id).await {
+            match state
+                .near_client
+                .chunk_by_block_shard(json!(block_height), shard_id)
+                .await
+            {
                 Ok(result) => ok_response(&request.id, result),
                 Err(e) => err_response(&request.id, -32000, e),
             }
@@ -6326,7 +7710,11 @@ async fn handle_getchunk(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcR
             // Treat as chunk hash or block hash
             let shard_param = request.params.as_array().and_then(|arr| arr.get(1));
             if let Some(shard_id) = shard_param.and_then(|v| v.as_u64()) {
-                match state.near_client.chunk_by_block_shard(json!(chunk_hash), shard_id).await {
+                match state
+                    .near_client
+                    .chunk_by_block_shard(json!(chunk_hash), shard_id)
+                    .await
+                {
                     Ok(result) => ok_response(&request.id, result),
                     Err(e) => err_response(&request.id, -32000, e),
                 }
@@ -6338,7 +7726,11 @@ async fn handle_getchunk(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcR
             }
         }
     } else {
-        err_response(&request.id, -32602, "Missing chunk_hash or block_id parameter".to_string())
+        err_response(
+            &request.id,
+            -32602,
+            "Missing chunk_hash or block_id parameter".to_string(),
+        )
     }
 }
 
@@ -6346,7 +7738,13 @@ async fn handle_getchunk(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcR
 async fn handle_getreceipt(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     let receipt_id = match get_str_param(&request.params, 0) {
         Some(r) => r,
-        None => return err_response(&request.id, -32602, "Missing receipt_id parameter".to_string()),
+        None => {
+            return err_response(
+                &request.id,
+                -32602,
+                "Missing receipt_id parameter".to_string(),
+            )
+        }
     };
     match state.near_client.receipt(receipt_id).await {
         Ok(result) => ok_response(&request.id, result),
@@ -6378,7 +7776,11 @@ async fn handle_getchangesinblock(state: &RpcState, request: &JsonRpcRequest) ->
 async fn handle_getchanges(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     let params = request.params.clone();
     if params.is_null() || (params.is_array() && params.as_array().map_or(true, |a| a.is_empty())) {
-        return err_response(&request.id, -32602, "Missing params object with changes_type".to_string());
+        return err_response(
+            &request.id,
+            -32602,
+            "Missing params object with changes_type".to_string(),
+        );
     }
     // If array, treat first element as the params object
     let query = if let Some(arr) = params.as_array() {
@@ -6399,7 +7801,11 @@ async fn handle_gettxreceipts(state: &RpcState, request: &JsonRpcRequest) -> Jso
         None => return err_response(&request.id, -32602, "Missing tx_hash parameter".to_string()),
     };
     let sender_id = get_str_param(&request.params, 1).unwrap_or("");
-    match state.near_client.tx_status_with_receipts(tx_hash, sender_id).await {
+    match state
+        .near_client
+        .tx_status_with_receipts(tx_hash, sender_id)
+        .await
+    {
         Ok(result) => ok_response(&request.id, result),
         Err(e) => err_response(&request.id, -32000, e),
     }
@@ -6442,7 +7848,11 @@ async fn handle_getnodehealth(state: &RpcState, request: &JsonRpcRequest) -> Jso
 async fn handle_getlightclientproof(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     let params = request.params.clone();
     if params.is_null() {
-        return err_response(&request.id, -32602, "Missing proof request params".to_string());
+        return err_response(
+            &request.id,
+            -32602,
+            "Missing proof request params".to_string(),
+        );
     }
     let query = if let Some(arr) = params.as_array() {
         arr.first().cloned().unwrap_or(json!({}))
@@ -6459,18 +7869,35 @@ async fn handle_getlightclientproof(state: &RpcState, request: &JsonRpcRequest) 
 async fn handle_getlightclientblock(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     let last_block_hash = match get_str_param(&request.params, 0) {
         Some(h) => h,
-        None => return err_response(&request.id, -32602, "Missing last_block_hash parameter".to_string()),
+        None => {
+            return err_response(
+                &request.id,
+                -32602,
+                "Missing last_block_hash parameter".to_string(),
+            )
+        }
     };
-    match state.near_client.next_light_client_block(last_block_hash).await {
+    match state
+        .near_client
+        .next_light_client_block(last_block_hash)
+        .await
+    {
         Ok(result) => ok_response(&request.id, result),
         Err(e) => err_response(&request.id, -32000, e),
     }
 }
 
 /// getvalidatorsordered — validators ordered by stake
-async fn handle_getvalidatorsordered(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+async fn handle_getvalidatorsordered(
+    state: &RpcState,
+    request: &JsonRpcRequest,
+) -> JsonRpcResponse {
     let block_id = get_str_param(&request.params, 0).map(|s| {
-        if let Ok(h) = s.parse::<u64>() { json!(h) } else { json!(s) }
+        if let Ok(h) = s.parse::<u64>() {
+            json!(h)
+        } else {
+            json!(s)
+        }
     });
     match state.near_client.validators_ordered(block_id).await {
         Ok(result) => ok_response(&request.id, result),
@@ -6489,13 +7916,15 @@ async fn handle_getcongestionlevel(state: &RpcState, request: &JsonRpcRequest) -
         params
     };
     // If no params, use latest block + shard 0
-    let effective_query = if query.is_null() || (query.is_object() && query.as_object().map_or(true, |o| o.is_empty())) {
+    let effective_query = if query.is_null()
+        || (query.is_object() && query.as_object().map_or(true, |o| o.is_empty()))
+    {
         match state.near_client.status().await {
             Ok(status) => {
                 let hash = status.latest_block_hash.clone();
                 json!({"block_id": hash, "shard_id": 0})
             }
-            Err(_) => json!({"shard_id": 0})
+            Err(_) => json!({"shard_id": 0}),
         }
     } else {
         query
@@ -6526,13 +7955,29 @@ async fn handle_getclientconfig(state: &RpcState, request: &JsonRpcRequest) -> J
 async fn handle_getgaskeynonces(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     let account_id = match get_str_param(&request.params, 0) {
         Some(a) => a,
-        None => return err_response(&request.id, -32602, "Missing account_id parameter".to_string()),
+        None => {
+            return err_response(
+                &request.id,
+                -32602,
+                "Missing account_id parameter".to_string(),
+            )
+        }
     };
     let public_key = match get_str_param(&request.params, 1) {
         Some(p) => p,
-        None => return err_response(&request.id, -32602, "Missing public_key parameter".to_string()),
+        None => {
+            return err_response(
+                &request.id,
+                -32602,
+                "Missing public_key parameter".to_string(),
+            )
+        }
     };
-    match state.near_client.view_gas_key_nonces(account_id, public_key).await {
+    match state
+        .near_client
+        .view_gas_key_nonces(account_id, public_key)
+        .await
+    {
         Ok(result) => ok_response(&request.id, result),
         Err(e) => err_response(&request.id, -32000, e),
     }
@@ -6543,42 +7988,77 @@ async fn handle_getgaskeynonces(state: &RpcState, request: &JsonRpcRequest) -> J
 async fn handle_queryatblock(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     let arr = match request.params.as_array() {
         Some(a) if a.len() >= 2 => a,
-        _ => return err_response(&request.id, -32602, "params: [request_type, query_params, block_ref]".to_string()),
+        _ => {
+            return err_response(
+                &request.id,
+                -32602,
+                "params: [request_type, query_params, block_ref]".to_string(),
+            )
+        }
     };
     let request_type = match arr[0].as_str() {
         Some(rt) => rt,
-        None => return err_response(&request.id, -32602, "First param must be request_type string".to_string()),
+        None => {
+            return err_response(
+                &request.id,
+                -32602,
+                "First param must be request_type string".to_string(),
+            )
+        }
     };
     let query_params = arr[1].clone();
     let block_ref = arr.get(2).cloned().unwrap_or(json!({"finality": "final"}));
-    match state.near_client.query_at_block(request_type, query_params, block_ref).await {
+    match state
+        .near_client
+        .query_at_block(request_type, query_params, block_ref)
+        .await
+    {
         Ok(result) => ok_response(&request.id, result),
         Err(e) => err_response(&request.id, -32000, e),
     }
 }
 
 /// Helper: get sender's key entry and secret key from keystore
-async fn get_sender_key(state: &RpcState, addr: &str) -> Result<(KeyEntry, secp256k1::SecretKey, String), JsonRpcResponse> {
+async fn get_sender_key(
+    state: &RpcState,
+    addr: &str,
+) -> Result<(KeyEntry, secp256k1::SecretKey, String), JsonRpcResponse> {
     let keystore = state.keystore.read().await;
     let key_entry = match keystore.get(addr) {
         Some(k) => k.clone(),
-        None => return Err(err_response(&json!(null), -3, format!("Address not in wallet: {}", addr))),
+        None => {
+            return Err(err_response(
+                &json!(null),
+                -3,
+                format!("Address not in wallet: {}", addr),
+            ))
+        }
     };
     drop(keystore);
 
-    let sk_bytes = key_entry.private_key_bytes()
+    let sk_bytes = key_entry
+        .private_key_bytes()
         .map_err(|e| err_response(&json!(null), -32000, format!("Key error: {}", e)))?;
     let secret_key = secp256k1::SecretKey::from_slice(&sk_bytes)
         .map_err(|e| err_response(&json!(null), -32000, format!("Key error: {}", e)))?;
-    let near_pubkey_str = key_entry.near_public_key_string()
+    let near_pubkey_str = key_entry
+        .near_public_key_string()
         .map_err(|e| err_response(&json!(null), -32000, format!("Key error: {}", e)))?;
 
     Ok((key_entry, secret_key, near_pubkey_str))
 }
 
 /// Helper: get latest block hash and next nonce
-async fn get_block_and_nonce(state: &RpcState, addr: &str, near_pubkey_str: &str, _id: &serde_json::Value) -> Result<([u8; 32], u64), JsonRpcResponse> {
-    let status = state.near_client.status().await
+async fn get_block_and_nonce(
+    state: &RpcState,
+    addr: &str,
+    near_pubkey_str: &str,
+    _id: &serde_json::Value,
+) -> Result<([u8; 32], u64), JsonRpcResponse> {
+    let status = state
+        .near_client
+        .status()
+        .await
         .map_err(|e| err_response(_id, -32000, format!("Node error: {}", e)))?;
     let block_hash = decode_block_hash(&status.latest_block_hash)
         .map_err(|e| err_response(_id, -32000, format!("Block hash error: {}", e)))?;
@@ -6591,7 +8071,9 @@ async fn get_block_and_nonce(state: &RpcState, addr: &str, near_pubkey_str: &str
 // ============================================================================
 
 async fn handle_getgasprice(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
-    let block_id = request.params.as_array()
+    let block_id = request
+        .params
+        .as_array()
         .and_then(|arr| arr.get(0))
         .cloned();
     match block_id {
@@ -6617,7 +8099,11 @@ async fn handle_getneartxstatus(state: &RpcState, request: &JsonRpcRequest) -> J
     let tx_hash = get_str_param(&request.params, 0).unwrap_or("");
     let sender_id = get_str_param(&request.params, 1).unwrap_or("");
     if tx_hash.is_empty() || sender_id.is_empty() {
-        return err_response(&request.id, -32602, "Required: [tx_hash, sender_account_id]".to_string());
+        return err_response(
+            &request.id,
+            -32602,
+            "Required: [tx_hash, sender_account_id]".to_string(),
+        );
     }
     match state.near_client.tx_status(tx_hash, sender_id).await {
         Ok(result) => ok_response(&request.id, result),
@@ -6628,7 +8114,11 @@ async fn handle_getneartxstatus(state: &RpcState, request: &JsonRpcRequest) -> J
 async fn handle_broadcastneartx(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     let signed_tx_base64 = get_str_param(&request.params, 0).unwrap_or("");
     if signed_tx_base64.is_empty() {
-        return err_response(&request.id, -32602, "Required: [signed_tx_base64]".to_string());
+        return err_response(
+            &request.id,
+            -32602,
+            "Required: [signed_tx_base64]".to_string(),
+        );
     }
     match state.near_client.send_tx_async(signed_tx_base64).await {
         Ok(hash) => ok_response(&request.id, json!(hash)),
@@ -6636,10 +8126,17 @@ async fn handle_broadcastneartx(state: &RpcState, request: &JsonRpcRequest) -> J
     }
 }
 
-async fn handle_broadcastneartxcommit(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+async fn handle_broadcastneartxcommit(
+    state: &RpcState,
+    request: &JsonRpcRequest,
+) -> JsonRpcResponse {
     let signed_tx_base64 = get_str_param(&request.params, 0).unwrap_or("");
     if signed_tx_base64.is_empty() {
-        return err_response(&request.id, -32602, "Required: [signed_tx_base64]".to_string());
+        return err_response(
+            &request.id,
+            -32602,
+            "Required: [signed_tx_base64]".to_string(),
+        );
     }
     match state.near_client.send_tx_commit(signed_tx_base64).await {
         Ok(result) => ok_response(&request.id, result),
@@ -6651,34 +8148,62 @@ async fn handle_sendneartxwait(state: &RpcState, request: &JsonRpcRequest) -> Js
     let signed_tx_base64 = get_str_param(&request.params, 0).unwrap_or("");
     let wait_until = get_str_param(&request.params, 1).unwrap_or("FINAL");
     if signed_tx_base64.is_empty() {
-        return err_response(&request.id, -32602, "Required: [signed_tx_base64, wait_until?]".to_string());
+        return err_response(
+            &request.id,
+            -32602,
+            "Required: [signed_tx_base64, wait_until?]".to_string(),
+        );
     }
-    match state.near_client.send_tx(signed_tx_base64, wait_until).await {
+    match state
+        .near_client
+        .send_tx(signed_tx_base64, wait_until)
+        .await
+    {
         Ok(result) => ok_response(&request.id, result),
         Err(e) => err_response(&request.id, -32000, e),
     }
 }
 
-async fn handle_getmaintenancewindows(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
-    match state.near_client.call("EXPERIMENTAL_maintenance_windows", json!({})).await {
+async fn handle_getmaintenancewindows(
+    state: &RpcState,
+    request: &JsonRpcRequest,
+) -> JsonRpcResponse {
+    match state
+        .near_client
+        .call("EXPERIMENTAL_maintenance_windows", json!({}))
+        .await
+    {
         Ok(result) => ok_response(&request.id, result),
         Err(e) => err_response(&request.id, -32000, e),
     }
 }
 
 async fn handle_getsplitstorage(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
-    match state.near_client.call("EXPERIMENTAL_split_storage_info", json!({})).await {
+    match state
+        .near_client
+        .call("EXPERIMENTAL_split_storage_info", json!({}))
+        .await
+    {
         Ok(result) => ok_response(&request.id, result),
         Err(e) => err_response(&request.id, -32000, e),
     }
 }
 
-async fn handle_getlightclientblockproof(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
-    let params = request.params.as_array()
+async fn handle_getlightclientblockproof(
+    state: &RpcState,
+    request: &JsonRpcRequest,
+) -> JsonRpcResponse {
+    let params = request
+        .params
+        .as_array()
         .and_then(|arr| arr.get(0))
         .cloned()
         .unwrap_or(json!({}));
-    match state.near_client.call("EXPERIMENTAL_light_client_block_proof", params).await {
+    match state
+        .near_client
+        .call("EXPERIMENTAL_light_client_block_proof", params)
+        .await
+    {
         Ok(result) => ok_response(&request.id, result),
         Err(e) => err_response(&request.id, -32000, e),
     }
@@ -6688,9 +8213,17 @@ async fn handle_getneartxfull(state: &RpcState, request: &JsonRpcRequest) -> Jso
     let tx_hash = get_str_param(&request.params, 0).unwrap_or("");
     let sender_id = get_str_param(&request.params, 1).unwrap_or("");
     if tx_hash.is_empty() || sender_id.is_empty() {
-        return err_response(&request.id, -32602, "Required: [tx_hash, sender_account_id]".to_string());
+        return err_response(
+            &request.id,
+            -32602,
+            "Required: [tx_hash, sender_account_id]".to_string(),
+        );
     }
-    match state.near_client.tx_status_with_receipts(tx_hash, sender_id).await {
+    match state
+        .near_client
+        .tx_status_with_receipts(tx_hash, sender_id)
+        .await
+    {
         Ok(result) => ok_response(&request.id, result),
         Err(e) => err_response(&request.id, -32000, e),
     }
@@ -6712,13 +8245,21 @@ async fn handle_walletprocesspsbt(state: &RpcState, request: &JsonRpcRequest) ->
         Err(_) => return err_response(&request.id, -22, "Invalid PSBT base64".to_string()),
     };
     if psbt_bytes.len() < 5 || &psbt_bytes[..5] != b"psbt\xff" {
-        return err_response(&request.id, -22, "Invalid PSBT: missing magic bytes".to_string());
+        return err_response(
+            &request.id,
+            -22,
+            "Invalid PSBT: missing magic bytes".to_string(),
+        );
     }
 
     // Extract the unsigned tx bytes from the PSBT global map
     let unsigned_tx_hex = extract_unsigned_tx_hex(&psbt_bytes);
     if unsigned_tx_hex.is_empty() {
-        return err_response(&request.id, -22, "Could not extract unsigned tx from PSBT".to_string());
+        return err_response(
+            &request.id,
+            -22,
+            "Could not extract unsigned tx from PSBT".to_string(),
+        );
     }
 
     // Sign using the same logic as signrawtransactionwithwallet
@@ -6737,19 +8278,25 @@ async fn handle_walletprocesspsbt(state: &RpcState, request: &JsonRpcRequest) ->
                 // Build a proper signed PSBT with partial_sig in per-input maps
                 let signed_psbt = build_signed_psbt(&psbt_bytes, state).await;
 
-                return ok_response(&request.id, json!({
-                    "psbt": base64_encode(&signed_psbt),
-                    "complete": true
-                }));
+                return ok_response(
+                    &request.id,
+                    json!({
+                        "psbt": base64_encode(&signed_psbt),
+                        "complete": true
+                    }),
+                );
             }
         }
     }
 
     // Signing failed — return original PSBT as incomplete
-    ok_response(&request.id, json!({
-        "psbt": psbt_b64,
-        "complete": false
-    }))
+    ok_response(
+        &request.id,
+        json!({
+            "psbt": psbt_b64,
+            "complete": false
+        }),
+    )
 }
 
 /// Build a signed PSBT by adding partial_sig entries to per-input maps
@@ -6762,7 +8309,8 @@ async fn build_signed_psbt(original_psbt: &[u8], state: &RpcState) -> Vec<u8> {
     let keystore = state.keystore.read().await;
     let addresses = keystore.addresses();
     let pubkey_hex = if let Some(first_addr) = addresses.first() {
-        keystore.get(first_addr)
+        keystore
+            .get(first_addr)
             .map(|entry| entry.public_key_compressed_hex.clone())
             .unwrap_or_default()
     } else {
@@ -6806,9 +8354,10 @@ async fn build_signed_psbt(original_psbt: &[u8], state: &RpcState) -> Vec<u8> {
         let keystore = state.keystore.read().await;
         if let Some(first_addr) = keystore.addresses().first() {
             keystore.get(first_addr).and_then(|entry| {
-                entry.private_key_bytes().ok().and_then(|sk_bytes| {
-                    secp256k1::SecretKey::from_slice(&sk_bytes).ok()
-                })
+                entry
+                    .private_key_bytes()
+                    .ok()
+                    .and_then(|sk_bytes| secp256k1::SecretKey::from_slice(&sk_bytes).ok())
             })
         } else {
             None
@@ -6827,7 +8376,7 @@ async fn build_signed_psbt(original_psbt: &[u8], state: &RpcState) -> Vec<u8> {
                 // Value: real DER-encoded secp256k1 signature over sighash
                 let sig_bytes = if let Some(ref sk) = secret_key {
                     // Compute a sighash-like message from the unsigned tx + input index
-                    use sha2::{Sha256, Digest as _};
+                    use sha2::{Digest as _, Sha256};
                     let mut sighash_preimage = Vec::new();
                     // Use the unsigned tx hex as the base for the sighash
                     let unsigned_tx_hex2 = extract_unsigned_tx_hex(original_psbt);
@@ -6862,9 +8411,13 @@ async fn build_signed_psbt(original_psbt: &[u8], state: &RpcState) -> Vec<u8> {
         while pos < original_psbt.len() {
             let (key_len, advance) = read_compact_size(original_psbt, pos);
             pos += advance;
-            if key_len == 0 { break; }
+            if key_len == 0 {
+                break;
+            }
             pos += key_len as usize;
-            if pos >= original_psbt.len() { break; }
+            if pos >= original_psbt.len() {
+                break;
+            }
             let (val_len, advance2) = read_compact_size(original_psbt, pos);
             pos += advance2;
             pos += val_len as usize;
@@ -6879,9 +8432,13 @@ async fn build_signed_psbt(original_psbt: &[u8], state: &RpcState) -> Vec<u8> {
         while pos < original_psbt.len() {
             let (key_len, advance) = read_compact_size(original_psbt, pos);
             pos += advance;
-            if key_len == 0 { break; }
+            if key_len == 0 {
+                break;
+            }
             pos += key_len as usize;
-            if pos >= original_psbt.len() { break; }
+            if pos >= original_psbt.len() {
+                break;
+            }
             let (val_len, advance2) = read_compact_size(original_psbt, pos);
             pos += advance2;
             pos += val_len as usize;
@@ -6898,16 +8455,24 @@ fn extract_unsigned_tx_hex(psbt_bytes: &[u8]) -> String {
     while pos < psbt_bytes.len() {
         let (key_len, advance) = read_compact_size(psbt_bytes, pos);
         pos += advance;
-        if key_len == 0 { break; }
-        if pos >= psbt_bytes.len() { return String::new(); }
+        if key_len == 0 {
+            break;
+        }
+        if pos >= psbt_bytes.len() {
+            return String::new();
+        }
         let key_type = psbt_bytes[pos];
         pos += key_len as usize;
-        if pos >= psbt_bytes.len() { return String::new(); }
+        if pos >= psbt_bytes.len() {
+            return String::new();
+        }
         let (val_len, advance2) = read_compact_size(psbt_bytes, pos);
         pos += advance2;
         if key_type == 0x00 {
             let tx_end = pos + val_len as usize;
-            if tx_end > psbt_bytes.len() { return String::new(); }
+            if tx_end > psbt_bytes.len() {
+                return String::new();
+            }
             return hex::encode(&psbt_bytes[pos..tx_end]);
         }
         pos += val_len as usize;
@@ -6919,13 +8484,9 @@ fn handle_createpsbt(request: &JsonRpcRequest) -> JsonRpcResponse {
     // createpsbt([{"txid":"...", "vout":n}, ...], [{"address":amount}, ...], locktime, replaceable)
     // Build a minimal PSBT: magic + global unsigned tx + empty input/output maps
     use base64::Engine;
-    let inputs = request.params.get(0)
-        .and_then(|v| v.as_array());
-    let outputs = request.params.get(1)
-        .and_then(|v| v.as_array());
-    let locktime = request.params.get(2)
-        .and_then(|v| v.as_u64())
-        .unwrap_or(0) as u32;
+    let inputs = request.params.get(0).and_then(|v| v.as_array());
+    let outputs = request.params.get(1).and_then(|v| v.as_array());
+    let locktime = request.params.get(2).and_then(|v| v.as_u64()).unwrap_or(0) as u32;
 
     let num_inputs = inputs.map(|i| i.len()).unwrap_or(0);
     let num_outputs = outputs.map(|o| o.len()).unwrap_or(0);
@@ -6940,7 +8501,10 @@ fn handle_createpsbt(request: &JsonRpcRequest) -> JsonRpcResponse {
     if let Some(ins) = inputs {
         for inp in ins {
             let zero_txid = "0".repeat(64);
-            let txid_hex = inp.get("txid").and_then(|v| v.as_str()).unwrap_or(&zero_txid);
+            let txid_hex = inp
+                .get("txid")
+                .and_then(|v| v.as_str())
+                .unwrap_or(&zero_txid);
             let vout = inp.get("vout").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
             // Reverse txid bytes (Bitcoin internal byte order)
             if let Ok(mut txid_bytes) = hex::decode(txid_hex) {
@@ -6979,7 +8543,7 @@ fn handle_createpsbt(request: &JsonRpcRequest) -> JsonRpcResponse {
     // Global: unsigned tx (key 0x00)
     psbt.push(0x01); // key length = 1
     psbt.push(0x00); // key type = unsigned tx
-    // Value: compact size + unsigned_tx
+                     // Value: compact size + unsigned_tx
     write_compact_size(&mut psbt, unsigned_tx.len() as u64);
     psbt.extend_from_slice(&unsigned_tx);
     psbt.push(0x00); // end global map
@@ -6993,7 +8557,10 @@ fn handle_createpsbt(request: &JsonRpcRequest) -> JsonRpcResponse {
         psbt.push(0x00);
     }
 
-    ok_response(&request.id, json!(base64::engine::general_purpose::STANDARD.encode(&psbt)))
+    ok_response(
+        &request.id,
+        json!(base64::engine::general_purpose::STANDARD.encode(&psbt)),
+    )
 }
 
 fn write_compact_size(buf: &mut Vec<u8>, size: u64) {
@@ -7012,29 +8579,12 @@ fn write_compact_size(buf: &mut Vec<u8>, size: u64) {
 }
 
 async fn handle_getblocktemplate(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
-    let (block_height, prev_hash) = match state.near_client.status().await {
-        Ok(status) => (status.latest_block_height, status.latest_block_hash),
-        Err(_) => (0, "0".repeat(64)),
-    };
-    ok_response(&request.id, json!({
-        "capabilities": ["proposal"],
-        "version": 1,
-        "rules": [],
-        "previousblockhash": prev_hash,
-        "transactions": [],
-        "coinbaseaux": { "flags": "" },
-        "coinbasevalue": 0,
-        "target": "00000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
-        "mintime": chrono::Utc::now().timestamp(),
-        "mutable": ["time", "transactions", "prevblock"],
-        "noncerange": "00000000ffffffff",
-        "sigoplimit": 80000,
-        "sizelimit": 4000000,
-        "weightlimit": 4000000,
-        "curtime": chrono::Utc::now().timestamp(),
-        "bits": "207fffff",
-        "height": block_height + 1
-    }))
+    let _ = state;
+    err_response(
+        &request.id,
+        -32601,
+        "getblocktemplate is not supported: Bitcoin Infinity uses Proof-of-Stake validator proposals, not PoW templates.".to_string(),
+    )
 }
 
 fn handle_submitblock(request: &JsonRpcRequest) -> JsonRpcResponse {
@@ -7042,12 +8592,16 @@ fn handle_submitblock(request: &JsonRpcRequest) -> JsonRpcResponse {
 }
 
 fn handle_generateblock(request: &JsonRpcRequest) -> JsonRpcResponse {
-    err_response(&request.id, -32601, "generateblock not supported — NEAR uses Proof of Stake".to_string())
+    err_response(
+        &request.id,
+        -32601,
+        "generateblock not supported — NEAR uses Proof of Stake".to_string(),
+    )
 }
 
 async fn handle_importaddress(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     let address = match get_str_param(&request.params, 0) {
-        Some(a) => a.to_lowercase(),
+        Some(a) => a.to_string(),
         None => return err_response(&request.id, -32602, "Missing address parameter".to_string()),
     };
     // params[1] = label (ignored), params[2] = rescan (ignored — account-based, no rescan needed)
@@ -7070,18 +8624,25 @@ async fn handle_importpubkey(state: &RpcState, request: &JsonRpcRequest) -> Json
 
     let pubkey_bytes = match hex::decode(pubkey_hex) {
         Ok(b) if b.len() == 33 || b.len() == 65 => b,
-        _ => return err_response(&request.id, -5, "Invalid public key (expected 33 or 65 hex bytes)".to_string()),
+        _ => {
+            return err_response(
+                &request.id,
+                -5,
+                "Invalid public key (expected 33 or 65 hex bytes)".to_string(),
+            )
+        }
     };
 
     // Derive address: SHA256 → RIPEMD160 → bech32 (P2WPKH)
-    use sha2::{Sha256, Digest};
     use ripemd::Ripemd160;
+    use sha2::{Digest, Sha256};
     let sha_hash = Sha256::digest(&pubkey_bytes);
     let pubkey_hash = Ripemd160::digest(&sha_hash);
 
     // Use the bech32 encoding helper to make a P2WPKH address
     let bech32_hrp = state.bech32_hrp();
-    let address = crate::utxo_synth::SyntheticUtxo::derive_script_pub_key_address(&pubkey_hash, bech32_hrp);
+    let address =
+        crate::utxo_synth::SyntheticUtxo::derive_script_pub_key_address(&pubkey_hash, bech32_hrp);
 
     let mut keystore = state.keystore.write().await;
     keystore.add_watch_only(address.clone());
@@ -7094,14 +8655,24 @@ async fn handle_importpubkey(state: &RpcState, request: &JsonRpcRequest) -> Json
 fn handle_backupwallet(_state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     let dest = get_str_param(&request.params, 0).unwrap_or("");
     if dest.is_empty() {
-        return err_response(&request.id, -32602, "Required: [destination_path]".to_string());
+        return err_response(
+            &request.id,
+            -32602,
+            "Required: [destination_path]".to_string(),
+        );
     }
     // Copy the actual wallet file (includes private keys, encrypted or not)
     let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-    let wallet_path = std::path::PathBuf::from(home).join(".bitinfinity").join("wallet.json");
+    let wallet_path = std::path::PathBuf::from(home)
+        .join(".bitinfinity")
+        .join("wallet.json");
     match std::fs::copy(&wallet_path, dest) {
         Ok(_) => ok_response(&request.id, json!(null)),
-        Err(e) => err_response(&request.id, -4, format!("Error: Wallet backup failed: {}", e)),
+        Err(e) => err_response(
+            &request.id,
+            -4,
+            format!("Error: Wallet backup failed: {}", e),
+        ),
     }
 }
 
@@ -7120,13 +8691,18 @@ async fn handle_waitforblock(state: &RpcState, request: &JsonRpcRequest) -> Json
     loop {
         if let Ok(status) = state.near_client.status().await {
             if target_hash.is_empty() || status.latest_block_hash == target_hash {
-                return ok_response(&request.id, json!({
-                    "hash": status.latest_block_hash,
-                    "height": status.latest_block_height
-                }));
+                return ok_response(
+                    &request.id,
+                    json!({
+                        "hash": status.latest_block_hash,
+                        "height": status.latest_block_height
+                    }),
+                );
             }
         }
-        if std::time::Instant::now() >= deadline { break; }
+        if std::time::Instant::now() >= deadline {
+            break;
+        }
         tokio::time::sleep(std::time::Duration::from_millis(500)).await;
     }
     err_response(&request.id, -32000, "Timeout waiting for block".to_string())
@@ -7134,22 +8710,35 @@ async fn handle_waitforblock(state: &RpcState, request: &JsonRpcRequest) -> Json
 
 async fn handle_waitfornewblock(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     let timeout_ms = get_u64_param(&request.params, 0).unwrap_or(30000);
-    let initial_height = state.near_client.status().await
-        .map(|s| s.latest_block_height).unwrap_or(0);
+    let initial_height = state
+        .near_client
+        .status()
+        .await
+        .map(|s| s.latest_block_height)
+        .unwrap_or(0);
     let deadline = std::time::Instant::now() + std::time::Duration::from_millis(timeout_ms);
     loop {
         if let Ok(status) = state.near_client.status().await {
             if status.latest_block_height > initial_height {
-                return ok_response(&request.id, json!({
-                    "hash": status.latest_block_hash,
-                    "height": status.latest_block_height
-                }));
+                return ok_response(
+                    &request.id,
+                    json!({
+                        "hash": status.latest_block_hash,
+                        "height": status.latest_block_height
+                    }),
+                );
             }
         }
-        if std::time::Instant::now() >= deadline { break; }
+        if std::time::Instant::now() >= deadline {
+            break;
+        }
         tokio::time::sleep(std::time::Duration::from_millis(500)).await;
     }
-    err_response(&request.id, -32000, "Timeout waiting for new block".to_string())
+    err_response(
+        &request.id,
+        -32000,
+        "Timeout waiting for new block".to_string(),
+    )
 }
 
 async fn handle_waitforblockheight(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
@@ -7159,16 +8748,25 @@ async fn handle_waitforblockheight(state: &RpcState, request: &JsonRpcRequest) -
     loop {
         if let Ok(status) = state.near_client.status().await {
             if status.latest_block_height >= target_height {
-                return ok_response(&request.id, json!({
-                    "hash": status.latest_block_hash,
-                    "height": status.latest_block_height
-                }));
+                return ok_response(
+                    &request.id,
+                    json!({
+                        "hash": status.latest_block_hash,
+                        "height": status.latest_block_height
+                    }),
+                );
             }
         }
-        if std::time::Instant::now() >= deadline { break; }
+        if std::time::Instant::now() >= deadline {
+            break;
+        }
         tokio::time::sleep(std::time::Duration::from_millis(500)).await;
     }
-    err_response(&request.id, -32000, "Timeout waiting for block height".to_string())
+    err_response(
+        &request.id,
+        -32000,
+        "Timeout waiting for block height".to_string(),
+    )
 }
 
 async fn handle_getnetworkhashps(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
@@ -7177,7 +8775,8 @@ async fn handle_getnetworkhashps(state: &RpcState, request: &JsonRpcRequest) -> 
     // Report a synthetic value based on active validators
     let hashps = match state.near_client.validators().await {
         Ok(info) => {
-            let count = info.get("current_validators")
+            let count = info
+                .get("current_validators")
                 .and_then(|v| v.as_array())
                 .map(|a| a.len())
                 .unwrap_or(1);
@@ -7238,7 +8837,10 @@ fn handle_setlabel(request: &JsonRpcRequest) -> JsonRpcResponse {
     ok_response(&request.id, json!(null))
 }
 
-async fn handle_walletpassphrasechange(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+async fn handle_walletpassphrasechange(
+    state: &RpcState,
+    request: &JsonRpcRequest,
+) -> JsonRpcResponse {
     let old_passphrase = match get_str_param(&request.params, 0) {
         Some(p) => p.to_string(),
         None => return err_response(&request.id, -32602, "Missing old passphrase".to_string()),
@@ -7271,12 +8873,22 @@ async fn handle_walletpassphrasechange(state: &RpcState, request: &JsonRpcReques
 async fn handle_encryptwallet(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     let passphrase = match get_str_param(&request.params, 0) {
         Some(p) => p.to_string(),
-        None => return err_response(&request.id, -32602, "Missing passphrase parameter".to_string()),
+        None => {
+            return err_response(
+                &request.id,
+                -32602,
+                "Missing passphrase parameter".to_string(),
+            )
+        }
     };
 
     let keystore = state.keystore.read().await;
     if keystore.encrypted {
-        return err_response(&request.id, -15, "Error: running with an encrypted wallet, but encryptwallet was called.".to_string());
+        return err_response(
+            &request.id,
+            -15,
+            "Error: running with an encrypted wallet, but encryptwallet was called.".to_string(),
+        );
     }
 
     // Encrypt and save
@@ -7303,25 +8915,31 @@ async fn handle_encryptwallet(state: &RpcState, request: &JsonRpcRequest) -> Jso
 }
 
 fn handle_getmemoryinfo(request: &JsonRpcRequest) -> JsonRpcResponse {
-    ok_response(&request.id, json!({
-        "locked": {
-            "used": 0,
-            "free": 0,
-            "total": 0,
-            "locked": 0,
-            "chunks_used": 0,
-            "chunks_free": 0
-        }
-    }))
+    ok_response(
+        &request.id,
+        json!({
+            "locked": {
+                "used": 0,
+                "free": 0,
+                "total": 0,
+                "locked": 0,
+                "chunks_used": 0,
+                "chunks_free": 0
+            }
+        }),
+    )
 }
 
 fn handle_getrpcinfo(request: &JsonRpcRequest) -> JsonRpcResponse {
-    ok_response(&request.id, json!({
-        "active_commands": [
-            { "method": "getrpcinfo", "duration": 0 }
-        ],
-        "logpath": ""
-    }))
+    ok_response(
+        &request.id,
+        json!({
+            "active_commands": [
+                { "method": "getrpcinfo", "duration": 0 }
+            ],
+            "logpath": ""
+        }),
+    )
 }
 
 async fn handle_getindexinfo(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
@@ -7329,16 +8947,19 @@ async fn handle_getindexinfo(state: &RpcState, request: &JsonRpcRequest) -> Json
         Ok(status) => status.latest_block_height,
         Err(_) => 0,
     };
-    ok_response(&request.id, json!({
-        "txindex": {
-            "synced": true,
-            "best_block_height": height
-        },
-        "basic block filter index": {
-            "synced": true,
-            "best_block_height": height
-        }
-    }))
+    ok_response(
+        &request.id,
+        json!({
+            "txindex": {
+                "synced": true,
+                "best_block_height": height
+            },
+            "basic block filter index": {
+                "synced": true,
+                "best_block_height": height
+            }
+        }),
+    )
 }
 
 fn handle_getzmqnotifications(request: &JsonRpcRequest) -> JsonRpcResponse {
@@ -7346,19 +8967,25 @@ fn handle_getzmqnotifications(request: &JsonRpcRequest) -> JsonRpcResponse {
 }
 
 fn handle_logging(request: &JsonRpcRequest) -> JsonRpcResponse {
-    ok_response(&request.id, json!({
-        "net": true,
-        "rpc": true,
-        "mempool": false,
-        "validation": true
-    }))
+    ok_response(
+        &request.id,
+        json!({
+            "net": true,
+            "rpc": true,
+            "mempool": false,
+            "validation": true
+        }),
+    )
 }
 
 fn handle_abortrescan(request: &JsonRpcRequest) -> JsonRpcResponse {
     ok_response(&request.id, json!(true))
 }
 
-async fn handle_getunconfirmedbalance(_state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+async fn handle_getunconfirmedbalance(
+    _state: &RpcState,
+    request: &JsonRpcRequest,
+) -> JsonRpcResponse {
     // NEAR has ~1 second finality — there is no meaningful "unconfirmed" state.
     // Always return 0.0 to match the semantics: all balances are confirmed.
     ok_response(&request.id, json!(0.0))
@@ -7399,7 +9026,10 @@ async fn incoming_tx_indexer(state: Arc<RpcState>) {
         let mut h = state.last_indexed_height.write().await;
         *h = start_height;
     }
-    log::info!("Incoming tx indexer started at block height {}", start_height);
+    log::info!(
+        "Incoming tx indexer started at block height {}",
+        start_height
+    );
 
     // Take initial balance snapshot
     {
@@ -7460,7 +9090,8 @@ async fn incoming_tx_indexer(state: Arc<RpcState>) {
                 if delta_satoshis > 0 {
                     // Generate a deterministic synthetic txid for this incoming transfer
                     use sha2::Digest;
-                    let txid_input = format!("incoming:{}:{}:{}", addr, current_height, delta_satoshis);
+                    let txid_input =
+                        format!("incoming:{}:{}:{}", addr, current_height, delta_satoshis);
                     let txid = hex::encode(sha2::Sha256::digest(txid_input.as_bytes()));
 
                     // Check if we already indexed this
@@ -7472,12 +9103,17 @@ async fn incoming_tx_indexer(state: Arc<RpcState>) {
                     drop(cache);
 
                     // Get block hash for the near_tx_hash field
-                    let block_hash = state.near_client.block_by_height(current_height).await
+                    let block_hash = state
+                        .near_client
+                        .block_by_height(current_height)
+                        .await
                         .ok()
-                        .and_then(|b| b.get("header")
-                            .and_then(|h| h.get("hash"))
-                            .and_then(|v| v.as_str())
-                            .map(|s| s.to_string()))
+                        .and_then(|b| {
+                            b.get("header")
+                                .and_then(|h| h.get("hash"))
+                                .and_then(|v| v.as_str())
+                                .map(|s| s.to_string())
+                        })
                         .unwrap_or_else(|| format!("block:{}", current_height));
 
                     let mut cache = state.tx_cache.write().await;
@@ -7491,8 +9127,12 @@ async fn incoming_tx_indexer(state: Arc<RpcState>) {
                     );
                     drop(cache);
 
-                    log::info!("Indexed incoming transfer: {} received {} satoshis at height {}",
-                        addr, delta_satoshis, current_height);
+                    log::info!(
+                        "Indexed incoming transfer: {} received {} satoshis at height {}",
+                        addr,
+                        delta_satoshis,
+                        current_height
+                    );
                 }
             }
 
@@ -7516,22 +9156,37 @@ fn handle_addmultisigaddress(request: &JsonRpcRequest) -> JsonRpcResponse {
 }
 
 fn handle_addnode(request: &JsonRpcRequest) -> JsonRpcResponse {
-    // Bitcoin Core: add a peer node. NEAR networking is handled by nearcore.
-    ok_response(&request.id, json!(null))
+    err_response(
+        &request.id,
+        -32601,
+        "addnode is not supported: peer management is handled by nearcore networking.".to_string(),
+    )
+}
+
+fn handle_onetry(request: &JsonRpcRequest) -> JsonRpcResponse {
+    err_response(
+        &request.id,
+        -32601,
+        "onetry is not supported: peer management is handled by nearcore networking.".to_string(),
+    )
 }
 
 fn handle_analyzepsbt(request: &JsonRpcRequest) -> JsonRpcResponse {
     let psbt_str = get_str_param(&request.params, 0).unwrap_or("");
-    let psbt_bytes = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, psbt_str).unwrap_or_default();
+    let psbt_bytes = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, psbt_str)
+        .unwrap_or_default();
     let estimated_size = psbt_bytes.len();
     let has_inputs = estimated_size > 10;
-    ok_response(&request.id, json!({
-        "inputs": if has_inputs { json!([{"has_utxo": true, "is_final": false, "next": "signer"}]) } else { json!([]) },
-        "estimated_vsize": estimated_size / 2,
-        "estimated_feerate": 0.00001,
-        "fee": 0.0000001,
-        "next": "signer"
-    }))
+    ok_response(
+        &request.id,
+        json!({
+            "inputs": if has_inputs { json!([{"has_utxo": true, "is_final": false, "next": "signer"}]) } else { json!([]) },
+            "estimated_vsize": estimated_size / 2,
+            "estimated_feerate": 0.00001,
+            "fee": 0.0000001,
+            "next": "signer"
+        }),
+    )
 }
 
 fn handle_clearbanned(request: &JsonRpcRequest) -> JsonRpcResponse {
@@ -7540,43 +9195,67 @@ fn handle_clearbanned(request: &JsonRpcRequest) -> JsonRpcResponse {
 
 fn handle_combinerawtransaction(request: &JsonRpcRequest) -> JsonRpcResponse {
     // Return the first transaction if provided
-    let txs = request.params.as_array().and_then(|arr| arr.first()).and_then(|v| v.as_array());
+    let txs = request
+        .params
+        .as_array()
+        .and_then(|arr| arr.first())
+        .and_then(|v| v.as_array());
     match txs {
         Some(arr) if !arr.is_empty() => {
             let first = arr.first().and_then(|v| v.as_str()).unwrap_or("");
             ok_response(&request.id, json!(first))
         }
-        _ => err_response(&request.id, -32602, "Missing transactions array".to_string()),
+        _ => err_response(
+            &request.id,
+            -32602,
+            "Missing transactions array".to_string(),
+        ),
     }
 }
 
 fn handle_createmultisig(request: &JsonRpcRequest) -> JsonRpcResponse {
-    let nrequired = request.params.as_array().and_then(|arr| arr.first()).and_then(|v| v.as_u64()).unwrap_or(1);
-    ok_response(&request.id, json!({
-        "address": format!("multisig-{}-of-n-not-supported", nrequired),
-        "redeemScript": "",
-        "descriptor": format!("multi({},)", nrequired)
-    }))
+    let nrequired = request
+        .params
+        .as_array()
+        .and_then(|arr| arr.first())
+        .and_then(|v| v.as_u64())
+        .unwrap_or(1);
+    ok_response(
+        &request.id,
+        json!({
+            "address": format!("multisig-{}-of-n-not-supported", nrequired),
+            "redeemScript": "",
+            "descriptor": format!("multi({},)", nrequired)
+        }),
+    )
 }
 
 fn handle_decodescript(request: &JsonRpcRequest) -> JsonRpcResponse {
     let hex_str = get_str_param(&request.params, 0).unwrap_or("");
     let script_bytes = hex::decode(hex_str).unwrap_or_default();
     let (script_type, asm) = classify_script_pub_key_hex(hex_str);
-    ok_response(&request.id, json!({
-        "asm": asm,
-        "type": script_type,
-        "p2sh": "",
-        "segwit": {
+    ok_response(
+        &request.id,
+        json!({
             "asm": asm,
-            "hex": hex_str,
             "type": script_type,
-        }
-    }))
+            "p2sh": "",
+            "segwit": {
+                "asm": asm,
+                "hex": hex_str,
+                "type": script_type,
+            }
+        }),
+    )
 }
 
 fn handle_disconnectnode(request: &JsonRpcRequest) -> JsonRpcResponse {
-    ok_response(&request.id, json!(null))
+    err_response(
+        &request.id,
+        -32601,
+        "disconnectnode is not supported: peer management is handled by nearcore networking."
+            .to_string(),
+    )
 }
 
 fn handle_dumpwallet(request: &JsonRpcRequest) -> JsonRpcResponse {
@@ -7584,28 +9263,41 @@ fn handle_dumpwallet(request: &JsonRpcRequest) -> JsonRpcResponse {
 }
 
 async fn handle_getchaintxstats(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
-    let nblocks = request.params.as_array().and_then(|arr| arr.first()).and_then(|v| v.as_u64()).unwrap_or(30);
+    let nblocks = request
+        .params
+        .as_array()
+        .and_then(|arr| arr.first())
+        .and_then(|v| v.as_u64())
+        .unwrap_or(30);
     match state.near_client.status().await {
         Ok(status) => {
             let height = status.latest_block_height;
             let window = std::cmp::min(nblocks, height);
-            ok_response(&request.id, json!({
-                "time": chrono::Utc::now().timestamp(),
-                "txcount": height * 2, // approximate: 2 tx per block on average
-                "window_final_block_hash": status.latest_block_hash,
-                "window_final_block_height": height,
-                "window_block_count": window,
-                "window_tx_count": window * 2,
-                "window_interval": window, // ~1 second per block
-                "txrate": 2.0 // approximate tx per second
-            }))
+            ok_response(
+                &request.id,
+                json!({
+                    "time": chrono::Utc::now().timestamp(),
+                    "txcount": height * 2, // approximate: 2 tx per block on average
+                    "window_final_block_hash": status.latest_block_hash,
+                    "window_final_block_height": height,
+                    "window_block_count": window,
+                    "window_tx_count": window * 2,
+                    "window_interval": window, // ~1 second per block
+                    "txrate": 2.0 // approximate tx per second
+                }),
+            )
         }
         Err(e) => err_response(&request.id, -28, format!("Node not connected: {}", e)),
     }
 }
 
 fn handle_generatetodescriptor(request: &JsonRpcRequest) -> JsonRpcResponse {
-    err_response(&request.id, -1, "Block generation is not supported. This chain uses NEAR's Proof-of-Stake consensus.".to_string())
+    err_response(
+        &request.id,
+        -1,
+        "Block generation is not supported. This chain uses NEAR's Proof-of-Stake consensus."
+            .to_string(),
+    )
 }
 
 fn handle_getmempoolancestors(request: &JsonRpcRequest) -> JsonRpcResponse {
@@ -7619,19 +9311,22 @@ fn handle_getmempooldescendants(request: &JsonRpcRequest) -> JsonRpcResponse {
 async fn handle_getnettotals(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     let uptime = state.start_time.elapsed().as_secs();
     let bytes_estimate = uptime * 1024; // rough estimate
-    ok_response(&request.id, json!({
-        "totalbytesrecv": bytes_estimate,
-        "totalbytessent": bytes_estimate / 2,
-        "timemillis": chrono::Utc::now().timestamp_millis(),
-        "uploadtarget": {
-            "timeframe": 86400,
-            "target": 0,
-            "target_reached": false,
-            "serve_historical_blocks": true,
-            "bytes_left_in_cycle": 0,
-            "time_left_in_cycle": 0
-        }
-    }))
+    ok_response(
+        &request.id,
+        json!({
+            "totalbytesrecv": bytes_estimate,
+            "totalbytessent": bytes_estimate / 2,
+            "timemillis": chrono::Utc::now().timestamp_millis(),
+            "uploadtarget": {
+                "timeframe": 86400,
+                "target": 0,
+                "target_reached": false,
+                "serve_historical_blocks": true,
+                "bytes_left_in_cycle": 0,
+                "time_left_in_cycle": 0
+            }
+        }),
+    )
 }
 
 async fn handle_getnodeaddresses(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
@@ -7640,7 +9335,8 @@ async fn handle_getnodeaddresses(state: &RpcState, request: &JsonRpcRequest) -> 
             let mut addresses = Vec::new();
             if let Some(peers) = info.get("active_peers").and_then(|v| v.as_array()) {
                 for peer in peers {
-                    let addr = peer.get("addr")
+                    let addr = peer
+                        .get("addr")
                         .or_else(|| peer.get("peer_info").and_then(|p| p.get("addr")))
                         .and_then(|v| v.as_str())
                         .unwrap_or("0.0.0.0:24567");
@@ -7661,7 +9357,9 @@ async fn handle_getnodeaddresses(state: &RpcState, request: &JsonRpcRequest) -> 
 
 fn handle_importmulti(request: &JsonRpcRequest) -> JsonRpcResponse {
     // Return success for each import request
-    let count = request.params.as_array()
+    let count = request
+        .params
+        .as_array()
         .and_then(|arr| arr.first())
         .and_then(|v| v.as_array())
         .map(|a| a.len())
@@ -7675,12 +9373,20 @@ fn handle_importprunedfunds(request: &JsonRpcRequest) -> JsonRpcResponse {
 }
 
 fn handle_importwallet(request: &JsonRpcRequest) -> JsonRpcResponse {
-    err_response(&request.id, -1, "importwallet is not supported. Use importprivkey for individual keys.".to_string())
+    err_response(
+        &request.id,
+        -1,
+        "importwallet is not supported. Use importprivkey for individual keys.".to_string(),
+    )
 }
 
 fn handle_joinpsbts(request: &JsonRpcRequest) -> JsonRpcResponse {
     // Join PSBTs: return the first one (simplification)
-    let psbts = request.params.as_array().and_then(|arr| arr.first()).and_then(|v| v.as_array());
+    let psbts = request
+        .params
+        .as_array()
+        .and_then(|arr| arr.first())
+        .and_then(|v| v.as_array());
     match psbts {
         Some(arr) if !arr.is_empty() => {
             let first = arr.first().and_then(|v| v.as_str()).unwrap_or("");
@@ -7719,9 +9425,12 @@ async fn handle_listreceivedbylabel(state: &RpcState, request: &JsonRpcRequest) 
 }
 
 fn handle_listwalletdir(request: &JsonRpcRequest) -> JsonRpcResponse {
-    ok_response(&request.id, json!({
-        "wallets": [{"name": "default"}]
-    }))
+    ok_response(
+        &request.id,
+        json!({
+            "wallets": [{"name": "default"}]
+        }),
+    )
 }
 
 fn handle_preciousblock(request: &JsonRpcRequest) -> JsonRpcResponse {
@@ -7729,11 +9438,20 @@ fn handle_preciousblock(request: &JsonRpcRequest) -> JsonRpcResponse {
 }
 
 fn handle_pruneblockchain(request: &JsonRpcRequest) -> JsonRpcResponse {
-    err_response(&request.id, -1, "Blockchain pruning is not supported. NEAR uses a different state management model.".to_string())
+    err_response(
+        &request.id,
+        -1,
+        "Blockchain pruning is not supported. NEAR uses a different state management model."
+            .to_string(),
+    )
 }
 
 fn handle_psbtbumpfee(request: &JsonRpcRequest) -> JsonRpcResponse {
-    err_response(&request.id, -4, "Fee bumping is not supported on this chain (NEAR has instant finality).".to_string())
+    err_response(
+        &request.id,
+        -4,
+        "Fee bumping is not supported on this chain (NEAR has instant finality).".to_string(),
+    )
 }
 
 fn handle_removeprunedfunds(request: &JsonRpcRequest) -> JsonRpcResponse {
@@ -7748,8 +9466,7 @@ fn handle_savemempool(request: &JsonRpcRequest) -> JsonRpcResponse {
 async fn handle_send(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     // params: [outputs, conf_target, estimate_mode, fee_rate, options]
     // outputs is an array of {address: amount} objects
-    let outputs = request.params.as_array()
-        .and_then(|arr| arr.first());
+    let outputs = request.params.as_array().and_then(|arr| arr.first());
     let outputs = match outputs {
         Some(o) => o,
         None => return err_response(&request.id, -32602, "Missing outputs parameter".to_string()),
@@ -7787,23 +9504,37 @@ fn handle_setban(request: &JsonRpcRequest) -> JsonRpcResponse {
 }
 
 fn handle_setnetworkactive(request: &JsonRpcRequest) -> JsonRpcResponse {
-    let active = request.params.as_array().and_then(|arr| arr.first()).and_then(|v| v.as_bool()).unwrap_or(true);
+    let active = request
+        .params
+        .as_array()
+        .and_then(|arr| arr.first())
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true);
     ok_response(&request.id, json!(active))
 }
 
 fn handle_setwalletflag(request: &JsonRpcRequest) -> JsonRpcResponse {
     let flag = get_str_param(&request.params, 0).unwrap_or("");
-    ok_response(&request.id, json!({
-        "flag_name": flag,
-        "flag_state": true,
-        "warnings": ""
-    }))
+    ok_response(
+        &request.id,
+        json!({
+            "flag_name": flag,
+            "flag_state": true,
+            "warnings": ""
+        }),
+    )
 }
 
 fn handle_signmessagewithprivkey(request: &JsonRpcRequest) -> JsonRpcResponse {
     let privkey_wif = match get_str_param(&request.params, 0) {
         Some(k) => k,
-        None => return err_response(&request.id, -32602, "Missing private key parameter".to_string()),
+        None => {
+            return err_response(
+                &request.id,
+                -32602,
+                "Missing private key parameter".to_string(),
+            )
+        }
     };
     let message = match get_str_param(&request.params, 1) {
         Some(m) => m,
@@ -7813,18 +9544,26 @@ fn handle_signmessagewithprivkey(request: &JsonRpcRequest) -> JsonRpcResponse {
     // Decode WIF private key
     let decoded = match bs58::decode(privkey_wif).into_vec() {
         Ok(d) => d,
-        Err(_) => return err_response(&request.id, -5, "Invalid private key WIF encoding".to_string()),
+        Err(_) => {
+            return err_response(
+                &request.id,
+                -5,
+                "Invalid private key WIF encoding".to_string(),
+            )
+        }
     };
-    let key_bytes = if decoded.len() == 38 { // compressed WIF
+    let key_bytes = if decoded.len() == 38 {
+        // compressed WIF
         &decoded[1..33]
-    } else if decoded.len() == 37 { // uncompressed WIF
+    } else if decoded.len() == 37 {
+        // uncompressed WIF
         &decoded[1..33]
     } else {
         return err_response(&request.id, -5, "Invalid private key length".to_string());
     };
 
     // Sign the message using Bitcoin message signing format
-    use sha2::{Sha256, Digest};
+    use sha2::{Digest, Sha256};
     let prefix = b"\x18Bitcoin Signed Message:\n";
     let msg_bytes = message.as_bytes();
     let mut preimage = Vec::new();
@@ -7858,12 +9597,15 @@ fn handle_submitheader(request: &JsonRpcRequest) -> JsonRpcResponse {
 }
 
 fn handle_upgradewallet(request: &JsonRpcRequest) -> JsonRpcResponse {
-    ok_response(&request.id, json!({
-        "wallet_name": "default",
-        "previous_version": 169900,
-        "current_version": 169900,
-        "result": ""
-    }))
+    ok_response(
+        &request.id,
+        json!({
+            "wallet_name": "default",
+            "previous_version": 169900,
+            "current_version": 169900,
+            "result": ""
+        }),
+    )
 }
 
 fn handle_verifychain(request: &JsonRpcRequest) -> JsonRpcResponse {
@@ -7888,27 +9630,52 @@ const QUANTUM_KEY_TYPES: &[&str] = &["dilithium3", "falcon512", "sphincsplus"];
 async fn handle_addquantumkey(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     let address = match get_str_param(&request.params, 0) {
         Some(a) => a.to_string(),
-        None => return err_response(&request.id, -32602, "params: [address, keytype, pubkey_hex]".to_string()),
+        None => {
+            return err_response(
+                &request.id,
+                -32602,
+                "params: [address, keytype, pubkey_hex]".to_string(),
+            )
+        }
     };
     let keytype = match get_str_param(&request.params, 1) {
         Some(k) => k.to_lowercase(),
-        None => return err_response(&request.id, -32602, "params: [address, keytype, pubkey_hex]".to_string()),
+        None => {
+            return err_response(
+                &request.id,
+                -32602,
+                "params: [address, keytype, pubkey_hex]".to_string(),
+            )
+        }
     };
     let pubkey_hex = match get_str_param(&request.params, 2) {
         Some(p) => p.to_string(),
-        None => return err_response(&request.id, -32602, "params: [address, keytype, pubkey_hex]".to_string()),
+        None => {
+            return err_response(
+                &request.id,
+                -32602,
+                "params: [address, keytype, pubkey_hex]".to_string(),
+            )
+        }
     };
 
     if !QUANTUM_KEY_TYPES.contains(&keytype.as_str()) {
         return err_response(
             &request.id,
             -32602,
-            format!("Invalid keytype '{}'. Supported: dilithium3, falcon512, sphincsplus", keytype),
+            format!(
+                "Invalid keytype '{}'. Supported: dilithium3, falcon512, sphincsplus",
+                keytype
+            ),
         );
     }
 
     if hex::decode(&pubkey_hex).is_err() {
-        return err_response(&request.id, -32602, "pubkey_hex must be valid hex".to_string());
+        return err_response(
+            &request.id,
+            -32602,
+            "pubkey_hex must be valid hex".to_string(),
+        );
     }
 
     let mut keys = state.quantum_keys.write().await;
@@ -7916,24 +9683,38 @@ async fn handle_addquantumkey(state: &RpcState, request: &JsonRpcRequest) -> Jso
 
     // Max 3 quantum keys per address
     if entry.len() >= 3 {
-        return err_response(&request.id, -32602, "Maximum 3 quantum keys per address".to_string());
+        return err_response(
+            &request.id,
+            -32602,
+            "Maximum 3 quantum keys per address".to_string(),
+        );
     }
 
     // Prevent duplicates
-    if entry.iter().any(|(kt, pk)| kt == &keytype && pk == &pubkey_hex) {
-        return err_response(&request.id, -32602, "This quantum key is already registered".to_string());
+    if entry
+        .iter()
+        .any(|(kt, pk)| kt == &keytype && pk == &pubkey_hex)
+    {
+        return err_response(
+            &request.id,
+            -32602,
+            "This quantum key is already registered".to_string(),
+        );
     }
 
     entry.push((keytype.clone(), pubkey_hex.clone()));
 
-    ok_response(&request.id, json!({
-        "address": address,
-        "keytype": keytype,
-        "pubkey_hex": pubkey_hex,
-        "registered": true,
-        "enforcement_active": false,
-        "note": "Quantum key registered. Enforcement activates via validator supermajority vote (see issue #2)."
-    }))
+    ok_response(
+        &request.id,
+        json!({
+            "address": address,
+            "keytype": keytype,
+            "pubkey_hex": pubkey_hex,
+            "registered": true,
+            "enforcement_active": false,
+            "note": "Quantum key registered. Enforcement activates via validator supermajority vote (see issue #2)."
+        }),
+    )
 }
 
 /// Remove a previously registered quantum key.
@@ -7942,15 +9723,33 @@ async fn handle_addquantumkey(state: &RpcState, request: &JsonRpcRequest) -> Jso
 async fn handle_removequantumkey(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     let address = match get_str_param(&request.params, 0) {
         Some(a) => a.to_string(),
-        None => return err_response(&request.id, -32602, "params: [address, keytype, pubkey_hex]".to_string()),
+        None => {
+            return err_response(
+                &request.id,
+                -32602,
+                "params: [address, keytype, pubkey_hex]".to_string(),
+            )
+        }
     };
     let keytype = match get_str_param(&request.params, 1) {
         Some(k) => k.to_lowercase(),
-        None => return err_response(&request.id, -32602, "params: [address, keytype, pubkey_hex]".to_string()),
+        None => {
+            return err_response(
+                &request.id,
+                -32602,
+                "params: [address, keytype, pubkey_hex]".to_string(),
+            )
+        }
     };
     let pubkey_hex = match get_str_param(&request.params, 2) {
         Some(p) => p.to_string(),
-        None => return err_response(&request.id, -32602, "params: [address, keytype, pubkey_hex]".to_string()),
+        None => {
+            return err_response(
+                &request.id,
+                -32602,
+                "params: [address, keytype, pubkey_hex]".to_string(),
+            )
+        }
     };
 
     let mut keys = state.quantum_keys.write().await;
@@ -7958,15 +9757,22 @@ async fn handle_removequantumkey(state: &RpcState, request: &JsonRpcRequest) -> 
         let before = entry.len();
         entry.retain(|(kt, pk)| !(kt == &keytype && pk == &pubkey_hex));
         if entry.len() < before {
-            return ok_response(&request.id, json!({
-                "address": address,
-                "keytype": keytype,
-                "removed": true
-            }));
+            return ok_response(
+                &request.id,
+                json!({
+                    "address": address,
+                    "keytype": keytype,
+                    "removed": true
+                }),
+            );
         }
     }
 
-    err_response(&request.id, -32602, "Quantum key not found for this address".to_string())
+    err_response(
+        &request.id,
+        -32602,
+        "Quantum key not found for this address".to_string(),
+    )
 }
 
 /// List all quantum keys registered for an address.
@@ -7989,78 +9795,165 @@ async fn handle_listquantumkeys(state: &RpcState, request: &JsonRpcRequest) -> J
         })
         .unwrap_or_default();
 
-    ok_response(&request.id, json!({
-        "address": address,
-        "quantum_keys": registered,
-        "enforcement_active": false,
-        "supported_keytypes": QUANTUM_KEY_TYPES,
-    }))
+    ok_response(
+        &request.id,
+        json!({
+            "address": address,
+            "quantum_keys": registered,
+            "enforcement_active": false,
+            "supported_keytypes": QUANTUM_KEY_TYPES,
+        }),
+    )
 }
 
 // ============================================================================
 // Patoshi unlock handler (issue #10)
 // ============================================================================
 
+const PATOSHI_UNLOCK_DELAY_EPOCHS: u64 = 14;
+const PATOSHI_UNLOCK_RECEIVER: &str = "near";
+
 /// Submit the Patoshi unlock challenge for an account.
 ///
 /// The challenge proves a Patoshi key holder is alive and consents to unlock.
-/// After a 14-epoch timelock (~7 days), the Patoshi balance floor guard is lifted.
+/// After a 14-epoch timelock (~7 days), the Patoshi balance floor guard is lifted by runtime.
 ///
 /// Params: [address, signature_base64]
 /// - signature_base64: Bitcoin message signature over:
 ///   "bitcoin-infinity-unlock:<genesis_block_hash>"
-///
-/// This RPC records the intent. The runtime enforces the timelock and validates
-/// the signature on-chain via the Patoshi guard in nearcore (issue #10).
 async fn handle_patoshiunlock(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     let address = match get_str_param(&request.params, 0) {
         Some(a) => a.to_string(),
-        None => return err_response(&request.id, -32602, "params: [address, signature_base64]".to_string()),
+        None => {
+            return err_response(
+                &request.id,
+                -32602,
+                "params: [address, signature_base64]".to_string(),
+            )
+        }
     };
     let signature_b64 = match get_str_param(&request.params, 1) {
         Some(s) => s.to_string(),
-        None => return err_response(&request.id, -32602, "params: [address, signature_base64]".to_string()),
+        None => {
+            return err_response(
+                &request.id,
+                -32602,
+                "params: [address, signature_base64]".to_string(),
+            )
+        }
     };
 
     // Validate the signature is decodeable base64 with correct length (65 bytes for compact sig)
     use base64::Engine;
     let sig_bytes = match base64::engine::general_purpose::STANDARD.decode(&signature_b64) {
         Ok(b) => b,
-        Err(_) => return err_response(&request.id, -5, "signature_base64 must be valid base64".to_string()),
+        Err(_) => {
+            return err_response(
+                &request.id,
+                -5,
+                "signature_base64 must be valid base64".to_string(),
+            )
+        }
     };
     if sig_bytes.len() != 65 {
         return err_response(
             &request.id,
             -5,
-            format!("Invalid signature length: expected 65 bytes, got {}", sig_bytes.len()),
+            format!(
+                "Invalid signature length: expected 65 bytes, got {}",
+                sig_bytes.len()
+            ),
         );
     }
 
-    // Fetch the genesis block hash to construct the challenge message
+    // Fetch the genesis block hash to construct the challenge message.
     let genesis_block_hash = match state.near_client.block_by_height(0).await {
-        Ok(block) => block
+        Ok(block) => match block
             .get("header")
             .and_then(|h| h.get("hash"))
             .and_then(|v| v.as_str())
-            .unwrap_or("unknown")
-            .to_string(),
-        Err(_) => "unknown".to_string(),
+        {
+            Some(hash) => hash.to_string(),
+            None => {
+                return err_response(
+                    &request.id,
+                    -32000,
+                    "Failed to extract genesis block hash from node response".to_string(),
+                )
+            }
+        },
+        Err(e) => {
+            return err_response(
+                &request.id,
+                -32000,
+                format!("Failed to query genesis block hash: {}", e),
+            )
+        }
     };
-
     let challenge_message = format!("bitcoin-infinity-unlock:{}", genesis_block_hash);
 
-    // The full unlock flow requires the runtime Patoshi guard in nearcore (issue #10).
-    // This RPC layer records the submission and returns the expected challenge message
-    // for the user to verify they signed the correct thing.
-    ok_response(&request.id, json!({
-        "address": address,
-        "challenge_message": challenge_message,
-        "signature_accepted": true,
-        "timelock_epochs": 14,
-        "timelock_days_approx": 7,
-        "note": "Unlock submitted. The 14-epoch (~7 day) timelock begins after on-chain validation by the Patoshi guard in nearcore. Full enforcement requires nearcore Patoshi guard implementation (issue #10).",
-        "status": "pending_runtime_validation"
-    }))
+    if !verify_bitcoin_message_signature(
+        &address,
+        &signature_b64,
+        &challenge_message,
+        state.bech32_hrp(),
+    ) {
+        return err_response(
+            &request.id,
+            -5,
+            "Signature does not match address/challenge message".to_string(),
+        );
+    }
+
+    let (key_entry, secret_key, near_pubkey_str) = match get_sender_key(state, &address).await {
+        Ok(v) => v,
+        Err(resp) => return resp,
+    };
+    let (block_hash, nonce) =
+        match get_block_and_nonce(state, &address, &near_pubkey_str, &request.id).await {
+            Ok(v) => v,
+            Err(resp) => return resp,
+        };
+    let pk_uncompressed = match key_entry.public_key_uncompressed_bytes() {
+        Ok(b) => b,
+        Err(e) => return err_response(&request.id, -32000, format!("Key error: {}", e)),
+    };
+
+    // Canonical unlock trigger: single zero-value transfer to the foundation account.
+    let mut builder = NearTxBuilder::new(
+        address.clone(),
+        pk_uncompressed,
+        nonce,
+        PATOSHI_UNLOCK_RECEIVER.to_string(),
+        block_hash,
+    );
+    builder.add_action(NearAction::transfer(0));
+    let signed_tx = match builder.sign_and_encode(&secret_key) {
+        Ok(tx) => tx,
+        Err(e) => return err_response(&request.id, -32000, format!("Sign failed: {}", e)),
+    };
+
+    match state.near_client.send_tx_async(&signed_tx).await {
+        Ok(near_tx_hash) => {
+            state.record_nonce(&address, nonce).await;
+            ok_response(
+                &request.id,
+                json!({
+                    "address": address,
+                    "challenge_message": challenge_message,
+                    "signature_valid": true,
+                    "near_tx_hash": near_tx_hash,
+                    "unlock_trigger_receiver": PATOSHI_UNLOCK_RECEIVER,
+                    "unlock_trigger_action": "transfer",
+                    "unlock_trigger_amount_yoctobit": "0",
+                    "timelock_epochs": PATOSHI_UNLOCK_DELAY_EPOCHS,
+                    "timelock_days_approx": 7,
+                    "status": "unlock_tx_submitted"
+                }),
+            )
+        }
+        Err(e) => err_response(&request.id, -25, format!("Unlock TX submit failed: {}", e)),
+    }
 }
 
 // ============================================================================
@@ -8071,21 +9964,23 @@ async fn handle_patoshiunlock(state: &RpcState, request: &JsonRpcRequest) -> Jso
 async fn main() {
     env_logger::init();
 
-    let near_rpc_url = std::env::var("NEAR_RPC_URL")
-        .unwrap_or_else(|_| "http://127.0.0.1:3030".to_string());
+    let near_rpc_url =
+        std::env::var("NEAR_RPC_URL").unwrap_or_else(|_| "http://127.0.0.1:3030".to_string());
 
     // Query nearcore for actual chain_id on startup
     let chain_id = {
         let client = NearClient::new(near_rpc_url.clone());
         match client.call("status", json!([])).await {
-            Ok(status) => {
-                status.get("chain_id")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("bitinfinity-testnet")
-                    .to_string()
-            }
+            Ok(status) => status
+                .get("chain_id")
+                .and_then(|v| v.as_str())
+                .unwrap_or("bitinfinity-testnet")
+                .to_string(),
             Err(e) => {
-                eprintln!("Warning: Could not query nearcore status: {}. Using default chain_id.", e);
+                eprintln!(
+                    "Warning: Could not query nearcore status: {}. Using default chain_id.",
+                    e
+                );
                 std::env::var("CHAIN_ID").unwrap_or_else(|_| "bitinfinity-testnet".to_string())
             }
         }
@@ -8104,11 +9999,13 @@ async fn main() {
     let app = Router::new()
         .route("/", post(rpc_handler))
         .with_state(state.clone())
-        .layer(middleware::from_fn_with_state(rpc_auth.clone(), auth_middleware))
+        .layer(middleware::from_fn_with_state(
+            rpc_auth.clone(),
+            auth_middleware,
+        ))
         .fallback(|| async { (StatusCode::NOT_FOUND, "Bitcoin Infinity JSON-RPC Server") });
 
-    let bind_addr = std::env::var("BTC_RPC_ADDR")
-        .unwrap_or_else(|_| "127.0.0.1:8332".to_string());
+    let bind_addr = std::env::var("BTC_RPC_ADDR").unwrap_or_else(|_| "127.0.0.1:8332".to_string());
 
     let listener = tokio::net::TcpListener::bind(&bind_addr)
         .await
@@ -8118,7 +10015,14 @@ async fn main() {
     println!("===========================");
     println!();
     println!("Chain ID:         {}", chain_id);
-    println!("Network:          {}", if chain_id.contains("mainnet") { "mainnet" } else { "testnet" });
+    println!(
+        "Network:          {}",
+        if chain_id.contains("mainnet") {
+            "mainnet"
+        } else {
+            "testnet"
+        }
+    );
     println!("Listening on:     http://{}", bind_addr);
     println!("NEAR RPC backend: {}", near_rpc_url);
     if noauth {
@@ -8175,7 +10079,10 @@ async fn main() {
     println!("              getlightclientblockproof, getneartxfull");
     println!("  Misc:       uptime, help, stop, rescanblockchain");
     println!();
-    println!("Bitcoin wallets can connect by setting RPC endpoint to http://{}", bind_addr);
+    println!(
+        "Bitcoin wallets can connect by setting RPC endpoint to http://{}",
+        bind_addr
+    );
     println!();
 
     // Check nearcore connectivity
@@ -8192,7 +10099,97 @@ async fn main() {
         incoming_tx_indexer(indexer_state).await;
     });
 
-    axum::serve(listener, app)
-        .await
-        .expect("Server error");
+    axum::serve(listener, app).await.expect("Server error");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{encode_bitcoin_varint, verify_bitcoin_message_signature};
+    use secp256k1::{Message, Secp256k1, SecretKey};
+
+    fn sign_bitcoin_message(secret_key: &SecretKey, message: &str) -> String {
+        use sha2::Digest as _;
+        let mut msg_data = Vec::new();
+        msg_data.extend_from_slice(b"\x18Bitcoin Signed Message:\n");
+        encode_bitcoin_varint(message.len() as u64, &mut msg_data);
+        msg_data.extend_from_slice(message.as_bytes());
+        let msg_hash = sha2::Sha256::digest(&sha2::Sha256::digest(&msg_data));
+
+        let secp = Secp256k1::new();
+        let msg = Message::from_digest_slice(&msg_hash)
+            .expect("message hash must be valid secp256k1 digest");
+        let sig = secp.sign_ecdsa_recoverable(&msg, secret_key);
+        let (rec_id, sig_data) = sig.serialize_compact();
+
+        let mut sig_bytes = vec![31 + rec_id.to_i32() as u8]; // compressed pubkey header
+        sig_bytes.extend_from_slice(&sig_data);
+
+        use base64::Engine;
+        base64::engine::general_purpose::STANDARD.encode(sig_bytes)
+    }
+
+    fn p2pkh_address_from_secret(secret_key: &SecretKey, version: u8) -> String {
+        use ripemd::Ripemd160;
+        use sha2::Digest as _;
+
+        let secp = Secp256k1::new();
+        let pubkey = secp256k1::PublicKey::from_secret_key(&secp, secret_key);
+        let compressed = pubkey.serialize();
+        let sha_hash = sha2::Sha256::digest(compressed);
+        let pubkey_hash = Ripemd160::digest(sha_hash);
+
+        let mut payload = vec![version];
+        payload.extend_from_slice(&pubkey_hash);
+        let checksum = sha2::Sha256::digest(sha2::Sha256::digest(&payload));
+        payload.extend_from_slice(&checksum[..4]);
+        bs58::encode(payload).into_string()
+    }
+
+    #[test]
+    fn test_verify_bitcoin_message_signature_valid_roundtrip() {
+        let secret_key =
+            SecretKey::from_slice(&[0x11; 32]).expect("fixed test secret key must be valid");
+        let address = p2pkh_address_from_secret(&secret_key, 0x00);
+        let message = "bitcoin-infinity-unlock:test-genesis-hash";
+        let signature = sign_bitcoin_message(&secret_key, message);
+
+        assert!(verify_bitcoin_message_signature(
+            &address, &signature, message, "bc"
+        ));
+    }
+
+    #[test]
+    fn test_verify_bitcoin_message_signature_rejects_wrong_message() {
+        let secret_key =
+            SecretKey::from_slice(&[0x22; 32]).expect("fixed test secret key must be valid");
+        let address = p2pkh_address_from_secret(&secret_key, 0x00);
+        let signature = sign_bitcoin_message(&secret_key, "message-a");
+
+        assert!(!verify_bitcoin_message_signature(
+            &address,
+            &signature,
+            "message-b",
+            "bc",
+        ));
+    }
+
+    #[test]
+    fn test_verify_bitcoin_message_signature_rejects_wrong_address() {
+        let secret_key =
+            SecretKey::from_slice(&[0x33; 32]).expect("fixed test secret key must be valid");
+        let address = p2pkh_address_from_secret(&secret_key, 0x00);
+        let signature = sign_bitcoin_message(&secret_key, "message-a");
+        let wrong_address = p2pkh_address_from_secret(
+            &SecretKey::from_slice(&[0x44; 32]).expect("fixed test secret key must be valid"),
+            0x00,
+        );
+
+        assert_ne!(address, wrong_address);
+        assert!(!verify_bitcoin_message_signature(
+            &wrong_address,
+            &signature,
+            "message-a",
+            "bc",
+        ));
+    }
 }

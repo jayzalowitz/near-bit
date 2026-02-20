@@ -632,17 +632,21 @@ impl JsonRpcHandler {
         // 1. Decode hex
         let bytes = match hex::decode(tx_hex) {
             Ok(b) => b,
-            Err(e) => return serde_json::json!({
-                "error": format!("Invalid hex: {}", e)
-            }),
+            Err(e) => {
+                return serde_json::json!({
+                    "error": format!("Invalid hex: {}", e)
+                });
+            }
         };
 
         // 2. Parse Bitcoin transaction
         let tx: bitcoin::Transaction = match deserialize(&bytes) {
             Ok(t) => t,
-            Err(e) => return serde_json::json!({
-                "error": format!("Failed to parse Bitcoin transaction: {}", e)
-            }),
+            Err(e) => {
+                return serde_json::json!({
+                    "error": format!("Failed to parse Bitcoin transaction: {}", e)
+                });
+            }
         };
 
         let txid = tx.compute_txid().to_string();
@@ -650,10 +654,12 @@ impl JsonRpcHandler {
         // 3. Extract sender public key from first input
         let (sender_pubkey, sender_address) = match Self::extract_btc_sender(&tx) {
             Ok(v) => v,
-            Err(e) => return serde_json::json!({
-                "error": format!("Failed to extract sender: {}", e),
-                "txid": txid,
-            }),
+            Err(e) => {
+                return serde_json::json!({
+                    "error": format!("Failed to extract sender: {}", e),
+                    "txid": txid,
+                });
+            }
         };
 
         // 4. Extract outputs
@@ -676,7 +682,7 @@ impl JsonRpcHandler {
                 continue;
             }
             let address = match bitcoin::Address::from_script(script, &params) {
-                Ok(addr) => addr.to_string().to_lowercase(),
+                Ok(addr) => addr.to_string(),
                 Err(_) => String::new(),
             };
             outputs.push(serde_json::json!({
@@ -687,27 +693,26 @@ impl JsonRpcHandler {
         }
 
         // 5. Identify payment outputs (non-change, non-OP_RETURN)
-        let payment_outputs: Vec<&serde_json::Value> = outputs.iter()
+        let payment_outputs: Vec<&serde_json::Value> = outputs
+            .iter()
             .filter(|o| {
                 !o["is_op_return"].as_bool().unwrap_or(false)
                     && o["address"].as_str().unwrap_or("") != sender_address
             })
             .collect();
 
-        let total_payment_satoshis: u64 = payment_outputs.iter()
-            .map(|o| o["amount_satoshis"].as_u64().unwrap_or(0))
-            .sum();
+        let total_payment_satoshis: u64 =
+            payment_outputs.iter().map(|o| o["amount_satoshis"].as_u64().unwrap_or(0)).sum();
 
         // 6. Convert to NEAR parameters
         // 1 satoshi = 10^16 yoctoBIT
         let amount_yocto = total_payment_satoshis as u128 * 10u128.pow(16);
-        let primary_recipient = payment_outputs.first()
-            .and_then(|o| o["address"].as_str())
-            .unwrap_or("")
-            .to_string();
+        let primary_recipient =
+            payment_outputs.first().and_then(|o| o["address"].as_str()).unwrap_or("").to_string();
 
         // 7. Check for OP_RETURN NEAR function call
-        let op_return_data: Option<String> = outputs.iter()
+        let op_return_data: Option<String> = outputs
+            .iter()
             .find(|o| o["is_op_return"].as_bool().unwrap_or(false))
             .and_then(|o| o["op_return_data"].as_str().map(|s| s.to_string()));
 
@@ -767,8 +772,7 @@ impl JsonRpcHandler {
     fn extract_btc_sender(tx: &bitcoin::Transaction) -> Result<(Vec<u8>, String), String> {
         use bitcoin::script::Instruction;
 
-        let first_input = tx.input.first()
-            .ok_or("Transaction has no inputs")?;
+        let first_input = tx.input.first().ok_or("Transaction has no inputs")?;
 
         // Try P2PKH: scriptSig contains [sig, pubkey]
         if !first_input.script_sig.is_empty() {
@@ -787,7 +791,9 @@ impl JsonRpcHandler {
             }
             // P2SH-P2WPKH fallback
             if !first_input.witness.is_empty() && first_input.witness.len() >= 2 {
-                let pubkey_bytes = first_input.witness.nth(first_input.witness.len() - 1)
+                let pubkey_bytes = first_input
+                    .witness
+                    .nth(first_input.witness.len() - 1)
                     .ok_or("Missing witness pubkey")?;
                 if pubkey_bytes.len() == 33 || pubkey_bytes.len() == 65 {
                     let address = Self::pubkey_to_p2pkh_address(pubkey_bytes)?;
@@ -798,8 +804,7 @@ impl JsonRpcHandler {
 
         // Try P2WPKH: empty scriptSig, witness = [sig, pubkey]
         if first_input.script_sig.is_empty() && first_input.witness.len() >= 2 {
-            let pubkey_bytes = first_input.witness.nth(1)
-                .ok_or("Missing witness pubkey")?;
+            let pubkey_bytes = first_input.witness.nth(1).ok_or("Missing witness pubkey")?;
             if pubkey_bytes.len() == 33 || pubkey_bytes.len() == 65 {
                 let address = Self::pubkey_to_p2wpkh_address(pubkey_bytes)?;
                 return Ok((pubkey_bytes.to_vec(), address));
@@ -809,7 +814,7 @@ impl JsonRpcHandler {
         Err("Could not extract sender public key from transaction inputs".to_string())
     }
 
-    /// Derive a lowercased P2PKH address from a public key.
+    /// Derive a canonical P2PKH address from a public key.
     fn pubkey_to_p2pkh_address(pubkey: &[u8]) -> Result<String, String> {
         use sha2::{Digest, Sha256};
 
@@ -819,10 +824,10 @@ impl JsonRpcHandler {
         payload.extend_from_slice(&pubkey_hash);
         let checksum_hash = Sha256::digest(&Sha256::digest(&payload));
         payload.extend_from_slice(&checksum_hash[..4]);
-        Ok(bs58::encode(&payload).into_string().to_lowercase())
+        Ok(bs58::encode(&payload).into_string())
     }
 
-    /// Derive a lowercased P2WPKH (bech32) address from a public key.
+    /// Derive a canonical P2WPKH (bech32) address from a public key.
     fn pubkey_to_p2wpkh_address(pubkey: &[u8]) -> Result<String, String> {
         use sha2::{Digest, Sha256};
         let sha256_hash = Sha256::digest(pubkey);
@@ -838,7 +843,9 @@ impl JsonRpcHandler {
                 let b = chk >> 25;
                 chk = ((chk & 0x1ffffff) << 5) ^ (v as u32);
                 for (i, g) in GEN.iter().enumerate() {
-                    if (b >> i) & 1 == 1 { chk ^= g; }
+                    if (b >> i) & 1 == 1 {
+                        chk ^= g;
+                    }
                 }
             }
             chk
@@ -856,15 +863,21 @@ impl JsonRpcHandler {
         for &byte in pubkey_hash.iter() {
             acc = (acc << 8) | (byte as u32);
             bits += 8;
-            while bits >= 5 { bits -= 5; data5.push(((acc >> bits) & 31) as u8); }
+            while bits >= 5 {
+                bits -= 5;
+                data5.push(((acc >> bits) & 31) as u8);
+            }
         }
-        if bits > 0 { data5.push(((acc << (5 - bits)) & 31) as u8); }
+        if bits > 0 {
+            data5.push(((acc << (5 - bits)) & 31) as u8);
+        }
 
         let mut values = hrp_exp.clone();
         values.extend_from_slice(&data5);
         values.extend_from_slice(&[0u8; 6]);
         let polymod_val = polymod(&values) ^ 1;
-        let checksum: Vec<u8> = (0..6).map(|i| ((polymod_val >> (5 * (5 - i))) & 31) as u8).collect();
+        let checksum: Vec<u8> =
+            (0..6).map(|i| ((polymod_val >> (5 * (5 - i))) & 31) as u8).collect();
 
         let mut result = String::from(hrp);
         result.push('1');

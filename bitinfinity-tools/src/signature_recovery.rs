@@ -3,9 +3,12 @@
 //! Implements the core mechanism for transparent account access:
 //! User signs with Bitcoin key → Chain recovers pubkey → Derives address → Validates match
 
-use secp256k1::{Secp256k1, Message, PublicKey, ecdsa::{RecoverableSignature, RecoveryId}};
-use sha2::{Sha256, Digest};
 use ripemd::Ripemd160;
+use secp256k1::{
+    ecdsa::{RecoverableSignature, RecoveryId},
+    Message, PublicKey, Secp256k1,
+};
+use sha2::{Digest, Sha256};
 
 /// A validated Bitcoin transaction signature with recovered address
 #[derive(Debug, Clone)]
@@ -53,7 +56,8 @@ pub fn recover_signature(
         .map_err(|e| format!("Failed to parse signature: {}", e))?;
 
     // Recover the public key
-    let public_key = secp.recover_ecdsa(&message, &recoverable_sig)
+    let public_key = secp
+        .recover_ecdsa(&message, &recoverable_sig)
         .map_err(|e| format!("Failed to recover public key: {}", e))?;
 
     // Derive Bitcoin address from the recovered public key

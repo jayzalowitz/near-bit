@@ -69,8 +69,7 @@ impl ParsedBitcoinTx {
 
     /// Parse a raw Bitcoin transaction from hex with a custom bech32 HRP.
     pub fn from_hex_with_hrp(raw_hex: &str, bech32_hrp: &str) -> Result<Self, String> {
-        let bytes = hex::decode(raw_hex)
-            .map_err(|e| format!("Invalid hex: {}", e))?;
+        let bytes = hex::decode(raw_hex).map_err(|e| format!("Invalid hex: {}", e))?;
 
         let tx: Transaction = deserialize(&bytes)
             .map_err(|e| format!("Failed to deserialize Bitcoin transaction: {}", e))?;
@@ -106,14 +105,15 @@ impl ParsedBitcoinTx {
     /// Get the primary payment output (first non-change, non-OP_RETURN output).
     /// Change is identified as any output back to the sender address.
     pub fn payment_output(&self) -> Option<&TxOutput> {
-        self.outputs.iter().find(|o| {
-            !o.is_op_return && o.address != self.sender_address
-        })
+        self.outputs
+            .iter()
+            .find(|o| !o.is_op_return && o.address != self.sender_address)
     }
 
     /// Get the total payment amount (all non-change, non-OP_RETURN outputs) in satoshis.
     pub fn total_payment_satoshis(&self) -> u64 {
-        self.outputs.iter()
+        self.outputs
+            .iter()
             .filter(|o| !o.is_op_return && o.address != self.sender_address)
             .map(|o| o.amount_satoshis)
             .sum()
@@ -127,7 +127,8 @@ impl ParsedBitcoinTx {
 
     /// Get OP_RETURN data if present (for NEAR function calls).
     pub fn op_return_data(&self) -> Option<&[u8]> {
-        self.outputs.iter()
+        self.outputs
+            .iter()
             .find(|o| o.is_op_return)
             .and_then(|o| o.op_return_data.as_deref())
     }
@@ -160,43 +161,49 @@ pub struct NearFunctionCall {
 
 /// Extract all inputs with Bitcoin Core compatible fields.
 fn extract_inputs(tx: &Transaction) -> Vec<TxInput> {
-    tx.input.iter().map(|inp| {
-        let txid = inp.previous_output.txid.to_string();
-        let vout = inp.previous_output.vout;
-        let script_sig_hex = hex::encode(inp.script_sig.as_bytes());
-        let script_sig_asm = if inp.script_sig.is_empty() {
-            String::new()
-        } else {
-            // Simplified ASM: just show hex pushdata
-            inp.script_sig.instructions()
-                .filter_map(|inst| inst.ok())
-                .map(|inst| match inst {
-                    Instruction::PushBytes(data) => hex::encode(data.as_bytes()),
-                    Instruction::Op(op) => format!("{:?}", op),
-                })
-                .collect::<Vec<_>>()
-                .join(" ")
-        };
-        let txinwitness: Vec<String> = (0..inp.witness.len())
-            .filter_map(|i| inp.witness.nth(i).map(|w| hex::encode(w)))
-            .collect();
-        let sequence = inp.sequence.0;
+    tx.input
+        .iter()
+        .map(|inp| {
+            let txid = inp.previous_output.txid.to_string();
+            let vout = inp.previous_output.vout;
+            let script_sig_hex = hex::encode(inp.script_sig.as_bytes());
+            let script_sig_asm = if inp.script_sig.is_empty() {
+                String::new()
+            } else {
+                // Simplified ASM: just show hex pushdata
+                inp.script_sig
+                    .instructions()
+                    .filter_map(|inst| inst.ok())
+                    .map(|inst| match inst {
+                        Instruction::PushBytes(data) => hex::encode(data.as_bytes()),
+                        Instruction::Op(op) => format!("{:?}", op),
+                    })
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            };
+            let txinwitness: Vec<String> = (0..inp.witness.len())
+                .filter_map(|i| inp.witness.nth(i).map(|w| hex::encode(w)))
+                .collect();
+            let sequence = inp.sequence.0;
 
-        TxInput {
-            txid,
-            vout,
-            script_sig_hex,
-            script_sig_asm,
-            txinwitness,
-            sequence,
-        }
-    }).collect()
+            TxInput {
+                txid,
+                vout,
+                script_sig_hex,
+                script_sig_asm,
+                txinwitness,
+                sequence,
+            }
+        })
+        .collect()
 }
 
 /// Extract sender public key and address from the first transaction input.
-fn extract_sender_from_input(tx: &Transaction, bech32_hrp: &str) -> Result<(Vec<u8>, String), String> {
-    let first_input = tx.input.first()
-        .ok_or("Transaction has no inputs")?;
+fn extract_sender_from_input(
+    tx: &Transaction,
+    bech32_hrp: &str,
+) -> Result<(Vec<u8>, String), String> {
+    let first_input = tx.input.first().ok_or("Transaction has no inputs")?;
 
     // Try P2PKH: scriptSig contains [sig, pubkey]
     if !first_input.script_sig.is_empty() {
@@ -223,7 +230,9 @@ fn extract_sender_from_input(tx: &Transaction, bech32_hrp: &str) -> Result<(Vec<
         // P2SH-P2WPKH: scriptSig has a single push (the witness script),
         // and witness contains [sig, pubkey]
         if !first_input.witness.is_empty() && first_input.witness.len() >= 2 {
-            let pubkey_bytes = first_input.witness.nth(first_input.witness.len() - 1)
+            let pubkey_bytes = first_input
+                .witness
+                .nth(first_input.witness.len() - 1)
                 .ok_or("Missing witness pubkey")?;
             if pubkey_bytes.len() == 33 || pubkey_bytes.len() == 65 {
                 let address = pubkey_to_p2pkh_address(pubkey_bytes, version_byte)?;
@@ -236,8 +245,7 @@ fn extract_sender_from_input(tx: &Transaction, bech32_hrp: &str) -> Result<(Vec<
     if first_input.script_sig.is_empty() && !first_input.witness.is_empty() {
         if first_input.witness.len() >= 2 {
             // P2WPKH: witness = [sig, pubkey]
-            let pubkey_bytes = first_input.witness.nth(1)
-                .ok_or("Missing witness pubkey")?;
+            let pubkey_bytes = first_input.witness.nth(1).ok_or("Missing witness pubkey")?;
             if pubkey_bytes.len() == 33 || pubkey_bytes.len() == 65 {
                 let address = pubkey_to_p2wpkh_address(pubkey_bytes, bech32_hrp)?;
                 return Ok((pubkey_bytes.to_vec(), address));
@@ -246,7 +254,9 @@ fn extract_sender_from_input(tx: &Transaction, bech32_hrp: &str) -> Result<(Vec<
             // P2TR key-path spend: witness = [sig]
             // For taproot, we can't easily extract the pubkey from just the sig.
             // The pubkey would need to come from the UTXO being spent.
-            return Err("P2TR key-path spend: cannot extract pubkey from witness alone".to_string());
+            return Err(
+                "P2TR key-path spend: cannot extract pubkey from witness alone".to_string(),
+            );
         }
     }
 
@@ -339,7 +349,9 @@ fn bech32_encode_local(hrp: &str, witness_version: u8, program: &[u8]) -> String
     values.extend_from_slice(&data5);
     values.extend_from_slice(&[0u8; 6]);
     let polymod_val = polymod(&values) ^ 1;
-    let checksum: Vec<u8> = (0..6).map(|i| ((polymod_val >> (5 * (5 - i))) & 31) as u8).collect();
+    let checksum: Vec<u8> = (0..6)
+        .map(|i| ((polymod_val >> (5 * (5 - i))) & 31) as u8)
+        .collect();
 
     let mut result = String::from(hrp);
     result.push('1');
@@ -405,7 +417,10 @@ mod tests {
     #[test]
     fn test_satoshis_to_yocto() {
         assert_eq!(ParsedBitcoinTx::satoshis_to_yocto(1), 10u128.pow(16));
-        assert_eq!(ParsedBitcoinTx::satoshis_to_yocto(100_000_000), 10u128.pow(24)); // 1 BTC = 10^24 yoctoBIT
+        assert_eq!(
+            ParsedBitcoinTx::satoshis_to_yocto(100_000_000),
+            10u128.pow(24)
+        ); // 1 BTC = 10^24 yoctoBIT
     }
 
     #[test]

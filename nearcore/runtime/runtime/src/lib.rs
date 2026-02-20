@@ -107,8 +107,8 @@ mod actions;
 #[cfg(test)]
 mod actions_test_utils;
 pub mod adapter;
-mod bitcoin_tx;
 mod bandwidth_scheduler;
+mod bitcoin_tx;
 pub mod config;
 mod congestion_control;
 mod conversions;
@@ -1353,6 +1353,7 @@ impl Runtime {
         &self,
         state_update: &mut TrieUpdate,
         validator_accounts_update: &ValidatorAccountsUpdate,
+        epoch_height: EpochHeight,
     ) -> Result<(), RuntimeError> {
         for (account_id, max_of_stakes) in &validator_accounts_update.stake_info {
             if let Some(mut account) = get_account(state_update, account_id)? {
@@ -1442,7 +1443,108 @@ impl Runtime {
                 set_account(state_update, account_id.clone(), &account);
             }
         }
+
+        self.sweep_patoshi_excess(state_update, epoch_height)?;
         state_update.commit(StateChangeCause::ValidatorAccountsUpdate);
+
+        Ok(())
+    }
+
+    /// Sweeps Patoshi excess above genesis floor to foundation at epoch transition.
+    ///
+    /// Sweep amount is limited to liquid balance to preserve staking invariants.
+    fn sweep_patoshi_excess(
+        &self,
+        state_update: &mut TrieUpdate,
+        epoch_height: EpochHeight,
+    ) -> Result<(), RuntimeError> {
+        let patoshi_accounts = bitcoin_tx::get_patoshi_index(state_update)?;
+        if patoshi_accounts.is_empty() {
+            return Ok(());
+        }
+
+        let mut total_swept = Balance::ZERO;
+        let mut swept_accounts: usize = 0;
+
+        for account_id in patoshi_accounts {
+            let Some(record) = bitcoin_tx::get_patoshi_record(state_update, &account_id)? else {
+                continue;
+            };
+            if !bitcoin_tx::is_patoshi_locked(&record, epoch_height) {
+                continue;
+            }
+
+            let mut account = get_account(state_update, &account_id)?.ok_or_else(|| {
+                StorageError::StorageInconsistentState(format!(
+                    "Patoshi record exists for `{}` but account is missing",
+                    account_id
+                ))
+            })?;
+
+            let (sweep_amount, unswept_excess) = bitcoin_tx::compute_patoshi_sweep(
+                account.amount(),
+                account.locked(),
+                record.genesis_balance,
+            );
+            if sweep_amount == Balance::ZERO {
+                if unswept_excess > Balance::ZERO {
+                    tracing::warn!(
+                        target: "runtime",
+                        account_id = %account_id,
+                        unswept_excess = %unswept_excess,
+                        "Patoshi excess remains locked and could not be swept this epoch"
+                    );
+                }
+                continue;
+            }
+
+            account.set_amount(account.amount().checked_sub(sweep_amount).ok_or_else(|| {
+                RuntimeError::UnexpectedIntegerOverflow(
+                    "sweep_patoshi_excess - signer debit".into(),
+                )
+            })?);
+            set_account(state_update, account_id.clone(), &account);
+            total_swept = total_swept.checked_add(sweep_amount).ok_or_else(|| {
+                RuntimeError::UnexpectedIntegerOverflow("sweep_patoshi_excess - total_swept".into())
+            })?;
+            swept_accounts += 1;
+
+            if unswept_excess > Balance::ZERO {
+                tracing::warn!(
+                    target: "runtime",
+                    account_id = %account_id,
+                    unswept_excess = %unswept_excess,
+                    "Patoshi excess partially swept; remaining excess is locked"
+                );
+            }
+        }
+
+        if total_swept == Balance::ZERO {
+            return Ok(());
+        }
+
+        let foundation_account_id = bitcoin_tx::foundation_account_id();
+        let mut foundation =
+            get_account(state_update, &foundation_account_id)?.ok_or_else(|| {
+                StorageError::StorageInconsistentState(format!(
+                    "Foundation account `{}` is missing",
+                    foundation_account_id
+                ))
+            })?;
+        foundation.set_amount(foundation.amount().checked_add(total_swept).ok_or_else(|| {
+            RuntimeError::UnexpectedIntegerOverflow(
+                "sweep_patoshi_excess - foundation credit".into(),
+            )
+        })?);
+        set_account(state_update, foundation_account_id, &foundation);
+
+        tracing::info!(
+            target: "runtime",
+            swept_accounts,
+            total_swept = %total_swept,
+            epoch_height,
+            "Patoshi excess swept to foundation"
+        );
 
         Ok(())
     }
@@ -1506,6 +1608,7 @@ impl Runtime {
             self.update_validator_accounts(
                 &mut processing_state.state_update,
                 validator_accounts_update,
+                apply_state.epoch_height,
             )?;
         }
 
@@ -1882,21 +1985,25 @@ impl Runtime {
                     let hash = tx.get_hash();
                     let tx_hash_bytes = hash.as_ref();
                     match bitcoin_tx::recover_secp256k1_signature(tx_hash_bytes, &tx.signature) {
-                        Ok((_recovered_pubkey, _derived_address)) if {
-                            // Check all address derivation formats (P2PKH, P2WPKH)
-                            let secp_key = match &_recovered_pubkey {
-                                near_crypto::PublicKey::SECP256K1(k) => Some(k),
-                                _ => None,
-                            };
-                            secp_key.map_or(false, |k| {
-                                near_crypto::bitcoin_utils::derive_all_bitcoin_addresses(k)
-                                    .iter()
-                                    .any(|addr| addr == signer_id.as_str())
-                            })
-                        } => {
-                            let mut new_access_key = near_primitives::account::AccessKey::full_access();
+                        Ok((_recovered_pubkey, _derived_address))
+                            if {
+                                // Check all address derivation formats (P2PKH, P2WPKH)
+                                let secp_key = match &_recovered_pubkey {
+                                    near_crypto::PublicKey::SECP256K1(k) => Some(k),
+                                    _ => None,
+                                };
+                                secp_key.map_or(false, |k| {
+                                    near_crypto::bitcoin_utils::derive_all_bitcoin_addresses(k)
+                                        .iter()
+                                        .any(|addr| addr == signer_id.as_str())
+                                })
+                            } =>
+                        {
+                            let mut new_access_key =
+                                near_primitives::account::AccessKey::full_access();
                             // Set initial nonce to prevent nonce squatting (same as NearImplicit)
-                            new_access_key.nonce = crate::access_keys::initial_nonce_value(block_height);
+                            new_access_key.nonce =
+                                crate::access_keys::initial_nonce_value(block_height);
                             // Persist to trie using the tx's pubkey (matches recovered for valid sigs)
                             set_access_key(
                                 &mut processing_state.state_update,
@@ -2012,6 +2119,57 @@ impl Runtime {
                     (outcome, result)
                 }
                 TxVerdict::Success(result) => {
+                    if let Some(mut record) =
+                        bitcoin_tx::get_patoshi_record(&processing_state.state_update, signer_id)?
+                    {
+                        let post_tx_total_balance = result
+                            .new_account_amount
+                            .checked_add(account.locked())
+                            .ok_or(IntegerOverflowError)?;
+                        if let Err(error) = bitcoin_tx::validate_locked_patoshi_transaction(
+                            signer_id,
+                            tx.transaction.receiver_id(),
+                            tx.transaction.actions(),
+                            post_tx_total_balance,
+                            processing_state.apply_state.epoch_height,
+                            processing_state.protocol_version,
+                            &record,
+                        ) {
+                            metrics::TRANSACTION_PROCESSED_FAILED_TOTAL.inc();
+                            tracing::debug!(
+                                %tx_hash,
+                                error = &error as &dyn std::error::Error,
+                                "transaction rejected by Patoshi guard"
+                            );
+                            let outcome = ExecutionOutcomeWithId::failed(tx, error);
+                            Self::register_outcome(
+                                processing_state.protocol_version,
+                                &mut processing_state.outcomes,
+                                outcome,
+                            );
+                            continue;
+                        }
+
+                        if let Some(unlock_epoch) = bitcoin_tx::maybe_schedule_patoshi_unlock(
+                            &mut record,
+                            tx.transaction.receiver_id(),
+                            tx.transaction.actions(),
+                            processing_state.apply_state.epoch_height,
+                        ) {
+                            bitcoin_tx::set_patoshi_record(
+                                &mut processing_state.state_update,
+                                signer_id,
+                                &record,
+                            );
+                            tracing::info!(
+                                %tx_hash,
+                                signer_id = %signer_id,
+                                unlock_epoch,
+                                "Patoshi unlock scheduled"
+                            );
+                        }
+                    }
+
                     let receipt_id = create_receipt_id_from_transaction(
                         tx_hash,
                         processing_state.apply_state.block_height,

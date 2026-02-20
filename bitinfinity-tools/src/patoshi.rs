@@ -9,7 +9,9 @@ use std::path::Path;
 
 /// Load Patoshi addresses from a CSV file.
 /// The CSV should have at least one column with Bitcoin addresses.
-pub fn load_patoshi_addresses(csv_path: &Path) -> Result<HashSet<String>, Box<dyn std::error::Error>> {
+pub fn load_patoshi_addresses(
+    csv_path: &Path,
+) -> Result<HashSet<String>, Box<dyn std::error::Error>> {
     let mut addresses = HashSet::new();
     let mut reader = csv::Reader::from_path(csv_path)?;
 
@@ -23,7 +25,11 @@ pub fn load_patoshi_addresses(csv_path: &Path) -> Result<HashSet<String>, Box<dy
         }
     }
 
-    println!("✓ Loaded {} Patoshi addresses from {}", addresses.len(), csv_path.display());
+    println!(
+        "✓ Loaded {} Patoshi addresses from {}",
+        addresses.len(),
+        csv_path.display()
+    );
     Ok(addresses)
 }
 
@@ -49,8 +55,10 @@ pub fn reassign_patoshi(
         *utxo_map.entry(target_address.to_string()).or_insert(0) += total_removed;
     }
 
-    println!("✓ Patoshi reassignment: {} addresses, {} satoshis -> {}",
-        count_removed, total_removed, target_address);
+    println!(
+        "✓ Patoshi reassignment: {} addresses, {} satoshis -> {}",
+        count_removed, total_removed, target_address
+    );
 
     PatoshiReassignment {
         total_satoshis: total_removed,

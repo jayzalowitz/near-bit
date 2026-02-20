@@ -86,7 +86,9 @@ fn map_secp256k1(
             hk.expand(AsRef::<[u8]>::as_ref(public), &mut buf).unwrap();
         }
         None => {
-            buf.copy_from_slice(&AsRef::<[u8]>::as_ref(public)[..secp256k1::constants::SECRET_KEY_SIZE]);
+            buf.copy_from_slice(
+                &AsRef::<[u8]>::as_ref(public)[..secp256k1::constants::SECRET_KEY_SIZE],
+            );
         }
     };
 

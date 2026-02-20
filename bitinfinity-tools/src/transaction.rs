@@ -6,10 +6,10 @@
 //! 3. Balance transfer
 //! 4. Nonce management
 
-use serde::{Serialize, Deserialize};
-use sha2::{Sha256, Digest};
-use crate::signature_recovery::{validate_transaction_signature, SignatureValidation};
 use crate::account_manager::AccountManager;
+use crate::signature_recovery::{validate_transaction_signature, SignatureValidation};
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 
 /// A Bitcoin Infinity transaction (simplified, for testing)
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -53,7 +53,10 @@ impl Transaction {
             return SignatureValidation {
                 is_valid: false,
                 signer_address: None,
-                error: Some(format!("Invalid signature length: {}", self.signature.len())),
+                error: Some(format!(
+                    "Invalid signature length: {}",
+                    self.signature.len()
+                )),
             };
         }
 
@@ -199,14 +202,20 @@ mod tests {
         };
 
         let validation = tx.validate_signature();
-        assert!(!validation.is_valid, "Invalid signature should fail validation");
+        assert!(
+            !validation.is_valid,
+            "Invalid signature should fail validation"
+        );
     }
 
     #[test]
     fn test_transaction_execution() {
         let mut accounts = AccountManager::new();
         accounts
-            .create_account("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa".to_string(), 1_000_000u128)
+            .create_account(
+                "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa".to_string(),
+                1_000_000u128,
+            )
             .unwrap();
         accounts
             .create_account("1FP5gk4z7mDdSb3m3YvUwFb1BDUvcLYe1F".to_string(), 0u128)

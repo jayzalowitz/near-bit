@@ -170,3 +170,28 @@ jobs:
         run: |
           cd bitinfinity-btcrpc
           cargo fuzz run fuzz_rpc_parse -- -max_total_time=30 -timeout=5
+
+      - name: Fuzz tx hex parser (30s)
+        run: |
+          cd bitinfinity-btcrpc
+          cargo fuzz run fuzz_tx_hex -- -max_total_time=30 -timeout=5
+
+      - name: Fuzz tx translator (30s)
+        run: |
+          cd bitinfinity-btcrpc
+          cargo fuzz run fuzz_tx_translator -- -max_total_time=30 -timeout=5
+
+  # ─────────────────────────────────────────────
+  # Benchmark runner smoke (dry-run only)
+  # ─────────────────────────────────────────────
+  benchmark-runner-smoke:
+    name: Benchmark Runner (dry-run smoke)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate benchmark runner syntax
+        run: bash -n scripts/benchmark/run_tps_profiles.sh
+
+      - name: Benchmark runner dry-run (all profiles)
+        run: ./scripts/benchmark/run_tps_profiles.sh --dry-run --skip-build --profile all --metrics-interval 1

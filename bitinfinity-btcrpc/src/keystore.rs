@@ -6,7 +6,7 @@
 //! Supports optional passphrase encryption using SHA256-based KDF + XOR stream.
 
 use serde::{Deserialize, Serialize};
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
@@ -25,9 +25,9 @@ pub struct Keystore {
 #[derive(Serialize, Deserialize)]
 struct EncryptedWallet {
     encrypted: bool,
-    salt: String,       // hex-encoded 32-byte salt
-    data: String,       // hex-encoded encrypted JSON
-    check: String,      // hex-encoded SHA256 of plaintext (for validation)
+    salt: String,  // hex-encoded 32-byte salt
+    data: String,  // hex-encoded encrypted JSON
+    check: String, // hex-encoded SHA256 of plaintext (for validation)
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -67,7 +67,9 @@ fn xor_encrypt(data: &[u8], key: &[u8; 32]) -> Vec<u8> {
 
     while offset < data.len() {
         for i in 0..32 {
-            if offset + i >= data.len() { break; }
+            if offset + i >= data.len() {
+                break;
+            }
             result.push(data[offset + i] ^ block[i]);
         }
         offset += 32;
@@ -126,8 +128,7 @@ impl Keystore {
             return Err("Wallet is not encrypted".to_string());
         }
 
-        let salt = hex::decode(&enc.salt)
-            .map_err(|_| "Invalid salt in wallet file".to_string())?;
+        let salt = hex::decode(&enc.salt).map_err(|_| "Invalid salt in wallet file".to_string())?;
         let encrypted_data = hex::decode(&enc.data)
             .map_err(|_| "Invalid encrypted data in wallet file".to_string())?;
         let expected_check = &enc.check;
@@ -159,8 +160,7 @@ impl Keystore {
         }
         let json = serde_json::to_string_pretty(self)
             .map_err(|e| format!("Failed to serialize keystore: {}", e))?;
-        std::fs::write(&path, json)
-            .map_err(|e| format!("Failed to write keystore: {}", e))?;
+        std::fs::write(&path, json).map_err(|e| format!("Failed to write keystore: {}", e))?;
         Ok(())
     }
 

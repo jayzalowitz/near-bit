@@ -265,13 +265,19 @@ mod tests {
 
     #[test]
     fn test_btc_implicit_account_type() {
-        // Lowercased P2PKH
-        let id: AccountId = "1a1zp1ep5qgefi2dmptftl5slmv7divfna".parse().unwrap();
+        // Canonical P2PKH (mixed-case Base58Check)
+        let id: AccountId = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa".parse().unwrap();
         assert!(id.get_account_type() == AccountType::BtcImplicitAccount);
         assert!(id.get_account_type().is_implicit());
 
         // Bech32 P2WPKH
-        let id: AccountId = "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4".parse().unwrap();
+        let id: AccountId = "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"
+            .parse()
+            .unwrap();
+        assert!(id.get_account_type() == AccountType::BtcImplicitAccount);
+
+        // Legacy lowercased compatibility path
+        let id: AccountId = "1a1zp1ep5qgefi2dmptftl5slmv7divfna".parse().unwrap();
         assert!(id.get_account_type() == AccountType::BtcImplicitAccount);
     }
 
@@ -284,13 +290,17 @@ mod tests {
 
     #[test]
     fn test_near_implicit_account_type() {
-        let id: AccountId = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef".parse().unwrap();
+        let id: AccountId = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+            .parse()
+            .unwrap();
         assert!(id.get_account_type() == AccountType::NearImplicitAccount);
     }
 
     #[test]
     fn test_eth_implicit_account_type() {
-        let id: AccountId = "0xb794f5ea0ba39494ce839613fffba74279579268".parse().unwrap();
+        let id: AccountId = "0xb794f5ea0ba39494ce839613fffba74279579268"
+            .parse()
+            .unwrap();
         assert!(id.get_account_type() == AccountType::EthImplicitAccount);
     }
 }

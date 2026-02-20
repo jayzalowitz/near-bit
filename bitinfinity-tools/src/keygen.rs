@@ -1,9 +1,9 @@
 //! Generate secp256k1 keypair and derive Bitcoin address
 
-use secp256k1::{Secp256k1, SecretKey};
-use sha2::{Sha256, Digest};
-use ripemd::Ripemd160;
 use rand::RngCore;
+use ripemd::Ripemd160;
+use secp256k1::{Secp256k1, SecretKey};
+use sha2::{Digest, Sha256};
 
 /// Represents a generated keypair with Bitcoin address
 #[derive(Debug, Clone)]
@@ -63,7 +63,9 @@ fn secret_key_to_wif(secret_key: &SecretKey) -> String {
 }
 
 /// Derive Bitcoin P2PKH address from a secp256k1 public key
-fn derive_p2pkh_address(public_key: &secp256k1::PublicKey) -> Result<String, Box<dyn std::error::Error>> {
+fn derive_p2pkh_address(
+    public_key: &secp256k1::PublicKey,
+) -> Result<String, Box<dyn std::error::Error>> {
     // Compress the public key (33 bytes)
     let compressed_pubkey = public_key.serialize();
 
@@ -107,7 +109,11 @@ mod tests {
         let keypair = generate_keypair().expect("Failed to generate keypair");
 
         // Check WIF format: starts with 5, 51-52 chars
-        assert!(keypair.private_key_wif.starts_with('5') || keypair.private_key_wif.starts_with('K') || keypair.private_key_wif.starts_with('L'));
+        assert!(
+            keypair.private_key_wif.starts_with('5')
+                || keypair.private_key_wif.starts_with('K')
+                || keypair.private_key_wif.starts_with('L')
+        );
         assert!(keypair.private_key_wif.len() >= 51 && keypair.private_key_wif.len() <= 52);
 
         // Check Bitcoin address format: starts with 1, 26-35 chars

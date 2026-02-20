@@ -16,8 +16,8 @@ mod traits;
 #[macro_use]
 mod util;
 
-mod errors;
 pub mod bitcoin_utils;
+mod errors;
 pub mod key_conversion;
 mod key_file;
 mod signature;

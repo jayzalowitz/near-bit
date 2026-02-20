@@ -1,4 +1,5 @@
 use crate::{ParseAccountError, ParseErrorKind};
+use sha2::{Digest, Sha256};
 
 /// Shortest valid length for a NEAR Account ID.
 pub const MIN_LEN: usize = 2;
@@ -51,6 +52,9 @@ pub fn validate(account_id: &str) -> Result<(), ParseAccountError> {
             kind: ParseErrorKind::TooLong,
             char: None,
         })
+    } else if is_bitcoin_implicit(account_id) {
+        // Bitcoin addresses are valid account IDs on Bitcoin Infinity.
+        Ok(())
     } else {
         // NOTE: We don't want to use Regex here, because it requires extra time to compile it.
         // The valid account ID regex is /^(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/
@@ -117,47 +121,74 @@ pub fn is_near_implicit(account_id: &str) -> bool {
             .all(|b| matches!(b, b'a'..=b'f' | b'0'..=b'9'))
 }
 
-/// Checks if an account ID looks like a lowercased Bitcoin address.
+/// Legacy compatibility path for older lowercased Base58 account IDs.
 ///
-/// Bitcoin addresses stored in BitInfinity are lowercased since NEAR AccountId
-/// only allows lowercase. We detect them by pattern:
-/// - P2PKH: starts with '1', 25-34 chars, all lowercase alphanumeric
-/// - P2SH: starts with '3', 33-34 chars, all lowercase alphanumeric
-/// - Bech32 P2WPKH/P2WSH: starts with "bc1q", 42-62 chars
-/// - Bech32m P2TR (Taproot): starts with "bc1p", 62 chars
-pub fn is_bitcoin_implicit(account_id: &str) -> bool {
+/// Historically this fork lowercased P2PKH/P2SH addresses to fit strict
+/// lowercase NEAR account rules. That representation is non-standard for
+/// Bitcoin Base58Check, but we keep accepting it for backward compatibility
+/// with existing local/test chain state.
+fn is_legacy_lowercased_bitcoin(account_id: &str) -> bool {
     let bytes = account_id.as_bytes();
     let len = account_id.len();
 
-    // Bech32 SegWit (P2WPKH 42 chars, P2WSH 62 chars)
-    if account_id.starts_with("bc1q") && len >= 42 && len <= 62 {
-        return bytes
-            .iter()
-            .all(|b| matches!(b, b'a'..=b'z' | b'0'..=b'9'));
+    if account_id.starts_with("bc1q") && (42..=62).contains(&len) {
+        return bytes.iter().all(|b| matches!(b, b'a'..=b'z' | b'0'..=b'9'));
     }
-
-    // Bech32m Taproot (P2TR, 62 chars)
-    if account_id.starts_with("bc1p") && len >= 62 && len <= 62 {
-        return bytes
-            .iter()
-            .all(|b| matches!(b, b'a'..=b'z' | b'0'..=b'9'));
+    if account_id.starts_with("bc1p") && len == 62 {
+        return bytes.iter().all(|b| matches!(b, b'a'..=b'z' | b'0'..=b'9'));
     }
-
-    // P2PKH (lowercased, starts with '1', 25-34 chars)
-    if bytes.first() == Some(&b'1') && len >= 25 && len <= 34 {
-        return bytes
-            .iter()
-            .all(|b| matches!(b, b'a'..=b'z' | b'0'..=b'9'));
+    if bytes.first() == Some(&b'1') && (25..=34).contains(&len) {
+        return bytes.iter().all(|b| matches!(b, b'a'..=b'z' | b'0'..=b'9'));
     }
-
-    // P2SH (lowercased, starts with '3', 33-34 chars)
-    if bytes.first() == Some(&b'3') && len >= 33 && len <= 34 {
-        return bytes
-            .iter()
-            .all(|b| matches!(b, b'a'..=b'z' | b'0'..=b'9'));
+    if bytes.first() == Some(&b'3') && (33..=34).contains(&len) {
+        return bytes.iter().all(|b| matches!(b, b'a'..=b'z' | b'0'..=b'9'));
     }
 
     false
+}
+
+fn has_valid_base58check_address(account_id: &str) -> bool {
+    if !(26..=35).contains(&account_id.len()) {
+        return false;
+    }
+
+    let decoded = match bs58::decode(account_id).into_vec() {
+        Ok(v) => v,
+        Err(_) => return false,
+    };
+    if decoded.len() != 25 {
+        return false;
+    }
+
+    let payload = &decoded[..21];
+    let checksum = &decoded[21..25];
+    let hash1 = Sha256::digest(payload);
+    let hash2 = Sha256::digest(hash1);
+    if checksum != &hash2[..4] {
+        return false;
+    }
+
+    matches!(payload[0], 0x00 | 0x05 | 0x6f | 0xc4)
+}
+
+fn has_valid_segwit_address(account_id: &str) -> bool {
+    match bech32::segwit::decode(account_id) {
+        Ok((hrp, _, _)) => {
+            hrp == bech32::hrp::BC || hrp == bech32::hrp::TB || hrp == bech32::hrp::BCRT
+        }
+        Err(_) => false,
+    }
+}
+
+/// Checks if an account ID is a Bitcoin address.
+///
+/// Preferred path uses strict Base58Check/SegWit checksum validation for
+/// canonical addresses. A legacy lowercase fallback is kept for compatibility
+/// with older snapshots.
+pub fn is_bitcoin_implicit(account_id: &str) -> bool {
+    has_valid_base58check_address(account_id)
+        || has_valid_segwit_address(account_id)
+        || is_legacy_lowercased_bitcoin(account_id)
 }
 
 #[cfg(test)]
@@ -167,7 +198,12 @@ mod tests {
     #[test]
     fn test_valid_near_account_ids() {
         let ok = &[
-            "aa", "a-a", "100", "near", "alice.near", "b-o_w_e-n",
+            "aa",
+            "a-a",
+            "100",
+            "near",
+            "alice.near",
+            "b-o_w_e-n",
             "0xb794f5ea0ba39494ce839613fffba74279579268",
             "0123456789012345678901234567890123456789012345678901234567890123",
         ];
@@ -179,7 +215,13 @@ mod tests {
     #[test]
     fn test_invalid_near_account_ids() {
         let bad = &[
-            "a", "A", "-near", "near-", ".near", "near.", "a..b",
+            "a",
+            "A",
+            "-near",
+            "near-",
+            ".near",
+            "near.",
+            "a..b",
             "abcdefghijklmnopqrstuvwxyz.abcdefghijklmnopqrstuvwxyz.abcdefghijklmnopqrstuvwxyz",
         ];
         for id in bad {
@@ -189,14 +231,22 @@ mod tests {
 
     #[test]
     fn test_bitcoin_implicit_detection() {
-        // Lowercased P2PKH (Satoshi's address lowered)
+        // Canonical P2PKH (mixed-case Base58Check)
+        assert!(is_bitcoin_implicit("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa"));
+
+        // Canonical P2SH
+        assert!(is_bitcoin_implicit("3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy"));
+
+        // Legacy lowercased compatibility path
         assert!(is_bitcoin_implicit("1a1zp1ep5qgefi2dmptftl5slmv7divfna"));
 
-        // Lowercased P2SH
-        assert!(is_bitcoin_implicit("3j98t1wpez73cnmqviecrnyiwrnqrhwnly"));
-
         // Bech32 P2WPKH (already lowercase)
-        assert!(is_bitcoin_implicit("bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"));
+        assert!(is_bitcoin_implicit(
+            "bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4"
+        ));
+
+        // Invalid checksum should be rejected by strict parser
+        assert!(!is_bitcoin_implicit("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNb"));
 
         // Not a Bitcoin address
         assert!(!is_bitcoin_implicit("alice.near"));
@@ -207,14 +257,25 @@ mod tests {
     }
 
     #[test]
+    fn test_validate_accepts_bitcoin_addresses() {
+        assert!(validate("1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa").is_ok());
+        assert!(validate("3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy").is_ok());
+        assert!(validate("bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4").is_ok());
+    }
+
+    #[test]
     fn test_eth_implicit() {
-        assert!(is_eth_implicit("0xb794f5ea0ba39494ce839613fffba74279579268"));
+        assert!(is_eth_implicit(
+            "0xb794f5ea0ba39494ce839613fffba74279579268"
+        ));
         assert!(!is_eth_implicit("alice.near"));
     }
 
     #[test]
     fn test_near_implicit() {
-        assert!(is_near_implicit("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
+        assert!(is_near_implicit(
+            "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+        ));
         assert!(!is_near_implicit("alice.near"));
     }
 }

@@ -4,10 +4,13 @@
 //! produces a single genesis.json file (with embedded records) that passes
 //! nearcore's genesis validation.
 
-use serde::{Serialize, Deserialize};
+use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
+use base64::Engine;
+use borsh::{BorshDeserialize, BorshSerialize};
+use chrono::Utc;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fs;
-use chrono::Utc;
 
 // ============================================================================
 // nearcore-compatible genesis types
@@ -81,6 +84,11 @@ pub enum StateRecord {
         public_key: String,
         access_key: AccessKeyData,
     },
+    Data {
+        account_id: String,
+        data_key: String,
+        value: String,
+    },
 }
 
 /// Account data matching nearcore's SerdeAccount
@@ -114,6 +122,15 @@ pub enum AccessKeyPermission {
 
 /// No-code hash: 32 zero bytes encoded as base58
 const NO_CODE_HASH: &str = "11111111111111111111111111111111";
+const PATOSHI_RECORD_DATA_KEY: &[u8] = b"bitinfinity:patoshi:v1";
+const PATOSHI_INDEX_DATA_KEY: &[u8] = b"bitinfinity:patoshi:index:v1";
+
+#[derive(Debug, Clone, BorshDeserialize, BorshSerialize)]
+struct PatoshiRecord {
+    genesis_balance: u128,
+    is_locked: bool,
+    unlock_epoch: Option<u64>,
+}
 
 // ============================================================================
 // Builder
@@ -135,7 +152,10 @@ pub struct ValidatorConfig {
 
 impl GenesisBuilder {
     pub fn new(chain_id: String, output_dir: std::path::PathBuf) -> Self {
-        GenesisBuilder { chain_id, output_dir }
+        GenesisBuilder {
+            chain_id,
+            output_dir,
+        }
     }
 
     /// Build a complete nearcore-compatible genesis.json from UTXO data + validator config.
@@ -143,6 +163,7 @@ impl GenesisBuilder {
         &self,
         utxo_map: &BTreeMap<String, u64>,
         validator: &ValidatorConfig,
+        patoshi_registry: &BTreeMap<String, u128>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         fs::create_dir_all(&self.output_dir)?;
 
@@ -191,21 +212,20 @@ impl GenesisBuilder {
             });
         }
 
-        // 3. Add all Bitcoin address accounts from UTXO data
-        // NEAR AccountId only allows lowercase — lowercase all Bitcoin addresses.
-        // P2PKH/P2SH use base58check (mixed case) but bech32 is already lowercase.
+        // 3. Add all Bitcoin address accounts from UTXO data.
+        // Keep canonical address casing so account IDs match real Bitcoin addresses.
         for (addr, satoshis) in utxo_map {
-            let addr_lower = addr.to_lowercase();
-            if addr_lower == validator.account_id || addr_lower == treasury_account {
+            if addr == &validator.account_id || addr == &treasury_account {
                 continue;
             }
 
             let yocto = *satoshis as u128 * 10u128.pow(16);
-            total_supply = total_supply.checked_add(yocto)
+            total_supply = total_supply
+                .checked_add(yocto)
                 .ok_or("Total supply overflow")?;
 
             records.push(StateRecord::Account {
-                account_id: addr_lower,
+                account_id: addr.clone(),
                 account: AccountData {
                     amount: yocto.to_string(),
                     locked: "0".to_string(),
@@ -217,7 +237,36 @@ impl GenesisBuilder {
             // No AccessKey records for Bitcoin accounts — auto-registered on first tx.
         }
 
-        // 4. Build the complete genesis
+        // 4. Write Patoshi lock records + global Patoshi index as protocol-level contract data.
+        if !patoshi_registry.is_empty() {
+            let key_b64 = BASE64_STANDARD.encode(PATOSHI_RECORD_DATA_KEY);
+            let mut patoshi_accounts = Vec::with_capacity(patoshi_registry.len());
+            for (account_id, genesis_balance) in patoshi_registry {
+                patoshi_accounts.push(account_id.clone());
+                let value = PatoshiRecord {
+                    genesis_balance: *genesis_balance,
+                    is_locked: true,
+                    unlock_epoch: None,
+                };
+                let value_b64 = BASE64_STANDARD.encode(borsh::to_vec(&value)?);
+                records.push(StateRecord::Data {
+                    account_id: account_id.clone(),
+                    data_key: key_b64.clone(),
+                    value: value_b64,
+                });
+            }
+
+            // The runtime uses this index to perform epoch sweeps without full trie scans.
+            let index_key_b64 = BASE64_STANDARD.encode(PATOSHI_INDEX_DATA_KEY);
+            let index_value_b64 = BASE64_STANDARD.encode(borsh::to_vec(&patoshi_accounts)?);
+            records.push(StateRecord::Data {
+                account_id: treasury_account.clone(),
+                data_key: index_key_b64,
+                value: index_value_b64,
+            });
+        }
+
+        // 5. Build the complete genesis
         let genesis = Genesis {
             protocol_version: 84,
             genesis_time: Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
@@ -252,7 +301,10 @@ impl GenesisBuilder {
             protocol_treasury_account: treasury_account,
             fishermen_threshold: "10000000000000000000000000".to_string(),
             minimum_stake_divisor: 10,
-            shard_layout: ShardLayout::V0 { num_shards: 1, version: 0 },
+            shard_layout: ShardLayout::V0 {
+                num_shards: 1,
+                version: 0,
+            },
             num_chunk_only_producer_seats: 300,
             minimum_validators_per_shard: 1,
             max_kickout_stake_perc: 100,
@@ -267,8 +319,12 @@ impl GenesisBuilder {
         println!("✓ Wrote genesis to {}", genesis_path.display());
         println!("  Chain ID: {}", self.chain_id);
         println!("  Total supply: {} yoctoBIT", total_supply);
-        println!("  Validator: {} (stake: {} yoctoBIT)", validator.account_id, validator.stake_yocto);
+        println!(
+            "  Validator: {} (stake: {} yoctoBIT)",
+            validator.account_id, validator.stake_yocto
+        );
         println!("  Bitcoin address accounts: {}", utxo_map.len());
+        println!("  Patoshi locked accounts: {}", patoshi_registry.len());
 
         Ok(())
     }
@@ -295,10 +351,16 @@ mod tests {
         let builder = GenesisBuilder::new("bitinfinity-testnet".to_string(), temp_dir.clone());
 
         let mut utxos = BTreeMap::new();
-        utxos.insert("1a1zp1ep5qgefi2dmptftl5slmv7divfna".to_string(), 5_000_000_000);
-        utxos.insert("3j98t1wpez73cnmyviecrnyiwrnqrhwnly".to_string(), 1_000_000_000);
+        utxos.insert(
+            "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa".to_string(),
+            5_000_000_000,
+        );
+        utxos.insert(
+            "3J98t1WpEZ73CNmYviecrnyiWrnqRhWNLy".to_string(),
+            1_000_000_000,
+        );
 
-        builder.build(&utxos, &test_validator())?;
+        builder.build(&utxos, &test_validator(), &BTreeMap::new())?;
 
         let genesis_path = temp_dir.join("genesis.json");
         assert!(genesis_path.exists());
@@ -355,12 +417,18 @@ mod tests {
         let builder = GenesisBuilder::new("test-supply".to_string(), temp_dir.clone());
 
         let mut utxos = BTreeMap::new();
-        utxos.insert("1addr1xxxxxxxxxxxxxxxxxxxxxxx9Cjx9".to_string(), 100_000_000);
-        utxos.insert("1addr2xxxxxxxxxxxxxxxxxxxxxxx9Cjx9".to_string(), 200_000_000);
+        utxos.insert(
+            "1addr1xxxxxxxxxxxxxxxxxxxxxxx9Cjx9".to_string(),
+            100_000_000,
+        );
+        utxos.insert(
+            "1addr2xxxxxxxxxxxxxxxxxxxxxxx9Cjx9".to_string(),
+            200_000_000,
+        );
         utxos.insert("1addr3xxxxxxxxxxxxxxxxxxxxxxx9Cjx9".to_string(), 50_000_000);
 
         let validator = test_validator();
-        builder.build(&utxos, &validator)?;
+        builder.build(&utxos, &validator, &BTreeMap::new())?;
 
         let content = fs::read_to_string(temp_dir.join("genesis.json"))?;
         let genesis: Genesis = serde_json::from_str(&content)?;
@@ -371,6 +439,70 @@ mod tests {
         let expected = validator_total + treasury + utxo_total;
 
         assert_eq!(genesis.total_supply, expected.to_string());
+
+        fs::remove_dir_all(&temp_dir)?;
+        Ok(())
+    }
+
+    #[test]
+    fn test_patoshi_registry_written_as_data_record() -> Result<(), Box<dyn std::error::Error>> {
+        let temp_dir = std::path::PathBuf::from("/tmp/test_genesis_patoshi_data");
+        let _ = fs::remove_dir_all(&temp_dir);
+
+        let builder = GenesisBuilder::new("test-patoshi".to_string(), temp_dir.clone());
+        let mut utxos = BTreeMap::new();
+        let patoshi_addr = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa".to_string();
+        let sats = 42u64;
+        utxos.insert(patoshi_addr.clone(), sats);
+
+        let mut patoshi_registry = BTreeMap::new();
+        let expected_floor = sats as u128 * 10u128.pow(16);
+        patoshi_registry.insert(patoshi_addr.clone(), expected_floor);
+
+        builder.build(&utxos, &test_validator(), &patoshi_registry)?;
+
+        let content = fs::read_to_string(temp_dir.join("genesis.json"))?;
+        let genesis: Genesis = serde_json::from_str(&content)?;
+
+        let expected_key_b64 = BASE64_STANDARD.encode(PATOSHI_RECORD_DATA_KEY);
+        let expected_index_key_b64 = BASE64_STANDARD.encode(PATOSHI_INDEX_DATA_KEY);
+        let data_record = genesis.records.iter().find_map(|record| {
+            if let StateRecord::Data {
+                account_id,
+                data_key,
+                value,
+            } = record
+            {
+                if account_id == &patoshi_addr && data_key == &expected_key_b64 {
+                    return Some(value.clone());
+                }
+            }
+            None
+        });
+        let index_record = genesis.records.iter().find_map(|record| {
+            if let StateRecord::Data {
+                account_id,
+                data_key,
+                value,
+            } = record
+            {
+                if account_id == "near" && data_key == &expected_index_key_b64 {
+                    return Some(value.clone());
+                }
+            }
+            None
+        });
+        let value_b64 = data_record.expect("missing Patoshi data record");
+        let value_bytes = BASE64_STANDARD.decode(value_b64)?;
+        let parsed = PatoshiRecord::try_from_slice(&value_bytes)?;
+        let index_value_b64 = index_record.expect("missing Patoshi index data record");
+        let index_bytes = BASE64_STANDARD.decode(index_value_b64)?;
+        let parsed_index: Vec<String> = BorshDeserialize::try_from_slice(&index_bytes)?;
+
+        assert_eq!(parsed.genesis_balance, expected_floor);
+        assert!(parsed.is_locked);
+        assert_eq!(parsed.unlock_epoch, None);
+        assert_eq!(parsed_index, vec![patoshi_addr]);
 
         fs::remove_dir_all(&temp_dir)?;
         Ok(())

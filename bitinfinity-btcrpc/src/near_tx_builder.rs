@@ -122,8 +122,8 @@ impl NearAction {
         // AccessKey: nonce (u64) + permission
         buf.extend_from_slice(&0u64.to_le_bytes()); // nonce = 0
         buf.push(0x00); // AccessKeyPermission::FunctionCall
-        // FunctionCallPermission:
-        //   allowance: Option<u128>
+                        // FunctionCallPermission:
+                        //   allowance: Option<u128>
         match allowance {
             Some(a) => {
                 buf.push(0x01); // Some
@@ -248,7 +248,8 @@ impl NearAction {
     /// The DelegateAction is typically signed by the actual user, and the wrapping
     /// transaction is signed by a relayer.
     pub fn delegate(delegate_action_bytes: &[u8], signature_bytes: &[u8]) -> Self {
-        let mut buf = Vec::with_capacity(1 + 4 + delegate_action_bytes.len() + 1 + signature_bytes.len());
+        let mut buf =
+            Vec::with_capacity(1 + 4 + delegate_action_bytes.len() + 1 + signature_bytes.len());
         buf.push(action_kind::DELEGATE);
         // SignedDelegateAction: delegate_action bytes + signature
         buf.extend_from_slice(&(delegate_action_bytes.len() as u32).to_le_bytes());
@@ -533,7 +534,12 @@ mod tests {
         let _ = NearAction::transfer(1_000_000);
         let _ = NearAction::stake(1_000_000, &pk);
         let _ = NearAction::add_full_access_key(&pk);
-        let _ = NearAction::add_function_call_key(&pk, Some(1_000_000), "contract.near", &["method1", "method2"]);
+        let _ = NearAction::add_function_call_key(
+            &pk,
+            Some(1_000_000),
+            "contract.near",
+            &["method1", "method2"],
+        );
         let _ = NearAction::delete_key(&pk);
         let _ = NearAction::delete_account("beneficiary.near");
     }

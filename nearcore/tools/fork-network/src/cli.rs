@@ -1104,8 +1104,7 @@ impl ForkNetworkCommand {
                         continue;
                     }
                 };
-                if account_id.get_account_type().is_implicit()
-                    || has_full_key.contains(&account_id)
+                if account_id.get_account_type().is_implicit() || has_full_key.contains(&account_id)
                 {
                     continue;
                 }
