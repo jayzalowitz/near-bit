@@ -69,10 +69,10 @@ float_lt() {
   awk -v a="$1" -v b="$2" 'BEGIN { exit !(a < b) }'
 }
 
-echo "[1/11] Building required binaries..."
+echo "[1/12] Building required binaries..."
 cargo build -p bitinfinity-tools -p bitinfinity-neard -p bitinfinity-btcrpc >"$ARTIFACT_DIR/build.log" 2>&1
 
-echo "[2/11] Generating funded Bitcoin keypair..."
+echo "[2/12] Generating funded Bitcoin keypair..."
 "$TOOLS_BIN" generate-keypair --output "$FUNDED_KEY_JSON" >"$ARTIFACT_DIR/keygen.log" 2>&1
 FUNDED_ADDR="$(jq -r '.bitcoin_address // empty' "$FUNDED_KEY_JSON")"
 FUNDED_WIF="$(jq -r '.private_key_wif // empty' "$FUNDED_KEY_JSON")"
@@ -81,12 +81,12 @@ if [[ -z "$FUNDED_ADDR" || -z "$FUNDED_WIF" ]]; then
   exit 1
 fi
 
-echo "[3/11] Generating synthetic genesis..."
+echo "[3/12] Generating synthetic genesis..."
 "$TOOLS_BIN" generate-genesis \
   --testnet --num-accounts 10 --chain-id "$CHAIN_ID" --output-dir "$GENESIS_DIR" \
   >"$ARTIFACT_DIR/genesis.log" 2>&1
 
-echo "[4/11] Creating extra funded account record..."
+echo "[4/12] Creating extra funded account record..."
 jq '[.records[] | select(.Account.account_id? and (.Account.account_id | test("^(1|3|bc1)")))]' \
   "$GENESIS_DIR/genesis.json" >"$BTC_RECORDS"
 
@@ -124,7 +124,7 @@ cat >"$ARTIFACT_DIR/extra_records_preview.json" <<JSON
 ]
 JSON
 
-echo "[5/11] Initializing node home..."
+echo "[5/12] Initializing node home..."
 "$NODE_BIN" init \
   --home "$NODE_HOME" \
   --chain-id "$CHAIN_ID" \
@@ -133,7 +133,7 @@ echo "[5/11] Initializing node home..."
   --neard-bin "$NEARD_BIN" \
   >"$ARTIFACT_DIR/init.log" 2>&1
 
-echo "[6/11] Starting bitinfinity-neard..."
+echo "[6/12] Starting bitinfinity-neard..."
 (
   "$NODE_BIN" run --home "$NODE_HOME" --neard-bin "$NEARD_BIN" \
     >"$ARTIFACT_DIR/node.log" 2>&1 || true
@@ -162,7 +162,7 @@ if [[ "$LATER_HEIGHT" -le "$INITIAL_HEIGHT" ]]; then
   echo "Warning: block height did not increase during warmup ($INITIAL_HEIGHT -> $LATER_HEIGHT)" >&2
 fi
 
-echo "[7/11] Starting bitinfinity-btcrpc..."
+echo "[7/12] Starting bitinfinity-btcrpc..."
 (
   HOME="$BTCRPC_HOME" BTC_RPC_NOAUTH=1 "$BTCRPC_BIN" \
     --near-rpc-url "$NEAR_RPC_URL" \
@@ -187,7 +187,7 @@ if ! wait_for_btcrpc; then
   exit 1
 fi
 
-echo "[8/11] Querying initial balances..."
+echo "[8/12] Querying initial balances..."
 cat >"$ARTIFACT_DIR/near_view_account_request.json" <<JSON
 {"jsonrpc":"2.0","id":"e2e","method":"query","params":{"request_type":"view_account","finality":"final","account_id":"$SATOSHI_ADDR"}}
 JSON
@@ -217,11 +217,71 @@ if [[ "$FUNDED_BALANCE_BEFORE" == "0" || "$FUNDED_BALANCE_BEFORE" == "0.0" ]]; t
   exit 1
 fi
 
-echo "[9/11] Importing key and validating wallet coin-control..."
+echo "[9/12] Importing key and validating wallet coin-control..."
 IMPORT_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"import\",\"method\":\"importprivkey\",\"params\":[\"$FUNDED_WIF\"]}" \
   | tee "$ARTIFACT_DIR/btc_importprivkey_response.json")"
 if [[ "$(echo "$IMPORT_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
   echo "importprivkey failed" >&2
+  exit 1
+fi
+
+VALIDATE_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"validate-fund\",\"method\":\"validateaddress\",\"params\":[\"$FUNDED_ADDR\"]}" \
+  | tee "$ARTIFACT_DIR/btc_validateaddress_response.json")"
+if [[ "$(echo "$VALIDATE_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "validateaddress failed for funded address: $FUNDED_ADDR" >&2
+  exit 1
+fi
+if [[ "$(echo "$VALIDATE_RESPONSE" | jq -r '.result.isvalid // false')" != "true" ]]; then
+  echo "validateaddress reported funded address invalid: $FUNDED_ADDR" >&2
+  exit 1
+fi
+
+ADDRESSINFO_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"addressinfo-fund\",\"method\":\"getaddressinfo\",\"params\":[\"$FUNDED_ADDR\"]}" \
+  | tee "$ARTIFACT_DIR/btc_getaddressinfo_response.json")"
+if [[ "$(echo "$ADDRESSINFO_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "getaddressinfo failed for funded address: $FUNDED_ADDR" >&2
+  exit 1
+fi
+if [[ "$(echo "$ADDRESSINFO_RESPONSE" | jq -r '.result.address // empty')" != "$FUNDED_ADDR" ]]; then
+  echo "getaddressinfo returned unexpected address for funded key" >&2
+  exit 1
+fi
+
+BESTBLOCK_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"bestblock","method":"getbestblockhash","params":[]}' \
+  | tee "$ARTIFACT_DIR/btc_getbestblockhash_response.json")"
+BEST_BLOCK_HASH="$(echo "$BESTBLOCK_RESPONSE" | jq -r '.result // empty')"
+if [[ -z "$BEST_BLOCK_HASH" ]]; then
+  echo "getbestblockhash returned empty hash" >&2
+  exit 1
+fi
+
+BLOCKHEADER_HEX_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"blockheader-hex\",\"method\":\"getblockheader\",\"params\":[\"$BEST_BLOCK_HASH\",false]}" \
+  | tee "$ARTIFACT_DIR/btc_getblockheader_hex_response.json")"
+HEADER_HEX="$(echo "$BLOCKHEADER_HEX_RESPONSE" | jq -r '.result // empty')"
+if [[ -z "$HEADER_HEX" || "${#HEADER_HEX}" -ne 160 ]]; then
+  echo "getblockheader(verbose=false) returned invalid raw header length: ${#HEADER_HEX}" >&2
+  exit 1
+fi
+
+BLOCKHEADER_JSON_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"blockheader-json\",\"method\":\"getblockheader\",\"params\":[\"$BEST_BLOCK_HASH\",true]}" \
+  | tee "$ARTIFACT_DIR/btc_getblockheader_json_response.json")"
+if [[ "$(echo "$BLOCKHEADER_JSON_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "getblockheader(verbose=true) failed for best block hash" >&2
+  exit 1
+fi
+if [[ "$(echo "$BLOCKHEADER_JSON_RESPONSE" | jq -r '.result.hash // empty')" != "$BEST_BLOCK_HASH" ]]; then
+  echo "getblockheader(verbose=true) returned unexpected hash" >&2
+  exit 1
+fi
+
+SCANTXOUTSET_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"scan-fund\",\"method\":\"scantxoutset\",\"params\":[\"start\",[{\"desc\":\"addr($FUNDED_ADDR)\"}]]}" \
+  | tee "$ARTIFACT_DIR/btc_scantxoutset_response.json")"
+if [[ "$(echo "$SCANTXOUTSET_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "scantxoutset failed for funded address descriptor" >&2
+  exit 1
+fi
+if [[ "$(echo "$SCANTXOUTSET_RESPONSE" | jq -r '.result.success // false')" != "true" ]]; then
+  echo "scantxoutset did not report success" >&2
   exit 1
 fi
 
@@ -302,7 +362,7 @@ if [[ "$UNLOCKED_VISIBLE_COUNT" -lt 1 ]]; then
   exit 1
 fi
 
-echo "[10/11] Sending Bitcoin-signed transfers..."
+echo "[10/12] Sending Bitcoin-signed transfers..."
 SEND1_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"send1\",\"method\":\"sendtoaddress\",\"params\":[\"$SATOSHI_ADDR\",$SEND_AMOUNT_1]}" \
   | tee "$ARTIFACT_DIR/btc_sendtoaddress_1_response.json")"
 TXID1="$(echo "$SEND1_RESPONSE" | jq -r '.result // empty')"
@@ -319,7 +379,30 @@ if [[ -z "$TXID2" ]]; then
   exit 1
 fi
 
-echo "[11/11] Verifying post-transaction balances and access key registration..."
+echo "[11/12] Verifying transaction query methods..."
+GETRAW_SENT_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"getraw-sent\",\"method\":\"getrawtransaction\",\"params\":[\"$TXID1\",true]}" \
+  | tee "$ARTIFACT_DIR/btc_getrawtransaction_sent_response.json")"
+if [[ "$(echo "$GETRAW_SENT_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "getrawtransaction failed for submitted txid: $TXID1" >&2
+  exit 1
+fi
+if [[ "$(echo "$GETRAW_SENT_RESPONSE" | jq -r '.result.txid // empty')" != "$TXID1" ]]; then
+  echo "getrawtransaction returned unexpected txid for submitted transaction" >&2
+  exit 1
+fi
+
+GETTX_SENT_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"gettx-sent\",\"method\":\"gettransaction\",\"params\":[\"$TXID1\"]}" \
+  | tee "$ARTIFACT_DIR/btc_gettransaction_sent_response.json")"
+if [[ "$(echo "$GETTX_SENT_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "gettransaction failed for submitted txid: $TXID1" >&2
+  exit 1
+fi
+if [[ "$(echo "$GETTX_SENT_RESPONSE" | jq -r '.result.txid // empty')" != "$TXID1" ]]; then
+  echo "gettransaction returned unexpected txid for submitted transaction" >&2
+  exit 1
+fi
+
+echo "[12/12] Verifying post-transaction balances and access key registration..."
 FUNDED_BALANCE_AFTER="$FUNDED_BALANCE_BEFORE"
 SATOSHI_BALANCE_AFTER="$SATOSHI_BALANCE_BEFORE"
 for _ in $(seq 1 60); do
