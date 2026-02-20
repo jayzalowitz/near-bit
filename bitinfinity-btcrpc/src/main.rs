@@ -1575,6 +1575,53 @@ async fn handle_listunspent(state: &RpcState, request: &JsonRpcRequest) -> JsonR
     ok_response(&request.id, json!(utxos))
 }
 
+#[derive(Debug, Clone)]
+struct SyntheticWalletTx {
+    address: String,
+    amount_satoshis: u64,
+    block_height: u64,
+    block_hash: String,
+    block_time: i64,
+    confirmations: i64,
+}
+
+async fn resolve_synthetic_wallet_tx(state: &RpcState, txid: &str) -> Option<SyntheticWalletTx> {
+    let addresses = {
+        let keystore = state.keystore.read().await;
+        keystore.all_addresses()
+    };
+
+    for address in addresses {
+        if SyntheticUtxo::txid_for_account(&address) != txid {
+            continue;
+        }
+
+        let account = match state.near_client.view_account(&address).await {
+            Ok(account) => account,
+            Err(_) => continue,
+        };
+        let satoshis = account.balance_as_satoshis();
+        if satoshis == 0 {
+            continue;
+        }
+
+        let (block_height, block_hash) = match state.near_client.status().await {
+            Ok(status) => (status.latest_block_height, status.latest_block_hash),
+            Err(_) => (0, String::new()),
+        };
+        return Some(SyntheticWalletTx {
+            address,
+            amount_satoshis: satoshis,
+            block_height,
+            block_hash,
+            block_time: chrono::Utc::now().timestamp(),
+            confirmations: 6,
+        });
+    }
+
+    None
+}
+
 async fn handle_getnewaddress(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     if !state.is_wallet_unlocked().await {
         return err_response(
@@ -2291,17 +2338,19 @@ async fn handle_getrawtransaction(state: &RpcState, request: &JsonRpcRequest) ->
         Some(id) => id,
         None => return err_response(&request.id, -32602, "Missing txid parameter".to_string()),
     };
+    let verbose = request
+        .params
+        .as_array()
+        .and_then(|arr| arr.get(1))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0);
 
-    let cache = state.tx_cache.read().await;
-    match cache.get(txid) {
+    let entry = {
+        let cache = state.tx_cache.read().await;
+        cache.get(txid).cloned()
+    };
+    match entry {
         Some(entry) => {
-            let verbose = request
-                .params
-                .as_array()
-                .and_then(|arr| arr.get(1))
-                .and_then(|v| v.as_u64())
-                .unwrap_or(0);
-
             if verbose == 0 {
                 // Return raw hex
                 ok_response(&request.id, json!(entry.raw_hex))
@@ -2479,7 +2528,49 @@ async fn handle_getrawtransaction(state: &RpcState, request: &JsonRpcRequest) ->
                 }
             }
         }
-        None => err_response(&request.id, -5, format!("Transaction not found: {}", txid)),
+        None => {
+            if let Some(synthetic) = resolve_synthetic_wallet_tx(state, txid).await {
+                let raw_hex = format!(
+                    "synthetic-utxo:{}:{}",
+                    synthetic.address, synthetic.amount_satoshis
+                );
+                if verbose == 0 {
+                    return ok_response(&request.id, json!(raw_hex));
+                }
+
+                let est_size = 110u64;
+                return ok_response(
+                    &request.id,
+                    json!({
+                        "txid": txid,
+                        "hash": txid,
+                        "size": est_size,
+                        "vsize": est_size,
+                        "weight": est_size * 4,
+                        "version": 2,
+                        "locktime": 0,
+                        "vin": [{
+                            "txid": "0000000000000000000000000000000000000000000000000000000000000000",
+                            "vout": 0,
+                            "scriptSig": { "asm": "", "hex": "" },
+                            "sequence": 4294967295u64
+                        }],
+                        "vout": [{
+                            "value": synthetic.amount_satoshis as f64 / 100_000_000.0,
+                            "n": 0,
+                            "scriptPubKey": build_script_pub_key_json(&synthetic.address, false, state.bech32_hrp())
+                        }],
+                        "blockhash": synthetic.block_hash,
+                        "confirmations": synthetic.confirmations,
+                        "blocktime": synthetic.block_time,
+                        "time": synthetic.block_time,
+                        "near_tx_hash": format!("synthetic:{}", synthetic.address)
+                    }),
+                );
+            }
+
+            err_response(&request.id, -5, format!("Transaction not found: {}", txid))
+        }
     }
 }
 
@@ -2489,8 +2580,11 @@ async fn handle_gettransaction(state: &RpcState, request: &JsonRpcRequest) -> Js
         None => return err_response(&request.id, -32602, "Missing txid parameter".to_string()),
     };
 
-    let cache = state.tx_cache.read().await;
-    match cache.get(txid) {
+    let entry = {
+        let cache = state.tx_cache.read().await;
+        cache.get(txid).cloned()
+    };
+    match entry {
         Some(entry) => {
             // Try to get NEAR transaction status and block info
             let (confirmations, blockhash, blocktime, block_height, details) = if entry
@@ -2630,7 +2724,35 @@ async fn handle_gettransaction(state: &RpcState, request: &JsonRpcRequest) -> Js
                 }),
             )
         }
-        None => err_response(&request.id, -5, format!("Transaction not found: {}", txid)),
+        None => {
+            if let Some(synthetic) = resolve_synthetic_wallet_tx(state, txid).await {
+                let amount_btc = synthetic.amount_satoshis as f64 / 100_000_000.0;
+                return ok_response(
+                    &request.id,
+                    json!({
+                        "txid": txid,
+                        "amount": amount_btc,
+                        "confirmations": synthetic.confirmations,
+                        "blockhash": synthetic.block_hash,
+                        "blockheight": synthetic.block_height,
+                        "blockindex": 0,
+                        "blocktime": synthetic.block_time,
+                        "time": synthetic.block_time,
+                        "timereceived": synthetic.block_time,
+                        "details": [{
+                            "address": synthetic.address,
+                            "category": "receive",
+                            "amount": amount_btc,
+                            "vout": 0
+                        }],
+                        "hex": format!("synthetic-utxo:{}:{}", synthetic.address, synthetic.amount_satoshis),
+                        "near_tx_hash": format!("synthetic:{}", txid)
+                    }),
+                );
+            }
+
+            err_response(&request.id, -5, format!("Transaction not found: {}", txid))
+        }
     }
 }
 

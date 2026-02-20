@@ -234,6 +234,28 @@ if [[ -z "$LOCK_TXID" || -z "$LOCK_VOUT" ]]; then
   exit 1
 fi
 
+GETTX_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"gettransaction-synth\",\"method\":\"gettransaction\",\"params\":[\"$LOCK_TXID\"]}" \
+  | tee "$ARTIFACT_DIR/btc_gettransaction_synthetic_response.json")"
+if [[ "$(echo "$GETTX_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "gettransaction failed for synthetic listunspent txid: $LOCK_TXID" >&2
+  exit 1
+fi
+if [[ "$(echo "$GETTX_RESPONSE" | jq -r '.result.txid // empty')" != "$LOCK_TXID" ]]; then
+  echo "gettransaction returned unexpected txid for synthetic tx" >&2
+  exit 1
+fi
+
+GETRAW_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"getrawtransaction-synth\",\"method\":\"getrawtransaction\",\"params\":[\"$LOCK_TXID\",1]}" \
+  | tee "$ARTIFACT_DIR/btc_getrawtransaction_synthetic_response.json")"
+if [[ "$(echo "$GETRAW_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "getrawtransaction failed for synthetic listunspent txid: $LOCK_TXID" >&2
+  exit 1
+fi
+if [[ "$(echo "$GETRAW_RESPONSE" | jq -r '.result.txid // empty')" != "$LOCK_TXID" ]]; then
+  echo "getrawtransaction returned unexpected txid for synthetic tx" >&2
+  exit 1
+fi
+
 LOCK_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"lockunspent-lock\",\"method\":\"lockunspent\",\"params\":[false,[{\"txid\":\"$LOCK_TXID\",\"vout\":$LOCK_VOUT}]]}" \
   | tee "$ARTIFACT_DIR/btc_lockunspent_lock_response.json")"
 if [[ "$(echo "$LOCK_RESPONSE" | jq -r '.result // false')" != "true" ]]; then
