@@ -2338,12 +2338,7 @@ async fn handle_getrawtransaction(state: &RpcState, request: &JsonRpcRequest) ->
         Some(id) => id,
         None => return err_response(&request.id, -32602, "Missing txid parameter".to_string()),
     };
-    let verbose = request
-        .params
-        .as_array()
-        .and_then(|arr| arr.get(1))
-        .and_then(|v| v.as_u64())
-        .unwrap_or(0);
+    let verbose = get_bool_param(&request.params, 1).unwrap_or(false);
 
     let entry = {
         let cache = state.tx_cache.read().await;
@@ -2351,7 +2346,7 @@ async fn handle_getrawtransaction(state: &RpcState, request: &JsonRpcRequest) ->
     };
     match entry {
         Some(entry) => {
-            if verbose == 0 {
+            if !verbose {
                 // Return raw hex
                 ok_response(&request.id, json!(entry.raw_hex))
             } else {
@@ -2534,7 +2529,7 @@ async fn handle_getrawtransaction(state: &RpcState, request: &JsonRpcRequest) ->
                     "synthetic-utxo:{}:{}",
                     synthetic.address, synthetic.amount_satoshis
                 );
-                if verbose == 0 {
+                if !verbose {
                     return ok_response(&request.id, json!(raw_hex));
                 }
 
