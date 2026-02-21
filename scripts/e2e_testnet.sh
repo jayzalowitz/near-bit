@@ -324,6 +324,14 @@ if [[ "$SCANTXOUTSET_INVALID_ERROR_CODE" != "-8" ]]; then
   exit 1
 fi
 
+LISTUNSPENT_INVALID_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"listunspent-invalid-range\",\"method\":\"listunspent\",\"params\":[10,1,[\"$FUNDED_ADDR\"]]}" \
+  | tee "$ARTIFACT_DIR/btc_listunspent_invalid_range_response.json")"
+LISTUNSPENT_INVALID_ERROR_CODE="$(echo "$LISTUNSPENT_INVALID_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$LISTUNSPENT_INVALID_ERROR_CODE" != "-8" ]]; then
+  echo "listunspent invalid-range path did not return -8 (got: $LISTUNSPENT_INVALID_ERROR_CODE)" >&2
+  exit 1
+fi
+
 LISTUNSPENT_BEFORE_LOCK="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"listunspent-before-lock\",\"method\":\"listunspent\",\"params\":[1,9999999,[\"$FUNDED_ADDR\"]]}" \
   | tee "$ARTIFACT_DIR/btc_listunspent_before_lock_response.json")"
 LOCK_TXID="$(echo "$LISTUNSPENT_BEFORE_LOCK" | jq -r '.result[0].txid // empty')"
@@ -952,6 +960,7 @@ gettransaction_unknown_error_code=$GETTX_UNKNOWN_ERROR_CODE
 getrawtransaction_unknown_error_code=$GETRAW_UNKNOWN_ERROR_CODE
 getblockheader_unknown_error_code=$BLOCKHEADER_UNKNOWN_ERROR_CODE
 scantxoutset_invalid_error_code=$SCANTXOUTSET_INVALID_ERROR_CODE
+listunspent_invalid_range_error_code=$LISTUNSPENT_INVALID_ERROR_CODE
 auth_noauth_http_code=$AUTH_NOAUTH_CODE
 auth_wrong_http_code=$AUTH_WRONG_CODE
 auth_ok_result=$AUTH_OK_RESULT
