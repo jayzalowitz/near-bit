@@ -668,6 +668,25 @@ Verification rerun:
 - `./scripts/e2e_testnet.sh`
 - `cargo test -q -p bitinfinity-btcrpc`
 
+## Continuation (2026-02-21): listlockunspent auth-gating coverage
+
+Implemented:
+- Extended `scripts/e2e_testnet.sh` auth-depth checks to include `listlockunspent` with explicit:
+  - unauthenticated request returns HTTP `401`,
+  - wrong-credential request returns HTTP `401`,
+  - correct-credential request returns HTTP `200` with matching JSON-RPC `id`.
+- Added summary exports for the new checks:
+  - `auth_listlockunspent_noauth_http_code`
+  - `auth_listlockunspent_wrong_http_code`
+  - `auth_listlockunspent_ok_http_code`
+
+Primary file:
+- `scripts/e2e_testnet.sh`
+
+Verification rerun:
+- `./scripts/e2e_testnet.sh` (one initial run hit transient `AddrInUse` on `3030/24567`; clean rerun passed)
+- `HOME="$(mktemp -d)" RUSTUP_HOME="/Users/infinitoshi/.rustup" CARGO_HOME="/Users/infinitoshi/.cargo" cargo test -q -p bitinfinity-btcrpc`
+
 ## Issue #1 goal check
 
 Status:
