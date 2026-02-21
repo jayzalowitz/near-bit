@@ -116,6 +116,34 @@ Verification reruns (this continuation):
 
 All passed.
 
+## Incremental Update (2026-02-21, alias compatibility hardening)
+
+Additional logical commits pushed after the previous continuation:
+
+- `6488c2fb1`
+  - Quantum-key RPC state now aliases canonical mixed-case and legacy lowercase Base58 address forms:
+    - `addquantumkey`, `removequantumkey`, and `listquantumkeys` now merge/sync case-variant entries for the same P2PKH/P2SH identity.
+  - Added unit tests:
+    - `test_listquantumkeys_supports_legacy_lowercase_alias`
+    - `test_removequantumkey_supports_legacy_lowercase_alias`
+- `0da9a31d0`
+  - Extended E2E quantum coverage for lowercase alias behavior:
+    - `listquantumkeys(lowercase_alias)` returns canonical key set.
+    - `removequantumkey(lowercase_alias, ...)` removes canonical registrations.
+  - Kept script portability on macOS default Bash by using `tr` for lowercase conversion.
+
+Verification reruns (this continuation):
+
+- `cargo test -q -p bitinfinity-btcrpc` (44 passing)
+- `./scripts/e2e_testnet.sh`
+- `cargo test -q -p bitinfinity-tools`
+- `cargo test -q -p bitinfinity-neard`
+- `cargo test -q -p node-runtime --manifest-path nearcore/Cargo.toml test_maybe_auto_register_bitcoin_access_key_non_bitcoin_signer_noop`
+- `cargo test -q -p node-runtime --manifest-path nearcore/Cargo.toml test_maybe_auto_register_bitcoin_access_key_rejects_invalid_signature`
+- `cargo test -q -p node-runtime --manifest-path nearcore/Cargo.toml patoshi_unlock`
+
+All passed.
+
 ## What was implemented in this change set
 
 ### 1) Canonical Bitcoin address support (Issue #1 critical)
@@ -442,10 +470,6 @@ Status:
 ## Issue #11 remaining high-priority gaps (not completed here)
 
 Still open and required for full #11 closure:
-- Full production-profile execution and publication for the methodology defaults:
-  - baseline `1000 TPS` for `3600s`
-  - stress `10000 TPS` for `1800s`
-  - peak `50000 TPS` for `600s`
 - Optional upstream follow-up: investigate the self-exit (`controller: null`) shutdown path that previously produced `signal 11` in pre-mitigation pilots.
 - External audit/bounty/legal/governance/infra phases.
 - Full launch-gate completion across all #11 phases.
