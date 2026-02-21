@@ -378,6 +378,126 @@ if [[ "$ONETRY_ERROR_CODE" != "-32601" ]]; then
   exit 1
 fi
 
+GETBLOCK_V0_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"getblock-v0\",\"method\":\"getblock\",\"params\":[\"$BEST_BLOCK_HASH\",0]}" \
+  | tee "$ARTIFACT_DIR/btc_getblock_v0_response.json")"
+GETBLOCK_V0_HEX="$(echo "$GETBLOCK_V0_RESPONSE" | jq -r '.result // empty')"
+if [[ "$(echo "$GETBLOCK_V0_RESPONSE" | jq -r '.error // empty')" != "" || -z "$GETBLOCK_V0_HEX" ]]; then
+  echo "getblock verbosity=0 failed or returned empty result" >&2
+  exit 1
+fi
+
+GETBLOCK_V1_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"getblock-v1\",\"method\":\"getblock\",\"params\":[\"$BEST_BLOCK_HASH\",1]}" \
+  | tee "$ARTIFACT_DIR/btc_getblock_v1_response.json")"
+if [[ "$(echo "$GETBLOCK_V1_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "getblock verbosity=1 failed" >&2
+  exit 1
+fi
+if [[ "$(echo "$GETBLOCK_V1_RESPONSE" | jq -r '.result.hash // empty')" != "$BEST_BLOCK_HASH" ]]; then
+  echo "getblock verbosity=1 returned unexpected hash" >&2
+  exit 1
+fi
+
+GETBLOCK_V2_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"getblock-v2\",\"method\":\"getblock\",\"params\":[\"$BEST_BLOCK_HASH\",2]}" \
+  | tee "$ARTIFACT_DIR/btc_getblock_v2_response.json")"
+GETBLOCK_V2_TX_TYPE="$(echo "$GETBLOCK_V2_RESPONSE" | jq -r '.result.tx | type // empty')"
+if [[ "$(echo "$GETBLOCK_V2_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "getblock verbosity=2 failed" >&2
+  exit 1
+fi
+if [[ "$GETBLOCK_V2_TX_TYPE" != "array" ]]; then
+  echo "getblock verbosity=2 expected tx array (got: $GETBLOCK_V2_TX_TYPE)" >&2
+  exit 1
+fi
+
+GETBLOCKSTATS_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"getblockstats\",\"method\":\"getblockstats\",\"params\":[$INITIAL_HEIGHT]}" \
+  | tee "$ARTIFACT_DIR/btc_getblockstats_response.json")"
+GETBLOCKSTATS_HEIGHT="$(echo "$GETBLOCKSTATS_RESPONSE" | jq -r '.result.height // empty')"
+if [[ "$(echo "$GETBLOCKSTATS_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "getblockstats failed for initial height $INITIAL_HEIGHT" >&2
+  exit 1
+fi
+if [[ "$GETBLOCKSTATS_HEIGHT" != "$INITIAL_HEIGHT" ]]; then
+  echo "getblockstats returned unexpected height (got: $GETBLOCKSTATS_HEIGHT expected: $INITIAL_HEIGHT)" >&2
+  exit 1
+fi
+
+GETBLOCKSTATS_INVALID_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"getblockstats-invalid","method":"getblockstats","params":[999999999]}' \
+  | tee "$ARTIFACT_DIR/btc_getblockstats_invalid_response.json")"
+GETBLOCKSTATS_INVALID_ERROR_CODE="$(echo "$GETBLOCKSTATS_INVALID_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$GETBLOCKSTATS_INVALID_ERROR_CODE" != "-5" ]]; then
+  echo "getblockstats out-of-range path did not return -5 (got: $GETBLOCKSTATS_INVALID_ERROR_CODE)" >&2
+  exit 1
+fi
+
+GETCHAINTIPS_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"getchaintips","method":"getchaintips","params":[]}' \
+  | tee "$ARTIFACT_DIR/btc_getchaintips_response.json")"
+GETCHAINTIPS_STATUS="$(echo "$GETCHAINTIPS_RESPONSE" | jq -r '.result[0].status // empty')"
+if [[ "$(echo "$GETCHAINTIPS_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "getchaintips failed" >&2
+  exit 1
+fi
+if [[ "$GETCHAINTIPS_STATUS" != "active" ]]; then
+  echo "getchaintips expected active status (got: $GETCHAINTIPS_STATUS)" >&2
+  exit 1
+fi
+
+GETRAWMEMPOOL_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"getrawmempool","method":"getrawmempool","params":[false]}' \
+  | tee "$ARTIFACT_DIR/btc_getrawmempool_response.json")"
+GETRAWMEMPOOL_TYPE="$(echo "$GETRAWMEMPOOL_RESPONSE" | jq -r '.result | type // empty')"
+if [[ "$(echo "$GETRAWMEMPOOL_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "getrawmempool(verbose=false) failed" >&2
+  exit 1
+fi
+if [[ "$GETRAWMEMPOOL_TYPE" != "array" ]]; then
+  echo "getrawmempool(verbose=false) expected array result (got: $GETRAWMEMPOOL_TYPE)" >&2
+  exit 1
+fi
+
+GETRAWMEMPOOL_VERBOSE_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"getrawmempool-verbose","method":"getrawmempool","params":[true]}' \
+  | tee "$ARTIFACT_DIR/btc_getrawmempool_verbose_response.json")"
+GETRAWMEMPOOL_VERBOSE_TYPE="$(echo "$GETRAWMEMPOOL_VERBOSE_RESPONSE" | jq -r '.result | type // empty')"
+if [[ "$(echo "$GETRAWMEMPOOL_VERBOSE_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "getrawmempool(verbose=true) failed" >&2
+  exit 1
+fi
+if [[ "$GETRAWMEMPOOL_VERBOSE_TYPE" != "object" ]]; then
+  echo "getrawmempool(verbose=true) expected object result (got: $GETRAWMEMPOOL_VERBOSE_TYPE)" >&2
+  exit 1
+fi
+
+MEMPOOL_UNKNOWN_TXID="ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+GETMEMPOOLENTRY_UNKNOWN_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"getmempoolentry-unknown\",\"method\":\"getmempoolentry\",\"params\":[\"$MEMPOOL_UNKNOWN_TXID\"]}" \
+  | tee "$ARTIFACT_DIR/btc_getmempoolentry_unknown_response.json")"
+GETMEMPOOLENTRY_UNKNOWN_ERROR_CODE="$(echo "$GETMEMPOOLENTRY_UNKNOWN_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$GETMEMPOOLENTRY_UNKNOWN_ERROR_CODE" != "-5" ]]; then
+  echo "getmempoolentry unknown-tx path did not return -5 (got: $GETMEMPOOLENTRY_UNKNOWN_ERROR_CODE)" >&2
+  exit 1
+fi
+
+GETMEMPOOLANCESTORS_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"getmempoolancestors\",\"method\":\"getmempoolancestors\",\"params\":[\"$MEMPOOL_UNKNOWN_TXID\"]}" \
+  | tee "$ARTIFACT_DIR/btc_getmempoolancestors_response.json")"
+GETMEMPOOLANCESTORS_TYPE="$(echo "$GETMEMPOOLANCESTORS_RESPONSE" | jq -r '.result | type // empty')"
+if [[ "$(echo "$GETMEMPOOLANCESTORS_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "getmempoolancestors failed" >&2
+  exit 1
+fi
+if [[ "$GETMEMPOOLANCESTORS_TYPE" != "array" ]]; then
+  echo "getmempoolancestors expected array result (got: $GETMEMPOOLANCESTORS_TYPE)" >&2
+  exit 1
+fi
+
+GETMEMPOOLDESCENDANTS_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"getmempooldescendants\",\"method\":\"getmempooldescendants\",\"params\":[\"$MEMPOOL_UNKNOWN_TXID\"]}" \
+  | tee "$ARTIFACT_DIR/btc_getmempooldescendants_response.json")"
+GETMEMPOOLDESCENDANTS_TYPE="$(echo "$GETMEMPOOLDESCENDANTS_RESPONSE" | jq -r '.result | type // empty')"
+if [[ "$(echo "$GETMEMPOOLDESCENDANTS_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "getmempooldescendants failed" >&2
+  exit 1
+fi
+if [[ "$GETMEMPOOLDESCENDANTS_TYPE" != "array" ]]; then
+  echo "getmempooldescendants expected array result (got: $GETMEMPOOLDESCENDANTS_TYPE)" >&2
+  exit 1
+fi
+
 SCANTXOUTSET_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"scan-fund\",\"method\":\"scantxoutset\",\"params\":[\"start\",[{\"desc\":\"addr($FUNDED_ADDR)\"}]]}" \
   | tee "$ARTIFACT_DIR/btc_scantxoutset_response.json")"
 if [[ "$(echo "$SCANTXOUTSET_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
@@ -1181,6 +1301,16 @@ generatetodescriptor_error_code=$GENERATETODESCRIPTOR_ERROR_CODE
 addnode_error_code=$ADDNODE_ERROR_CODE
 disconnectnode_error_code=$DISCONNECTNODE_ERROR_CODE
 onetry_error_code=$ONETRY_ERROR_CODE
+getblock_v0_hex_len=${#GETBLOCK_V0_HEX}
+getblock_v2_tx_type=$GETBLOCK_V2_TX_TYPE
+getblockstats_height=$GETBLOCKSTATS_HEIGHT
+getblockstats_invalid_error_code=$GETBLOCKSTATS_INVALID_ERROR_CODE
+getchaintips_status=$GETCHAINTIPS_STATUS
+getrawmempool_type=$GETRAWMEMPOOL_TYPE
+getrawmempool_verbose_type=$GETRAWMEMPOOL_VERBOSE_TYPE
+getmempoolentry_unknown_error_code=$GETMEMPOOLENTRY_UNKNOWN_ERROR_CODE
+getmempoolancestors_type=$GETMEMPOOLANCESTORS_TYPE
+getmempooldescendants_type=$GETMEMPOOLDESCENDANTS_TYPE
 scantxoutset_invalid_error_code=$SCANTXOUTSET_INVALID_ERROR_CODE
 scantxoutset_empty_start_error_code=$SCANTXOUTSET_EMPTY_START_ERROR_CODE
 scantxoutset_txid=$SCANTXOUTSET_TXID
