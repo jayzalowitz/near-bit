@@ -500,6 +500,14 @@ if [[ "$LOCKED_AFTER_NUMERIC_UNLOCK_COUNT" -ne 0 ]]; then
 fi
 
 echo "[10/12] Verifying PSBT flow, then sending via raw+wallet and sendtoaddress..."
+CREATE_PSBT_INVALID_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"create-psbt-invalid-output\",\"method\":\"createpsbt\",\"params\":[[{\"txid\":\"$LOCK_TXID\",\"vout\":$LOCK_VOUT}],{\"$SATOSHI_ADDR\":\"bad-amount\"},0,true]}" \
+  | tee "$ARTIFACT_DIR/btc_createpsbt_invalid_output_response.json")"
+CREATE_PSBT_INVALID_ERROR_CODE="$(echo "$CREATE_PSBT_INVALID_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$CREATE_PSBT_INVALID_ERROR_CODE" != "-32602" ]]; then
+  echo "createpsbt invalid-output path did not return -32602 (got: $CREATE_PSBT_INVALID_ERROR_CODE)" >&2
+  exit 1
+fi
+
 CREATE_PSBT_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"create-psbt\",\"method\":\"createpsbt\",\"params\":[[{\"txid\":\"$LOCK_TXID\",\"vout\":$LOCK_VOUT}],[{\"$SATOSHI_ADDR\":0.01}],0,true]}" \
   | tee "$ARTIFACT_DIR/btc_createpsbt_response.json")"
 CREATED_PSBT="$(echo "$CREATE_PSBT_RESPONSE" | jq -r '.result // empty')"
@@ -559,6 +567,14 @@ DECODE_FUNDED_OBJECT_PSBT_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":
 FUNDED_OBJECT_PSBT_VOUT_COUNT="$(echo "$DECODE_FUNDED_OBJECT_PSBT_RESPONSE" | jq -r '.result.tx.vout | length')"
 if [[ "$FUNDED_OBJECT_PSBT_VOUT_COUNT" -lt 1 ]]; then
   echo "walletcreatefundedpsbt object outputs decode had no outputs" >&2
+  exit 1
+fi
+
+WCF_PSBT_INVALID_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"walletcreatefundedpsbt-invalid-output\",\"method\":\"walletcreatefundedpsbt\",\"params\":[[],{\"$SATOSHI_ADDR\":\"bad-amount\"},0,{}]}" \
+  | tee "$ARTIFACT_DIR/btc_walletcreatefundedpsbt_invalid_output_response.json")"
+WCF_PSBT_INVALID_ERROR_CODE="$(echo "$WCF_PSBT_INVALID_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$WCF_PSBT_INVALID_ERROR_CODE" != "-32602" ]]; then
+  echo "walletcreatefundedpsbt invalid-output path did not return -32602 (got: $WCF_PSBT_INVALID_ERROR_CODE)" >&2
   exit 1
 fi
 
@@ -1009,8 +1025,10 @@ raw_replay_mode=$RAW_REPLAY_MODE
 raw_replay_error=$RAW_REPLAY_ERROR
 psbt_create_len=${#CREATED_PSBT}
 psbt_create_object_vout_count=$OBJECT_PSBT_VOUT_COUNT
+psbt_create_invalid_output_error_code=$CREATE_PSBT_INVALID_ERROR_CODE
 psbt_funded_len=${#FUNDED_PSBT}
 psbt_funded_object_vout_count=$FUNDED_OBJECT_PSBT_VOUT_COUNT
+psbt_walletcreate_invalid_output_error_code=$WCF_PSBT_INVALID_ERROR_CODE
 psbt_funded_input_txid=$FUNDED_PSBT_INPUT_TXID
 psbt_walletcreate_insufficient_error_code=$WCF_PSBT_INSUFFICIENT_ERROR_CODE
 psbt_analyze_next_unsigned=$ANALYZE_PSBT_NEXT

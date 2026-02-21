@@ -5803,36 +5803,54 @@ fn parse_raw_tx_for_psbt(tx: &[u8]) -> (Vec<serde_json::Value>, Vec<serde_json::
     (vin, vout, version, locktime)
 }
 
-fn parse_psbt_output_pairs(outputs_param: Option<&serde_json::Value>) -> Vec<(String, f64)> {
+fn parse_psbt_output_pairs(
+    outputs_param: Option<&serde_json::Value>,
+) -> Result<Vec<(String, f64)>, String> {
+    let outputs = match outputs_param {
+        Some(outputs) => outputs,
+        None => return Err("Missing outputs parameter".to_string()),
+    };
+
     let mut output_pairs = Vec::new();
-    match outputs_param {
-        Some(serde_json::Value::Array(outs)) => {
+    match outputs {
+        serde_json::Value::Array(outs) => {
             for out_obj in outs {
-                if let Some(obj) = out_obj.as_object() {
-                    for (addr, amount_val) in obj {
-                        if addr == "data" {
-                            continue;
-                        }
-                        if let Some(amt) = amount_val.as_f64() {
-                            output_pairs.push((addr.clone(), amt));
-                        }
+                let obj = match out_obj.as_object() {
+                    Some(obj) => obj,
+                    None => return Err("Each output entry must be an object".to_string()),
+                };
+                for (addr, amount_val) in obj {
+                    if addr == "data" {
+                        continue;
                     }
+                    let amount = match amount_val.as_f64() {
+                        Some(amount) if amount.is_finite() && amount > 0.0 => amount,
+                        _ => return Err("Output amounts must be positive numbers".to_string()),
+                    };
+                    output_pairs.push((addr.clone(), amount));
                 }
             }
         }
-        Some(serde_json::Value::Object(obj)) => {
+        serde_json::Value::Object(obj) => {
             for (addr, amount_val) in obj {
                 if addr == "data" {
                     continue;
                 }
-                if let Some(amt) = amount_val.as_f64() {
-                    output_pairs.push((addr.clone(), amt));
-                }
+                let amount = match amount_val.as_f64() {
+                    Some(amount) if amount.is_finite() && amount > 0.0 => amount,
+                    _ => return Err("Output amounts must be positive numbers".to_string()),
+                };
+                output_pairs.push((addr.clone(), amount));
             }
         }
-        _ => {}
+        _ => return Err("Invalid outputs format".to_string()),
     }
-    output_pairs
+
+    if output_pairs.is_empty() {
+        return Err("At least one destination output is required".to_string());
+    }
+
+    Ok(output_pairs)
 }
 
 async fn handle_walletcreatefundedpsbt(
@@ -5855,7 +5873,10 @@ async fn handle_walletcreatefundedpsbt(
         .unwrap_or(0) as u32;
 
     // Parse outputs: [{addr: amount}, ...]
-    let output_pairs = parse_psbt_output_pairs(outputs);
+    let output_pairs = match parse_psbt_output_pairs(outputs) {
+        Ok(pairs) => pairs,
+        Err(msg) => return err_response(&request.id, -32602, msg),
+    };
 
     let total_output: f64 = output_pairs.iter().map(|(_, a)| a).sum();
     let fee_btc = 0.00001_f64;
@@ -9024,7 +9045,10 @@ fn handle_createpsbt(request: &JsonRpcRequest) -> JsonRpcResponse {
     // Build a minimal PSBT: magic + global unsigned tx + empty input/output maps
     use base64::Engine;
     let inputs = request.params.get(0).and_then(|v| v.as_array());
-    let output_pairs = parse_psbt_output_pairs(request.params.get(1));
+    let output_pairs = match parse_psbt_output_pairs(request.params.get(1)) {
+        Ok(pairs) => pairs,
+        Err(msg) => return err_response(&request.id, -32602, msg),
+    };
     let locktime = request.params.get(2).and_then(|v| v.as_u64()).unwrap_or(0) as u32;
 
     let num_inputs = inputs.map(|i| i.len()).unwrap_or(0);
