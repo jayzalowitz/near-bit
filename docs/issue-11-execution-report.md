@@ -258,6 +258,24 @@ Verification rerun (this continuation):
 
 Passed.
 
+## Incremental Update (2026-02-21, continued quantum alias unit coverage)
+
+Additional logical commit pushed after the previous continuation:
+
+- `84267032a`
+  - Added btcrpc unit coverage for duplicate detection across canonical/lowercase alias forms:
+    - register key via lowercase alias
+    - re-register same key via canonical address
+    - assert rejection with `-32602`.
+  - New test:
+    - `test_addquantumkey_rejects_duplicate_across_canonical_and_lowercase_alias`
+
+Verification rerun (this continuation):
+
+- `cargo test -q -p bitinfinity-btcrpc` (46 passing)
+
+Passed.
+
 ## What was implemented in this change set
 
 ### 1) Canonical Bitcoin address support (Issue #1 critical)
