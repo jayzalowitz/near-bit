@@ -276,6 +276,26 @@ Verification rerun (this continuation):
 
 Passed.
 
+## Incremental Update (2026-02-21, continued coin-control auth-depth)
+
+Additional logical commit pushed after the previous continuation:
+
+- `a6edfe43b`
+  - Extended auth-depth E2E checks for `lockunspent` coin-control write method:
+    - no-auth -> `401`
+    - wrong auth -> `401`
+    - correct auth -> `200` with structured JSON-RPC response.
+  - Added summary fields:
+    - `auth_lockunspent_noauth_http_code`
+    - `auth_lockunspent_wrong_http_code`
+    - `auth_lockunspent_ok_http_code`
+
+Verification rerun (this continuation):
+
+- `./scripts/e2e_testnet.sh`
+
+Passed.
+
 ## What was implemented in this change set
 
 ### 1) Canonical Bitcoin address support (Issue #1 critical)
