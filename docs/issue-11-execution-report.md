@@ -85,6 +85,37 @@ Verification reruns (this continued increment):
 
 All passed.
 
+## Incremental Update (2026-02-21, continued again)
+
+Additional logical commits pushed after the previous continuation:
+
+- `72e55693b`
+  - Added persistent quantum key registry (`~/.bitinfinity/quantum_keys.json`):
+    - load on btcrpc startup
+    - save on `addquantumkey` / `removequantumkey`.
+  - Added E2E assertion that registry file exists with expected key count.
+- `34d83994f`
+  - Hardened `removequantumkey` input validation:
+    - invalid keytype -> `-32602`
+    - invalid pubkey hex -> `-32602`.
+  - Added matching E2E checks.
+- `322294971`
+  - Added btcrpc unit tests for `removequantumkey` invalid keytype/hex rejection paths.
+- `55890728b`
+  - Extended E2E to restart btcrpc mid-run and verify quantum keys persist/reload after restart.
+- `e692dc447`
+  - Added `getblock` bool verbosity compatibility:
+    - `false` maps to verbosity `0`
+    - `true` maps to verbosity `1`.
+  - Added E2E checks for bool verbosity paths.
+
+Verification reruns (this continuation):
+
+- `cargo test -q -p bitinfinity-btcrpc`
+- `./scripts/e2e_testnet.sh`
+
+All passed.
+
 ## What was implemented in this change set
 
 ### 1) Canonical Bitcoin address support (Issue #1 critical)
