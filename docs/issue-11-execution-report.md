@@ -57,6 +57,34 @@ Verification reruns for this incremental set:
 
 All passed.
 
+## Incremental Update (2026-02-21, continued)
+
+Additional logical commits pushed after the above update:
+
+- `d19fca98f`
+  - Added E2E coverage for quantum-key RPC skeleton methods:
+    - `addquantumkey`, `removequantumkey`, `listquantumkeys`
+    - duplicate key rejection, invalid keytype rejection, max-keys rejection, remove-missing rejection.
+- `94b1a0c0d`
+  - Added `quantum_enforcement_active: false` to `getblockchaininfo` response (connected + fallback paths).
+  - E2E now asserts presence/value of this field.
+- `3dac363ce`
+  - Added E2E coverage for `getblockhash` valid path and out-of-range error path (`-8`).
+  - Added E2E unknown-hash error assertion for `getblock` (`-5`).
+- `a2a00acfe`
+  - Hardened quantum-key RPCs to validate Bitcoin address parameters:
+    - `addquantumkey`, `removequantumkey`, and `listquantumkeys` now return `-5` on invalid addresses.
+  - Added matching E2E invalid-address assertions for all three methods.
+- `cd485ce2c`
+  - Added E2E assertion that `addquantumkey` rejects invalid `pubkey_hex` with `-32602`.
+
+Verification reruns (this continued increment):
+
+- `cargo test -q -p bitinfinity-btcrpc`
+- `./scripts/e2e_testnet.sh`
+
+All passed.
+
 ## What was implemented in this change set
 
 ### 1) Canonical Bitcoin address support (Issue #1 critical)
