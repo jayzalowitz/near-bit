@@ -5532,6 +5532,24 @@ fn parse_psbt_input_maps(psbt_bytes: &[u8], num_inputs: usize) -> Vec<serde_json
     inputs
 }
 
+/// Return per-input partial-signature counts for a PSBT.
+fn psbt_input_signature_counts(psbt_bytes: &[u8]) -> Vec<usize> {
+    let (vin, _, _, _) = parse_psbt_unsigned_tx(psbt_bytes);
+    if vin.is_empty() {
+        return Vec::new();
+    }
+    parse_psbt_input_maps(psbt_bytes, vin.len())
+        .into_iter()
+        .map(|input| {
+            input
+                .get("partial_signatures")
+                .and_then(|v| v.as_object())
+                .map(|sigs| sigs.len())
+                .unwrap_or(0)
+        })
+        .collect()
+}
+
 /// Parse the unsigned transaction from PSBT bytes, returning (vin, vout, version, locktime).
 fn parse_psbt_unsigned_tx(
     psbt_bytes: &[u8],
@@ -5884,8 +5902,21 @@ fn handle_finalizepsbt(request: &JsonRpcRequest) -> JsonRpcResponse {
         );
     }
 
-    // Return the unsigned tx as the finalized hex (for our account-based model,
-    // the actual signing happens in sendrawtransaction when this hex is broadcast)
+    let signature_counts = psbt_input_signature_counts(&psbt_bytes);
+    let has_inputs = !signature_counts.is_empty();
+    let all_inputs_signed = has_inputs && signature_counts.iter().all(|count| *count > 0);
+    if !all_inputs_signed {
+        return ok_response(
+            &request.id,
+            json!({
+                "hex": "",
+                "complete": false,
+                "psbt": psbt_b64
+            }),
+        );
+    }
+
+    // All inputs are signed: return extractable tx hex.
     ok_response(
         &request.id,
         json!({
@@ -9432,18 +9463,58 @@ fn handle_onetry(request: &JsonRpcRequest) -> JsonRpcResponse {
 
 fn handle_analyzepsbt(request: &JsonRpcRequest) -> JsonRpcResponse {
     let psbt_str = get_str_param(&request.params, 0).unwrap_or("");
-    let psbt_bytes = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, psbt_str)
-        .unwrap_or_default();
-    let estimated_size = psbt_bytes.len();
-    let has_inputs = estimated_size > 10;
+    let psbt_bytes = match base64::Engine::decode(&base64::engine::general_purpose::STANDARD, psbt_str) {
+        Ok(bytes) => bytes,
+        Err(_) => {
+            return err_response(
+                &request.id,
+                -22,
+                "Invalid PSBT: base64 decode failed".to_string(),
+            )
+        }
+    };
+    if psbt_bytes.len() < 5 || &psbt_bytes[..5] != b"psbt\xff" {
+        return err_response(
+            &request.id,
+            -22,
+            "Invalid PSBT: missing magic bytes".to_string(),
+        );
+    }
+
+    let input_sig_counts = psbt_input_signature_counts(&psbt_bytes);
+    let all_inputs_signed =
+        !input_sig_counts.is_empty() && input_sig_counts.iter().all(|count| *count > 0);
+    let tx_hex = extract_unsigned_tx_hex(&psbt_bytes);
+    let estimated_vsize = tx_hex.len() / 2;
+
+    let inputs_json: Vec<serde_json::Value> = input_sig_counts
+        .iter()
+        .map(|count| {
+            let is_signed = *count > 0;
+            json!({
+                "has_utxo": true,
+                "is_final": is_signed,
+                "next": if is_signed { "finalizer" } else { "signer" }
+            })
+        })
+        .collect();
+
+    let next = if input_sig_counts.is_empty() {
+        "signer"
+    } else if all_inputs_signed {
+        "finalizer"
+    } else {
+        "signer"
+    };
+
     ok_response(
         &request.id,
         json!({
-            "inputs": if has_inputs { json!([{"has_utxo": true, "is_final": false, "next": "signer"}]) } else { json!([]) },
-            "estimated_vsize": estimated_size / 2,
+            "inputs": inputs_json,
+            "estimated_vsize": estimated_vsize,
             "estimated_feerate": 0.00001,
             "fee": 0.0000001,
-            "next": "signer"
+            "next": next
         }),
     )
 }
@@ -10506,9 +10577,12 @@ async fn main() {
 #[cfg(test)]
 mod tests {
     use super::{
-        derive_script_pub_key_hex, encode_bitcoin_varint, handle_createpsbt, handle_decodepsbt,
-        parse_patoshi_record_bytes, verify_bitcoin_message_signature, JsonRpcRequest,
+        derive_script_pub_key_hex, encode_bitcoin_varint, extract_unsigned_tx_hex,
+        handle_analyzepsbt, handle_createpsbt, handle_decodepsbt, handle_finalizepsbt,
+        parse_patoshi_record_bytes, verify_bitcoin_message_signature, write_compact_size,
+        JsonRpcRequest,
     };
+    use base64::Engine;
     use serde_json::json;
     use secp256k1::{Message, Secp256k1, SecretKey};
 
@@ -10679,6 +10753,159 @@ mod tests {
         assert_eq!(
             decoded_script, expected_script,
             "createpsbt output script should match derived scriptPubKey"
+        );
+    }
+
+    fn build_signed_psbt_for_test(unsigned_tx_hex: &str) -> String {
+        let tx_bytes = hex::decode(unsigned_tx_hex).expect("unsigned tx hex should decode");
+        let mut psbt = Vec::new();
+        psbt.extend_from_slice(b"psbt\xff");
+
+        // Global unsigned tx
+        psbt.push(0x01); // key len
+        psbt.push(0x00); // unsigned tx key
+        write_compact_size(&mut psbt, tx_bytes.len() as u64);
+        psbt.extend_from_slice(&tx_bytes);
+        psbt.push(0x00); // end global map
+
+        // Input map with one partial signature.
+        let pubkey = vec![0x02; 33];
+        write_compact_size(&mut psbt, (1 + pubkey.len()) as u64);
+        psbt.push(0x02); // PSBT_IN_PARTIAL_SIG
+        psbt.extend_from_slice(&pubkey);
+        let sig = vec![0x30, 0x06, 0x02, 0x01, 0x01, 0x02, 0x01, 0x01, 0x01];
+        write_compact_size(&mut psbt, sig.len() as u64);
+        psbt.extend_from_slice(&sig);
+        psbt.push(0x00); // end input map
+
+        // Output map (empty; createpsbt test tx has one output)
+        psbt.push(0x00);
+
+        use base64::Engine;
+        base64::engine::general_purpose::STANDARD.encode(psbt)
+    }
+
+    #[test]
+    fn test_finalizepsbt_requires_signed_inputs() {
+        let create_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(11),
+            method: "createpsbt".to_string(),
+            params: json!([
+                [{"txid": "11".repeat(32), "vout": 0}],
+                [{"1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa": 0.01}],
+                0,
+                true
+            ]),
+        };
+        let create_response = handle_createpsbt(&create_request);
+        let unsigned_psbt = create_response
+            .result
+            .as_ref()
+            .and_then(|v| v.as_str())
+            .expect("createpsbt should return PSBT")
+            .to_string();
+
+        let finalize_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(12),
+            method: "finalizepsbt".to_string(),
+            params: json!([unsigned_psbt]),
+        };
+        let finalize_response = handle_finalizepsbt(&finalize_request);
+        assert!(finalize_response.error.is_none(), "finalizepsbt should not error");
+        assert_eq!(
+            finalize_response
+                .result
+                .as_ref()
+                .and_then(|r| r.get("complete"))
+                .and_then(|v| v.as_bool()),
+            Some(false),
+            "unsigned PSBT should not finalize as complete"
+        );
+    }
+
+    #[test]
+    fn test_analyzepsbt_and_finalizepsbt_for_signed_input() {
+        let create_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(21),
+            method: "createpsbt".to_string(),
+            params: json!([
+                [{"txid": "22".repeat(32), "vout": 0}],
+                [{"1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa": 0.01}],
+                0,
+                true
+            ]),
+        };
+        let create_response = handle_createpsbt(&create_request);
+        let psbt_b64 = create_response
+            .result
+            .as_ref()
+            .and_then(|v| v.as_str())
+            .expect("createpsbt should return PSBT");
+        let psbt_bytes = base64::engine::general_purpose::STANDARD
+            .decode(psbt_b64)
+            .expect("PSBT should decode");
+        let unsigned_tx_hex = extract_unsigned_tx_hex(&psbt_bytes);
+        assert!(!unsigned_tx_hex.is_empty(), "unsigned tx hex must be present");
+        let signed_psbt = build_signed_psbt_for_test(&unsigned_tx_hex);
+
+        let analyze_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(22),
+            method: "analyzepsbt".to_string(),
+            params: json!([signed_psbt.clone()]),
+        };
+        let analyze_response = handle_analyzepsbt(&analyze_request);
+        assert!(analyze_response.error.is_none(), "analyzepsbt should not error");
+        assert_eq!(
+            analyze_response
+                .result
+                .as_ref()
+                .and_then(|r| r.get("next"))
+                .and_then(|v| v.as_str()),
+            Some("finalizer"),
+            "signed PSBT should report finalizer step"
+        );
+        assert_eq!(
+            analyze_response
+                .result
+                .as_ref()
+                .and_then(|r| r.get("inputs"))
+                .and_then(|v| v.get(0))
+                .and_then(|i| i.get("is_final"))
+                .and_then(|v| v.as_bool()),
+            Some(true),
+            "signed input should be marked final"
+        );
+
+        let finalize_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(23),
+            method: "finalizepsbt".to_string(),
+            params: json!([signed_psbt]),
+        };
+        let finalize_response = handle_finalizepsbt(&finalize_request);
+        assert!(finalize_response.error.is_none(), "finalizepsbt should not error");
+        assert_eq!(
+            finalize_response
+                .result
+                .as_ref()
+                .and_then(|r| r.get("complete"))
+                .and_then(|v| v.as_bool()),
+            Some(true),
+            "signed PSBT should finalize as complete"
+        );
+        assert!(
+            finalize_response
+                .result
+                .as_ref()
+                .and_then(|r| r.get("hex"))
+                .and_then(|v| v.as_str())
+                .map(|h| !h.is_empty())
+                .unwrap_or(false),
+            "finalized PSBT should include tx hex"
         );
     }
 }
