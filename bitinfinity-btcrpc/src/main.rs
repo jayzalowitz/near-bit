@@ -5718,6 +5718,38 @@ fn parse_raw_tx_for_psbt(tx: &[u8]) -> (Vec<serde_json::Value>, Vec<serde_json::
     (vin, vout, version, locktime)
 }
 
+fn parse_psbt_output_pairs(outputs_param: Option<&serde_json::Value>) -> Vec<(String, f64)> {
+    let mut output_pairs = Vec::new();
+    match outputs_param {
+        Some(serde_json::Value::Array(outs)) => {
+            for out_obj in outs {
+                if let Some(obj) = out_obj.as_object() {
+                    for (addr, amount_val) in obj {
+                        if addr == "data" {
+                            continue;
+                        }
+                        if let Some(amt) = amount_val.as_f64() {
+                            output_pairs.push((addr.clone(), amt));
+                        }
+                    }
+                }
+            }
+        }
+        Some(serde_json::Value::Object(obj)) => {
+            for (addr, amount_val) in obj {
+                if addr == "data" {
+                    continue;
+                }
+                if let Some(amt) = amount_val.as_f64() {
+                    output_pairs.push((addr.clone(), amt));
+                }
+            }
+        }
+        _ => {}
+    }
+    output_pairs
+}
+
 async fn handle_walletcreatefundedpsbt(
     state: &RpcState,
     request: &JsonRpcRequest,
@@ -5729,11 +5761,7 @@ async fn handle_walletcreatefundedpsbt(
         .as_array()
         .and_then(|arr| arr.get(0))
         .and_then(|v| v.as_array());
-    let outputs = request
-        .params
-        .as_array()
-        .and_then(|arr| arr.get(1))
-        .and_then(|v| v.as_array());
+    let outputs = request.params.as_array().and_then(|arr| arr.get(1));
     let locktime = request
         .params
         .as_array()
@@ -5742,21 +5770,7 @@ async fn handle_walletcreatefundedpsbt(
         .unwrap_or(0) as u32;
 
     // Parse outputs: [{addr: amount}, ...]
-    let mut output_pairs: Vec<(String, f64)> = Vec::new();
-    if let Some(outs) = outputs {
-        for out_obj in outs {
-            if let Some(obj) = out_obj.as_object() {
-                for (addr, amount_val) in obj {
-                    if addr == "data" {
-                        continue;
-                    } // skip OP_RETURN
-                    if let Some(amt) = amount_val.as_f64() {
-                        output_pairs.push((addr.clone(), amt));
-                    }
-                }
-            }
-        }
-    }
+    let output_pairs = parse_psbt_output_pairs(outputs);
 
     let total_output: f64 = output_pairs.iter().map(|(_, a)| a).sum();
     let fee_btc = 0.00001_f64;
@@ -8818,11 +8832,11 @@ fn handle_createpsbt(request: &JsonRpcRequest) -> JsonRpcResponse {
     // Build a minimal PSBT: magic + global unsigned tx + empty input/output maps
     use base64::Engine;
     let inputs = request.params.get(0).and_then(|v| v.as_array());
-    let outputs = request.params.get(1).and_then(|v| v.as_array());
+    let output_pairs = parse_psbt_output_pairs(request.params.get(1));
     let locktime = request.params.get(2).and_then(|v| v.as_u64()).unwrap_or(0) as u32;
 
     let num_inputs = inputs.map(|i| i.len()).unwrap_or(0);
-    let num_outputs = outputs.map(|o| o.len()).unwrap_or(0);
+    let num_outputs = output_pairs.len();
 
     // Build unsigned transaction
     let mut unsigned_tx: Vec<u8> = Vec::new();
@@ -8853,31 +8867,24 @@ fn handle_createpsbt(request: &JsonRpcRequest) -> JsonRpcResponse {
     }
     // output count (varint)
     unsigned_tx.push(num_outputs as u8);
-    if let Some(outs) = outputs {
-        for out_obj in outs {
-            if let Some(obj) = out_obj.as_object() {
-                for (addr, amount_val) in obj {
-                    let btc_amount = amount_val.as_f64().unwrap_or(0.0);
-                    let satoshis = (btc_amount * 100_000_000.0) as u64;
-                    unsigned_tx.extend_from_slice(&satoshis.to_le_bytes());
-                    let hrp_guess = addr
-                        .split_once('1')
-                        .map(|(prefix, _)| prefix)
-                        .filter(|prefix| !prefix.is_empty())
-                        .unwrap_or("bc");
-                    let script_hex = derive_script_pub_key_hex(addr, hrp_guess);
-                    if script_hex.is_empty() {
-                        unsigned_tx.push(0x00);
-                    } else {
-                        match hex::decode(&script_hex) {
-                            Ok(script_bytes) => {
-                                write_compact_size(&mut unsigned_tx, script_bytes.len() as u64);
-                                unsigned_tx.extend_from_slice(&script_bytes);
-                            }
-                            Err(_) => unsigned_tx.push(0x00),
-                        }
-                    }
+    for (addr, btc_amount) in &output_pairs {
+        let satoshis = (*btc_amount * 100_000_000.0) as u64;
+        unsigned_tx.extend_from_slice(&satoshis.to_le_bytes());
+        let hrp_guess = addr
+            .split_once('1')
+            .map(|(prefix, _)| prefix)
+            .filter(|prefix| !prefix.is_empty())
+            .unwrap_or("bc");
+        let script_hex = derive_script_pub_key_hex(addr, hrp_guess);
+        if script_hex.is_empty() {
+            unsigned_tx.push(0x00);
+        } else {
+            match hex::decode(&script_hex) {
+                Ok(script_bytes) => {
+                    write_compact_size(&mut unsigned_tx, script_bytes.len() as u64);
+                    unsigned_tx.extend_from_slice(&script_bytes);
                 }
+                Err(_) => unsigned_tx.push(0x00),
             }
         }
     }
@@ -10801,6 +10808,53 @@ mod tests {
         assert_eq!(
             decoded_script, expected_script,
             "createpsbt output script should match derived scriptPubKey"
+        );
+    }
+
+    #[test]
+    fn test_createpsbt_accepts_object_outputs_and_counts_all_outputs() {
+        let dummy_txid = "ab".repeat(32);
+        let create_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(3),
+            method: "createpsbt".to_string(),
+            params: json!([
+                [{"txid": dummy_txid, "vout": 0}],
+                {
+                    "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa": 0.01,
+                    "3J98t1WpEZ73CNmQviecrnyiWrnqRhWNLy": 0.02
+                },
+                0,
+                true
+            ]),
+        };
+
+        let create_response = handle_createpsbt(&create_request);
+        assert!(create_response.error.is_none(), "createpsbt should not fail");
+        let psbt_b64 = create_response
+            .result
+            .as_ref()
+            .and_then(|v| v.as_str())
+            .expect("createpsbt should return PSBT base64");
+
+        let decode_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(4),
+            method: "decodepsbt".to_string(),
+            params: json!([psbt_b64]),
+        };
+        let decode_response = handle_decodepsbt(&decode_request);
+        assert!(decode_response.error.is_none(), "decodepsbt should not fail");
+        assert_eq!(
+            decode_response
+                .result
+                .as_ref()
+                .and_then(|r| r.get("tx"))
+                .and_then(|tx| tx.get("vout"))
+                .and_then(|vout| vout.as_array())
+                .map(|v| v.len()),
+            Some(2),
+            "createpsbt should preserve all object-form outputs"
         );
     }
 
