@@ -10822,6 +10822,15 @@ mod tests {
             Some(false),
             "unsigned PSBT should not finalize as complete"
         );
+        assert_eq!(
+            finalize_response
+                .result
+                .as_ref()
+                .and_then(|r| r.get("hex"))
+                .and_then(|v| v.as_str()),
+            Some(""),
+            "unsigned PSBT finalize should return empty hex"
+        );
     }
 
     #[test]
@@ -10889,6 +10898,41 @@ mod tests {
             analyze_response.error.as_ref().map(|e| e.code),
             Some(-22),
             "invalid PSBT base64 should return decode error code"
+        );
+    }
+
+    #[test]
+    fn test_finalizepsbt_rejects_invalid_base64() {
+        let finalize_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(51),
+            method: "finalizepsbt".to_string(),
+            params: json!(["***not-base64***"]),
+        };
+        let finalize_response = handle_finalizepsbt(&finalize_request);
+        assert!(finalize_response.result.is_none(), "invalid psbt should not produce result");
+        assert_eq!(
+            finalize_response.error.as_ref().map(|e| e.code),
+            Some(-22),
+            "invalid PSBT base64 should return decode error code"
+        );
+    }
+
+    #[test]
+    fn test_finalizepsbt_rejects_missing_magic() {
+        let bad_psbt = base64::engine::general_purpose::STANDARD.encode(b"not-a-psbt");
+        let finalize_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(52),
+            method: "finalizepsbt".to_string(),
+            params: json!([bad_psbt]),
+        };
+        let finalize_response = handle_finalizepsbt(&finalize_request);
+        assert!(finalize_response.result.is_none(), "invalid psbt should not produce result");
+        assert_eq!(
+            finalize_response.error.as_ref().map(|e| e.code),
+            Some(-22),
+            "missing magic should return decode error code"
         );
     }
 
