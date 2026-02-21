@@ -320,10 +320,22 @@ if [[ "$QKEY_INVALID_ADDR_REMOVE_ERROR_CODE" != "-5" ]]; then
   exit 1
 fi
 
-QKEY_ADD1_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"quantum-add-1\",\"method\":\"addquantumkey\",\"params\":[\"$FUNDED_ADDR\",\"dilithium3\",\"$QKEY1_HEX\"]}" \
+QKEY_ADD1_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"quantum-add-1\",\"method\":\"addquantumkey\",\"params\":[\"$QKEY_LEGACY_ADDR\",\"dilithium3\",\"$QKEY1_HEX\"]}" \
   | tee "$ARTIFACT_DIR/btc_quantum_add1_response.json")"
 if [[ "$(echo "$QKEY_ADD1_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
   echo "addquantumkey failed for key 1" >&2
+  exit 1
+fi
+
+QKEY_LIST_AFTER_ALIAS_ADD_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"quantum-list-after-alias-add\",\"method\":\"listquantumkeys\",\"params\":[\"$FUNDED_ADDR\"]}" \
+  | tee "$ARTIFACT_DIR/btc_quantum_list_after_alias_add_response.json")"
+QKEY_AFTER_ALIAS_ADD_COUNT="$(echo "$QKEY_LIST_AFTER_ALIAS_ADD_RESPONSE" | jq -r '.result.quantum_keys | length')"
+if [[ "$(echo "$QKEY_LIST_AFTER_ALIAS_ADD_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "listquantumkeys canonical query failed after lowercase-alias add" >&2
+  exit 1
+fi
+if [[ "$QKEY_AFTER_ALIAS_ADD_COUNT" -ne 1 ]]; then
+  echo "listquantumkeys canonical query expected 1 key after lowercase-alias add (got: $QKEY_AFTER_ALIAS_ADD_COUNT)" >&2
   exit 1
 fi
 
@@ -1592,6 +1604,7 @@ walletcreate_while_locked_error_code=$WCF_WHILE_LOCKED_ERROR_CODE
 access_key_count=$ACCESS_KEY_COUNT
 getaddressinfo_invalid_error_code=$ADDRESSINFO_INVALID_ERROR_CODE
 quantum_initial_count=$QKEY_INITIAL_COUNT
+quantum_after_alias_add_count=$QKEY_AFTER_ALIAS_ADD_COUNT
 quantum_after_add_count=$QKEY_ADDED_COUNT
 quantum_alias_count=$QKEY_ALIAS_COUNT
 quantum_after_remove_count=$QKEY_REMOVED_COUNT
