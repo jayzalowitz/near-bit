@@ -380,6 +380,14 @@ if [[ "$GETRAW_UNKNOWN_ERROR_CODE" != "-5" ]]; then
   exit 1
 fi
 
+LOCK_MISSING_TXOS_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"lockunspent-missing-txos","method":"lockunspent","params":[false]}' \
+  | tee "$ARTIFACT_DIR/btc_lockunspent_missing_txos_response.json")"
+LOCK_MISSING_TXOS_ERROR_CODE="$(echo "$LOCK_MISSING_TXOS_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$LOCK_MISSING_TXOS_ERROR_CODE" != "-32602" ]]; then
+  echo "lockunspent missing-txos path did not return -32602 (got: $LOCK_MISSING_TXOS_ERROR_CODE)" >&2
+  exit 1
+fi
+
 LOCK_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"lockunspent-lock\",\"method\":\"lockunspent\",\"params\":[false,[{\"txid\":\"$LOCK_TXID\",\"vout\":$LOCK_VOUT}]]}" \
   | tee "$ARTIFACT_DIR/btc_lockunspent_lock_response.json")"
 if [[ "$(echo "$LOCK_RESPONSE" | jq -r '.result // false')" != "true" ]]; then
@@ -961,6 +969,7 @@ getrawtransaction_unknown_error_code=$GETRAW_UNKNOWN_ERROR_CODE
 getblockheader_unknown_error_code=$BLOCKHEADER_UNKNOWN_ERROR_CODE
 scantxoutset_invalid_error_code=$SCANTXOUTSET_INVALID_ERROR_CODE
 listunspent_invalid_range_error_code=$LISTUNSPENT_INVALID_ERROR_CODE
+lockunspent_missing_txos_error_code=$LOCK_MISSING_TXOS_ERROR_CODE
 auth_noauth_http_code=$AUTH_NOAUTH_CODE
 auth_wrong_http_code=$AUTH_WRONG_CODE
 auth_ok_result=$AUTH_OK_RESULT
