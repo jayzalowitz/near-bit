@@ -5240,7 +5240,6 @@ async fn handle_getblockstats(state: &RpcState, request: &JsonRpcRequest) -> Jso
 
 /// scantxoutset - scan UTXO set for descriptors (returns wallet balances)
 async fn handle_scantxoutset(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
-    use sha2::Digest as _;
     let action = get_str_param(&request.params, 0).unwrap_or("start");
 
     if action != "start" && action != "status" && action != "abort" {
@@ -5312,7 +5311,7 @@ async fn handle_scantxoutset(state: &RpcState, request: &JsonRpcRequest) -> Json
                 total += btc;
                 let spk = derive_script_pub_key_hex(addr, hrp);
                 utxos.push(json!({
-                    "txid": hex::encode(sha2::Sha256::digest(format!("utxo:{}:{}", addr, block_height).as_bytes())),
+                    "txid": SyntheticUtxo::txid_for_account(addr),
                     "vout": 0,
                     "scriptPubKey": spk,
                     "desc": format!("addr({})", addr),
