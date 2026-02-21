@@ -380,6 +380,25 @@ if [[ "$(echo "$CREATE_PSBT_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
   exit 1
 fi
 
+CREATE_PSBT_OBJECT_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"create-psbt-object-outputs\",\"method\":\"createpsbt\",\"params\":[[{\"txid\":\"$LOCK_TXID\",\"vout\":$LOCK_VOUT}],{\"$SATOSHI_ADDR\":0.003,\"$FUNDED_ADDR\":0.002},0,true]}" \
+  | tee "$ARTIFACT_DIR/btc_createpsbt_object_outputs_response.json")"
+CREATED_OBJECT_PSBT="$(echo "$CREATE_PSBT_OBJECT_RESPONSE" | jq -r '.result // empty')"
+if [[ -z "$CREATED_OBJECT_PSBT" ]]; then
+  echo "createpsbt (object outputs) returned empty result" >&2
+  exit 1
+fi
+if [[ "$(echo "$CREATE_PSBT_OBJECT_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "createpsbt (object outputs) failed" >&2
+  exit 1
+fi
+DECODE_OBJECT_PSBT_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"decodepsbt-object-outputs\",\"method\":\"decodepsbt\",\"params\":[\"$CREATED_OBJECT_PSBT\"]}" \
+  | tee "$ARTIFACT_DIR/btc_decodepsbt_object_outputs_response.json")"
+OBJECT_PSBT_VOUT_COUNT="$(echo "$DECODE_OBJECT_PSBT_RESPONSE" | jq -r '.result.tx.vout | length')"
+if [[ "$OBJECT_PSBT_VOUT_COUNT" -ne 2 ]]; then
+  echo "createpsbt object outputs did not produce 2 outputs (got: $OBJECT_PSBT_VOUT_COUNT)" >&2
+  exit 1
+fi
+
 WCF_PSBT_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"walletcreatefundedpsbt\",\"method\":\"walletcreatefundedpsbt\",\"params\":[[],[{\"$SATOSHI_ADDR\":$SEND_AMOUNT_PSBT}],0,{}]}" \
   | tee "$ARTIFACT_DIR/btc_walletcreatefundedpsbt_response.json")"
 FUNDED_PSBT="$(echo "$WCF_PSBT_RESPONSE" | jq -r '.result.psbt // empty')"
@@ -772,6 +791,7 @@ txid2=$TXID2
 raw_replay_mode=$RAW_REPLAY_MODE
 raw_replay_error=$RAW_REPLAY_ERROR
 psbt_create_len=${#CREATED_PSBT}
+psbt_create_object_vout_count=$OBJECT_PSBT_VOUT_COUNT
 psbt_funded_len=${#FUNDED_PSBT}
 psbt_funded_input_txid=$FUNDED_PSBT_INPUT_TXID
 psbt_walletcreate_insufficient_error_code=$WCF_PSBT_INSUFFICIENT_ERROR_CODE
