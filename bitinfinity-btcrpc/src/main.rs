@@ -5927,8 +5927,8 @@ fn handle_finalizepsbt(request: &JsonRpcRequest) -> JsonRpcResponse {
 }
 
 fn handle_combinepsbt(request: &JsonRpcRequest) -> JsonRpcResponse {
-    // Combine multiple PSBTs — merge partial signatures from each PSBT.
-    // In our single-signer model, the first PSBT with signature data is the combined result.
+    // Combine multiple PSBTs — prefer candidates with more partial signatures.
+    // Tie-breaker: larger payload size.
     let psbt_array = request
         .params
         .as_array()
@@ -5944,9 +5944,41 @@ fn handle_combinepsbt(request: &JsonRpcRequest) -> JsonRpcResponse {
         return err_response(&request.id, -32602, "Empty PSBTs array".to_string());
     }
 
-    // Return the longest PSBT (likely has the most signature data)
-    let best = psbts.iter().max_by_key(|p| p.len()).unwrap_or(&"");
-    ok_response(&request.id, json!(best))
+    let mut best: Option<(&str, usize, usize)> = None; // (psbt, total_signatures, len)
+
+    for psbt in psbts {
+        let bytes = match base64_decode(psbt) {
+            Ok(bytes) => bytes,
+            Err(_) => continue,
+        };
+        if bytes.len() < 5 || &bytes[..5] != b"psbt\xff" {
+            continue;
+        }
+
+        let total_signatures: usize = psbt_input_signature_counts(&bytes).iter().sum();
+        let candidate = (psbt, total_signatures, psbt.len());
+
+        match best {
+            Some((_, best_sigs, best_len)) => {
+                if total_signatures > best_sigs
+                    || (total_signatures == best_sigs && psbt.len() > best_len)
+                {
+                    best = Some(candidate);
+                }
+            }
+            None => best = Some(candidate),
+        }
+    }
+
+    let Some((best_psbt, _, _)) = best else {
+        return err_response(
+            &request.id,
+            -22,
+            "Invalid PSBT: no valid candidates".to_string(),
+        );
+    };
+
+    ok_response(&request.id, json!(best_psbt))
 }
 
 /// deriveaddresses - derive addresses from a descriptor
@@ -10577,7 +10609,8 @@ async fn main() {
 mod tests {
     use super::{
         derive_script_pub_key_hex, encode_bitcoin_varint, extract_unsigned_tx_hex,
-        handle_analyzepsbt, handle_createpsbt, handle_decodepsbt, handle_finalizepsbt,
+        handle_analyzepsbt, handle_combinepsbt, handle_createpsbt, handle_decodepsbt,
+        handle_finalizepsbt,
         parse_patoshi_record_bytes, verify_bitcoin_message_signature, write_compact_size,
         JsonRpcRequest,
     };
@@ -10784,6 +10817,33 @@ mod tests {
         base64::engine::general_purpose::STANDARD.encode(psbt)
     }
 
+    fn build_unsigned_psbt_with_unknown_input_field(unsigned_tx_hex: &str, extra_len: usize) -> String {
+        let tx_bytes = hex::decode(unsigned_tx_hex).expect("unsigned tx hex should decode");
+        let mut psbt = Vec::new();
+        psbt.extend_from_slice(b"psbt\xff");
+
+        // Global unsigned tx
+        psbt.push(0x01); // key len
+        psbt.push(0x00); // unsigned tx key
+        write_compact_size(&mut psbt, tx_bytes.len() as u64);
+        psbt.extend_from_slice(&tx_bytes);
+        psbt.push(0x00); // end global map
+
+        // Input map with unknown key/value pair but no partial signatures.
+        write_compact_size(&mut psbt, 1);
+        psbt.push(0x50); // unknown key type
+        let filler = vec![0xAA; extra_len];
+        write_compact_size(&mut psbt, filler.len() as u64);
+        psbt.extend_from_slice(&filler);
+        psbt.push(0x00); // end input map
+
+        // Output map (empty; createpsbt test tx has one output)
+        psbt.push(0x00);
+
+        use base64::Engine;
+        base64::engine::general_purpose::STANDARD.encode(psbt)
+    }
+
     #[test]
     fn test_finalizepsbt_requires_signed_inputs() {
         let create_request = JsonRpcRequest {
@@ -10898,6 +10958,75 @@ mod tests {
             analyze_response.error.as_ref().map(|e| e.code),
             Some(-22),
             "invalid PSBT base64 should return decode error code"
+        );
+    }
+
+    #[test]
+    fn test_combinepsbt_prefers_more_signatures_over_larger_payload() {
+        let create_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(46),
+            method: "createpsbt".to_string(),
+            params: json!([
+                [{"txid": "44".repeat(32), "vout": 0}],
+                [{"1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa": 0.01}],
+                0,
+                true
+            ]),
+        };
+        let create_response = handle_createpsbt(&create_request);
+        let psbt_b64 = create_response
+            .result
+            .as_ref()
+            .and_then(|v| v.as_str())
+            .expect("createpsbt should return PSBT");
+        let psbt_bytes = base64::engine::general_purpose::STANDARD
+            .decode(psbt_b64)
+            .expect("PSBT should decode");
+        let unsigned_tx_hex = extract_unsigned_tx_hex(&psbt_bytes);
+        assert!(!unsigned_tx_hex.is_empty(), "unsigned tx hex must be present");
+
+        let signed_psbt = build_signed_psbt_for_test(&unsigned_tx_hex);
+        let bloated_unsigned_psbt =
+            build_unsigned_psbt_with_unknown_input_field(&unsigned_tx_hex, 128);
+        assert!(
+            bloated_unsigned_psbt.len() > signed_psbt.len(),
+            "unsigned candidate should be larger for tie-break coverage"
+        );
+
+        let combine_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(47),
+            method: "combinepsbt".to_string(),
+            params: json!([[bloated_unsigned_psbt, signed_psbt.clone()]]),
+        };
+        let combine_response = handle_combinepsbt(&combine_request);
+        assert!(combine_response.error.is_none(), "combinepsbt should not error");
+        assert_eq!(
+            combine_response
+                .result
+                .as_ref()
+                .and_then(|v| v.as_str()),
+            Some(signed_psbt.as_str()),
+            "combinepsbt should prefer the PSBT with more signatures"
+        );
+    }
+
+    #[test]
+    fn test_combinepsbt_rejects_when_all_candidates_invalid() {
+        let not_psbt_b64 = base64::engine::general_purpose::STANDARD.encode(b"not-a-psbt");
+        let combine_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(48),
+            method: "combinepsbt".to_string(),
+            params: json!([["***not-base64***", not_psbt_b64, ""]]),
+        };
+        let combine_response = handle_combinepsbt(&combine_request);
+        assert!(combine_response.result.is_none(), "invalid psbts should not produce result");
+        assert_eq!(
+            combine_response.error.as_ref().map(|e| e.code),
+            Some(-22),
+            "all invalid candidates should return invalid PSBT error"
         );
     }
 
