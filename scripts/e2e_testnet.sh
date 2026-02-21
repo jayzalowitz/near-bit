@@ -417,6 +417,7 @@ fi
 
 FINALIZE_UNSIGNED_PSBT_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"finalizepsbt-unsigned\",\"method\":\"finalizepsbt\",\"params\":[\"$FUNDED_PSBT\"]}" \
   | tee "$ARTIFACT_DIR/btc_finalizepsbt_unsigned_response.json")"
+FINALIZE_UNSIGNED_HEX="$(echo "$FINALIZE_UNSIGNED_PSBT_RESPONSE" | jq -r '.result.hex // empty')"
 FINALIZE_UNSIGNED_COMPLETE="$(echo "$FINALIZE_UNSIGNED_PSBT_RESPONSE" | jq -r '.result.complete')"
 if [[ "$(echo "$FINALIZE_UNSIGNED_PSBT_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
   echo "finalizepsbt failed for unsigned funded psbt" >&2
@@ -424,6 +425,10 @@ if [[ "$(echo "$FINALIZE_UNSIGNED_PSBT_RESPONSE" | jq -r '.error // empty')" != 
 fi
 if [[ "$FINALIZE_UNSIGNED_COMPLETE" != "false" ]]; then
   echo "finalizepsbt expected complete=false for unsigned funded psbt" >&2
+  exit 1
+fi
+if [[ -n "$FINALIZE_UNSIGNED_HEX" ]]; then
+  echo "finalizepsbt expected empty hex for unsigned funded psbt" >&2
   exit 1
 fi
 
@@ -465,6 +470,23 @@ fi
 SIGNED_PSBT_SIG_COUNT="$(echo "$DECODE_SIGNED_PSBT_RESPONSE" | jq '[.result.inputs[]? | (.partial_signatures // {}) | length] | add // 0')"
 if [[ "$SIGNED_PSBT_SIG_COUNT" -lt 1 ]]; then
   echo "signed psbt decode showed no partial_signatures" >&2
+  exit 1
+fi
+
+ANALYZE_SIGNED_PSBT_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"analyzepsbt-signed\",\"method\":\"analyzepsbt\",\"params\":[\"$SIGNED_PSBT\"]}" \
+  | tee "$ARTIFACT_DIR/btc_analyzepsbt_signed_response.json")"
+if [[ "$(echo "$ANALYZE_SIGNED_PSBT_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "analyzepsbt failed for signed psbt" >&2
+  exit 1
+fi
+ANALYZE_SIGNED_NEXT="$(echo "$ANALYZE_SIGNED_PSBT_RESPONSE" | jq -r '.result.next // empty')"
+ANALYZE_SIGNED_IS_FINAL="$(echo "$ANALYZE_SIGNED_PSBT_RESPONSE" | jq -r '.result.inputs[0].is_final // false')"
+if [[ "$ANALYZE_SIGNED_NEXT" != "finalizer" ]]; then
+  echo "analyzepsbt expected next=finalizer after signing, got: $ANALYZE_SIGNED_NEXT" >&2
+  exit 1
+fi
+if [[ "$ANALYZE_SIGNED_IS_FINAL" != "true" ]]; then
+  echo "analyzepsbt expected first signed input to be final" >&2
   exit 1
 fi
 
@@ -692,8 +714,11 @@ psbt_create_len=${#CREATED_PSBT}
 psbt_funded_len=${#FUNDED_PSBT}
 psbt_analyze_next_unsigned=$ANALYZE_PSBT_NEXT
 psbt_finalize_unsigned_complete=$FINALIZE_UNSIGNED_COMPLETE
+psbt_finalize_unsigned_hex_len=${#FINALIZE_UNSIGNED_HEX}
 psbt_signed_complete=$SIGNED_PSBT_COMPLETE
 psbt_signed_sig_count=$SIGNED_PSBT_SIG_COUNT
+psbt_analyze_next_signed=$ANALYZE_SIGNED_NEXT
+psbt_analyze_signed_input0_final=$ANALYZE_SIGNED_IS_FINAL
 psbt_finalize_complete=$FINALIZED_PSBT_COMPLETE
 psbt_final_hex_len=${#FINALIZED_PSBT_HEX}
 lock_txid=$LOCK_TXID
