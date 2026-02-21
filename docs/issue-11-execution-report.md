@@ -313,6 +313,26 @@ Verification rerun (this continuation):
 
 Passed.
 
+## Incremental Update (2026-02-21, continued signing auth-depth)
+
+Additional logical commit pushed after the previous continuation:
+
+- `6618541b2`
+  - Extended auth-depth E2E checks for `signrawtransactionwithwallet`:
+    - no-auth -> `401`
+    - wrong auth -> `401`
+    - correct auth -> `200` with structured JSON-RPC response.
+  - Added summary fields:
+    - `auth_signraw_noauth_http_code`
+    - `auth_signraw_wrong_http_code`
+    - `auth_signraw_ok_http_code`
+
+Verification rerun (this continuation):
+
+- `./scripts/e2e_testnet.sh`
+
+Passed.
+
 ## What was implemented in this change set
 
 ### 1) Canonical Bitcoin address support (Issue #1 critical)
