@@ -9742,19 +9742,9 @@ fn handle_importwallet(request: &JsonRpcRequest) -> JsonRpcResponse {
 }
 
 fn handle_joinpsbts(request: &JsonRpcRequest) -> JsonRpcResponse {
-    // Join PSBTs: return the first one (simplification)
-    let psbts = request
-        .params
-        .as_array()
-        .and_then(|arr| arr.first())
-        .and_then(|v| v.as_array());
-    match psbts {
-        Some(arr) if !arr.is_empty() => {
-            let first = arr.first().and_then(|v| v.as_str()).unwrap_or("");
-            ok_response(&request.id, json!(first))
-        }
-        _ => err_response(&request.id, -32602, "Missing PSBTs array".to_string()),
-    }
+    // In our account-based single-signer model, prefer the most-complete PSBT candidate.
+    // This mirrors combinepsbt behavior and avoids returning invalid or less-signed payloads.
+    handle_combinepsbt(request)
 }
 
 fn handle_listbanned(request: &JsonRpcRequest) -> JsonRpcResponse {
@@ -10610,7 +10600,7 @@ mod tests {
     use super::{
         derive_script_pub_key_hex, encode_bitcoin_varint, extract_unsigned_tx_hex,
         handle_analyzepsbt, handle_combinepsbt, handle_createpsbt, handle_decodepsbt,
-        handle_finalizepsbt,
+        handle_finalizepsbt, handle_joinpsbts,
         parse_patoshi_record_bytes, verify_bitcoin_message_signature, write_compact_size,
         JsonRpcRequest,
     };
@@ -11031,10 +11021,76 @@ mod tests {
     }
 
     #[test]
+    fn test_joinpsbts_prefers_more_signatures_over_larger_payload() {
+        let create_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(49),
+            method: "createpsbt".to_string(),
+            params: json!([
+                [{"txid": "55".repeat(32), "vout": 0}],
+                [{"1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa": 0.01}],
+                0,
+                true
+            ]),
+        };
+        let create_response = handle_createpsbt(&create_request);
+        let psbt_b64 = create_response
+            .result
+            .as_ref()
+            .and_then(|v| v.as_str())
+            .expect("createpsbt should return PSBT");
+        let psbt_bytes = base64::engine::general_purpose::STANDARD
+            .decode(psbt_b64)
+            .expect("PSBT should decode");
+        let unsigned_tx_hex = extract_unsigned_tx_hex(&psbt_bytes);
+        assert!(!unsigned_tx_hex.is_empty(), "unsigned tx hex must be present");
+
+        let signed_psbt = build_signed_psbt_for_test(&unsigned_tx_hex);
+        let bloated_unsigned_psbt =
+            build_unsigned_psbt_with_unknown_input_field(&unsigned_tx_hex, 128);
+        assert!(
+            bloated_unsigned_psbt.len() > signed_psbt.len(),
+            "unsigned candidate should be larger for tie-break coverage"
+        );
+
+        let join_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(50),
+            method: "joinpsbts".to_string(),
+            params: json!([[bloated_unsigned_psbt, signed_psbt.clone()]]),
+        };
+        let join_response = handle_joinpsbts(&join_request);
+        assert!(join_response.error.is_none(), "joinpsbts should not error");
+        assert_eq!(
+            join_response.result.as_ref().and_then(|v| v.as_str()),
+            Some(signed_psbt.as_str()),
+            "joinpsbts should prefer the PSBT with more signatures"
+        );
+    }
+
+    #[test]
+    fn test_joinpsbts_rejects_when_all_candidates_invalid() {
+        let not_psbt_b64 = base64::engine::general_purpose::STANDARD.encode(b"not-a-psbt");
+        let join_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(51),
+            method: "joinpsbts".to_string(),
+            params: json!([["***not-base64***", not_psbt_b64, ""]]),
+        };
+        let join_response = handle_joinpsbts(&join_request);
+        assert!(join_response.result.is_none(), "invalid psbts should not produce result");
+        assert_eq!(
+            join_response.error.as_ref().map(|e| e.code),
+            Some(-22),
+            "all invalid candidates should return invalid PSBT error"
+        );
+    }
+
+    #[test]
     fn test_finalizepsbt_rejects_invalid_base64() {
         let finalize_request = JsonRpcRequest {
             jsonrpc: "2.0".to_string(),
-            id: json!(51),
+            id: json!(52),
             method: "finalizepsbt".to_string(),
             params: json!(["***not-base64***"]),
         };
@@ -11052,7 +11108,7 @@ mod tests {
         let bad_psbt = base64::engine::general_purpose::STANDARD.encode(b"not-a-psbt");
         let finalize_request = JsonRpcRequest {
             jsonrpc: "2.0".to_string(),
-            id: json!(52),
+            id: json!(53),
             method: "finalizepsbt".to_string(),
             params: json!([bad_psbt]),
         };
