@@ -315,6 +315,11 @@ if [[ "$(echo "$SCANTXOUTSET_RESPONSE" | jq -r '.result.success // false')" != "
   echo "scantxoutset did not report success" >&2
   exit 1
 fi
+SCANTXOUTSET_TXID="$(echo "$SCANTXOUTSET_RESPONSE" | jq -r '.result.unspents[0].txid // empty')"
+if [[ -z "$SCANTXOUTSET_TXID" ]]; then
+  echo "scantxoutset did not return a txid for funded descriptor" >&2
+  exit 1
+fi
 
 SCANTXOUTSET_INVALID_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"scan-invalid","method":"scantxoutset","params":["nonsense",[]]}' \
   | tee "$ARTIFACT_DIR/btc_scantxoutset_invalid_response.json")"
@@ -338,6 +343,10 @@ LOCK_TXID="$(echo "$LISTUNSPENT_BEFORE_LOCK" | jq -r '.result[0].txid // empty')
 LOCK_VOUT="$(echo "$LISTUNSPENT_BEFORE_LOCK" | jq -r '.result[0].vout // empty')"
 if [[ -z "$LOCK_TXID" || -z "$LOCK_VOUT" ]]; then
   echo "listunspent did not return a lockable UTXO for funded address: $FUNDED_ADDR" >&2
+  exit 1
+fi
+if [[ "$SCANTXOUTSET_TXID" != "$LOCK_TXID" ]]; then
+  echo "scantxoutset txid does not match stable listunspent txid ($SCANTXOUTSET_TXID != $LOCK_TXID)" >&2
   exit 1
 fi
 
@@ -968,6 +977,7 @@ gettransaction_unknown_error_code=$GETTX_UNKNOWN_ERROR_CODE
 getrawtransaction_unknown_error_code=$GETRAW_UNKNOWN_ERROR_CODE
 getblockheader_unknown_error_code=$BLOCKHEADER_UNKNOWN_ERROR_CODE
 scantxoutset_invalid_error_code=$SCANTXOUTSET_INVALID_ERROR_CODE
+scantxoutset_txid=$SCANTXOUTSET_TXID
 listunspent_invalid_range_error_code=$LISTUNSPENT_INVALID_ERROR_CODE
 lockunspent_missing_txos_error_code=$LOCK_MISSING_TXOS_ERROR_CODE
 auth_noauth_http_code=$AUTH_NOAUTH_CODE
