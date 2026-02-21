@@ -240,6 +240,24 @@ Verification rerun (this continuation):
 
 Passed.
 
+## Incremental Update (2026-02-21, continued quantum auth-depth coverage)
+
+Additional logical commit pushed after the previous continuation:
+
+- `2021b1a86`
+  - Extended auth-depth E2E checks for quantum RPC methods:
+    - `removequantumkey`: no-auth `401`, wrong auth `401`, correct auth `200`
+    - `listquantumkeys`: no-auth `401`, wrong auth `401`, correct auth `200`
+  - Added summary fields:
+    - `auth_removequantumkey_*`
+    - `auth_listquantumkeys_*`
+
+Verification rerun (this continuation):
+
+- `./scripts/e2e_testnet.sh`
+
+Passed.
+
 ## What was implemented in this change set
 
 ### 1) Canonical Bitcoin address support (Issue #1 critical)
