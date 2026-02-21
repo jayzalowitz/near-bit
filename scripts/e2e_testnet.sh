@@ -286,6 +286,14 @@ if [[ -z "$HEADER_HEX" || "${#HEADER_HEX}" -ne 160 ]]; then
   exit 1
 fi
 
+BLOCKHEADER_UNKNOWN_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"blockheader-unknown","method":"getblockheader","params":["0000000000000000000000000000000000000000000000000000000000000000",true]}' \
+  | tee "$ARTIFACT_DIR/btc_getblockheader_unknown_response.json")"
+BLOCKHEADER_UNKNOWN_ERROR_CODE="$(echo "$BLOCKHEADER_UNKNOWN_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$BLOCKHEADER_UNKNOWN_ERROR_CODE" != "-5" ]]; then
+  echo "getblockheader unknown-hash path did not return -5 (got: $BLOCKHEADER_UNKNOWN_ERROR_CODE)" >&2
+  exit 1
+fi
+
 BLOCKHEADER_JSON_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"blockheader-json\",\"method\":\"getblockheader\",\"params\":[\"$BEST_BLOCK_HASH\",true]}" \
   | tee "$ARTIFACT_DIR/btc_getblockheader_json_response.json")"
 if [[ "$(echo "$BLOCKHEADER_JSON_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
@@ -934,6 +942,7 @@ access_key_count=$ACCESS_KEY_COUNT
 getaddressinfo_invalid_error_code=$ADDRESSINFO_INVALID_ERROR_CODE
 gettransaction_unknown_error_code=$GETTX_UNKNOWN_ERROR_CODE
 getrawtransaction_unknown_error_code=$GETRAW_UNKNOWN_ERROR_CODE
+getblockheader_unknown_error_code=$BLOCKHEADER_UNKNOWN_ERROR_CODE
 auth_noauth_http_code=$AUTH_NOAUTH_CODE
 auth_wrong_http_code=$AUTH_WRONG_CODE
 auth_ok_result=$AUTH_OK_RESULT
