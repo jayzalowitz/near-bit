@@ -482,6 +482,18 @@ if [[ "$QKEY_RESTART_COUNT" -ne 2 ]]; then
   exit 1
 fi
 
+QKEY_LIST_RESTART_ALIAS_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"quantum-list-restart-alias\",\"method\":\"listquantumkeys\",\"params\":[\"$QKEY_LEGACY_ADDR\"]}" \
+  | tee "$ARTIFACT_DIR/btc_quantum_list_restart_alias_response.json")"
+QKEY_RESTART_ALIAS_COUNT="$(echo "$QKEY_LIST_RESTART_ALIAS_RESPONSE" | jq -r '.result.quantum_keys | length')"
+if [[ "$(echo "$QKEY_LIST_RESTART_ALIAS_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "listquantumkeys lowercase-alias query failed after btcrpc restart" >&2
+  exit 1
+fi
+if [[ "$QKEY_RESTART_ALIAS_COUNT" -ne "$QKEY_RESTART_COUNT" ]]; then
+  echo "listquantumkeys lowercase-alias expected $QKEY_RESTART_COUNT keys after restart (got: $QKEY_RESTART_ALIAS_COUNT)" >&2
+  exit 1
+fi
+
 BESTBLOCK_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"bestblock","method":"getbestblockhash","params":[]}' \
   | tee "$ARTIFACT_DIR/btc_getbestblockhash_response.json")"
 BEST_BLOCK_HASH="$(echo "$BESTBLOCK_RESPONSE" | jq -r '.result // empty')"
@@ -1595,6 +1607,7 @@ quantum_remove_invalid_hex_error_code=$QKEY_REMOVE_INVALID_HEX_ERROR_CODE
 quantum_remove_missing_error_code=$QKEY_REMOVE_MISSING_ERROR_CODE
 quantum_registry_count=$QKEY_REGISTRY_COUNT
 quantum_after_restart_count=$QKEY_RESTART_COUNT
+quantum_after_restart_alias_count=$QKEY_RESTART_ALIAS_COUNT
 quantum_registry_path=$QKEY_REGISTRY_PATH
 gettransaction_unknown_error_code=$GETTX_UNKNOWN_ERROR_CODE
 getrawtransaction_unknown_error_code=$GETRAW_UNKNOWN_ERROR_CODE
