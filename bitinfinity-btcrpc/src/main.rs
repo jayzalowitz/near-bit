@@ -1225,11 +1225,20 @@ async fn handle_getblock(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcR
     }
 
     // Verbosity: 0 = hex serialization, 1 = JSON (default), 2 = JSON with full tx objects
+    // Also accept Bitcoin Core-style bool verbosity where false=0 and true=1.
     let verbosity = request
         .params
         .as_array()
         .and_then(|arr| arr.get(1))
-        .and_then(|v| v.as_u64())
+        .map(|v| {
+            if let Some(n) = v.as_u64() {
+                n
+            } else if let Some(b) = v.as_bool() {
+                if b { 1 } else { 0 }
+            } else {
+                1
+            }
+        })
         .unwrap_or(1);
 
     let block_result = state.near_client.block_by_hash(block_id).await;
