@@ -1588,6 +1588,30 @@ if [[ "$AUTH_SENDRAW_OK_CODE" != "200" ]]; then
   exit 1
 fi
 
+AUTH_SENDTOADDR_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-sendtoaddress\",\"method\":\"sendtoaddress\",\"params\":[\"$SATOSHI_ADDR\",0.0001]}"
+AUTH_SENDTOADDR_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_SENDTOADDR_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_SENDTOADDR_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for sendtoaddress without auth, got: $AUTH_SENDTOADDR_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_SENDTOADDR_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_SENDTOADDR_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_SENDTOADDR_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for sendtoaddress with wrong auth, got: $AUTH_SENDTOADDR_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_SENDTOADDR_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_sendtoaddress_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_SENDTOADDR_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_SENDTOADDR_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated sendtoaddress, got: $AUTH_SENDTOADDR_OK_CODE" >&2
+  exit 1
+fi
+AUTH_SENDTOADDR_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_sendtoaddress_success_response.json")"
+if [[ "$AUTH_SENDTOADDR_OK_ID" != "auth-sendtoaddress" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated sendtoaddress" >&2
+  exit 1
+fi
+
 cat >"$ARTIFACT_DIR/summary.txt" <<TXT
 chain_id=$CHAIN_ID
 near_rpc_url=$NEAR_RPC_URL
@@ -1711,6 +1735,9 @@ auth_psbt_ok_result_len=${#AUTH_PSBT_OK_RESULT}
 auth_sendraw_noauth_http_code=$AUTH_SENDRAW_NOAUTH_CODE
 auth_sendraw_wrong_http_code=$AUTH_SENDRAW_WRONG_CODE
 auth_sendraw_ok_http_code=$AUTH_SENDRAW_OK_CODE
+auth_sendtoaddress_noauth_http_code=$AUTH_SENDTOADDR_NOAUTH_CODE
+auth_sendtoaddress_wrong_http_code=$AUTH_SENDTOADDR_WRONG_CODE
+auth_sendtoaddress_ok_http_code=$AUTH_SENDTOADDR_OK_CODE
 node_log=$ARTIFACT_DIR/node.log
 btcrpc_log=$ARTIFACT_DIR/btcrpc.log
 btcrpc_auth_log=$ARTIFACT_DIR/btcrpc_auth.log
