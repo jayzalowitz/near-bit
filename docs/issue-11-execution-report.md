@@ -296,6 +296,23 @@ Verification rerun (this continuation):
 
 Passed.
 
+## Incremental Update (2026-02-21, continued alias de-dup unit coverage)
+
+Additional logical commit pushed after the previous continuation:
+
+- `56825e913`
+  - Added btcrpc unit test coverage for `listquantumkeys` de-dup behavior when canonical and lowercase alias entries coexist in storage:
+    - overlapping key tuples are returned once
+    - unique tuples across both entries are preserved.
+  - New test:
+    - `test_listquantumkeys_deduplicates_alias_storage_entries`
+
+Verification rerun (this continuation):
+
+- `cargo test -q -p bitinfinity-btcrpc` (47 passing)
+
+Passed.
+
 ## What was implemented in this change set
 
 ### 1) Canonical Bitcoin address support (Issue #1 critical)
