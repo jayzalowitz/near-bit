@@ -1233,6 +1233,26 @@ if [[ -z "$AUTH_OK_RESULT" ]]; then
   exit 1
 fi
 
+AUTH_PSBT_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-psbt\",\"method\":\"createpsbt\",\"params\":[[{\"txid\":\"$LOCK_TXID\",\"vout\":$LOCK_VOUT}],[{\"$SATOSHI_ADDR\":0.0001}],0,true]}"
+AUTH_PSBT_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_PSBT_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_PSBT_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for createpsbt without auth, got: $AUTH_PSBT_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_PSBT_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_PSBT_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_PSBT_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for createpsbt with wrong auth, got: $AUTH_PSBT_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_PSBT_OK_RESPONSE="$(curl -s -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_PSBT_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/" | tee "$ARTIFACT_DIR/btc_auth_createpsbt_success_response.json")"
+AUTH_PSBT_OK_RESULT="$(echo "$AUTH_PSBT_OK_RESPONSE" | jq -r '.result // empty')"
+if [[ -z "$AUTH_PSBT_OK_RESULT" ]]; then
+  echo "Expected successful authenticated createpsbt response" >&2
+  exit 1
+fi
+
 cat >"$ARTIFACT_DIR/summary.txt" <<TXT
 chain_id=$CHAIN_ID
 near_rpc_url=$NEAR_RPC_URL
@@ -1321,6 +1341,9 @@ lockunspent_invalid_txid_error_code=$LOCK_INVALID_TXID_ERROR_CODE
 auth_noauth_http_code=$AUTH_NOAUTH_CODE
 auth_wrong_http_code=$AUTH_WRONG_CODE
 auth_ok_result=$AUTH_OK_RESULT
+auth_psbt_noauth_http_code=$AUTH_PSBT_NOAUTH_CODE
+auth_psbt_wrong_http_code=$AUTH_PSBT_WRONG_CODE
+auth_psbt_ok_result_len=${#AUTH_PSBT_OK_RESULT}
 node_log=$ARTIFACT_DIR/node.log
 btcrpc_log=$ARTIFACT_DIR/btcrpc.log
 btcrpc_auth_log=$ARTIFACT_DIR/btcrpc_auth.log
