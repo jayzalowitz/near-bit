@@ -502,6 +502,30 @@ if [[ "$(echo "$COMBINE_PSBT_RESPONSE" | jq -r '.error // empty')" != "" ]]; the
   exit 1
 fi
 
+JOIN_PSBT_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"joinpsbts-funded\",\"method\":\"joinpsbts\",\"params\":[[\"$FUNDED_PSBT\",\"$SIGNED_PSBT\"]]}" \
+  | tee "$ARTIFACT_DIR/btc_joinpsbts_funded_response.json")"
+JOINED_PSBT="$(echo "$JOIN_PSBT_RESPONSE" | jq -r '.result // empty')"
+if [[ -z "$JOINED_PSBT" ]]; then
+  echo "joinpsbts returned empty result" >&2
+  exit 1
+fi
+if [[ "$(echo "$JOIN_PSBT_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "joinpsbts failed" >&2
+  exit 1
+fi
+if [[ "$JOINED_PSBT" != "$COMBINED_PSBT" ]]; then
+  echo "joinpsbts returned unexpected candidate versus combinepsbt" >&2
+  exit 1
+fi
+
+JOIN_INVALID_PSBT_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"joinpsbts-invalid","method":"joinpsbts","params":[["***not-base64***",""]]}' \
+  | tee "$ARTIFACT_DIR/btc_joinpsbts_invalid_response.json")"
+JOIN_INVALID_ERROR_CODE="$(echo "$JOIN_INVALID_PSBT_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$JOIN_INVALID_ERROR_CODE" != "-22" ]]; then
+  echo "joinpsbts invalid-candidate path did not return -22 (got: $JOIN_INVALID_ERROR_CODE)" >&2
+  exit 1
+fi
+
 FINALIZE_PSBT_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"finalizepsbt-funded\",\"method\":\"finalizepsbt\",\"params\":[\"$COMBINED_PSBT\"]}" \
   | tee "$ARTIFACT_DIR/btc_finalizepsbt_funded_response.json")"
 FINALIZED_PSBT_HEX="$(echo "$FINALIZE_PSBT_RESPONSE" | jq -r '.result.hex // empty')"
@@ -719,6 +743,8 @@ psbt_signed_complete=$SIGNED_PSBT_COMPLETE
 psbt_signed_sig_count=$SIGNED_PSBT_SIG_COUNT
 psbt_analyze_next_signed=$ANALYZE_SIGNED_NEXT
 psbt_analyze_signed_input0_final=$ANALYZE_SIGNED_IS_FINAL
+psbt_join_len=${#JOINED_PSBT}
+psbt_join_invalid_error_code=$JOIN_INVALID_ERROR_CODE
 psbt_finalize_complete=$FINALIZED_PSBT_COMPLETE
 psbt_final_hex_len=${#FINALIZED_PSBT_HEX}
 lock_txid=$LOCK_TXID
