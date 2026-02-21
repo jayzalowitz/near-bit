@@ -6642,18 +6642,33 @@ fn handle_utxoupdatepsbt(request: &JsonRpcRequest) -> JsonRpcResponse {
         Some(p) => p,
         None => return err_response(&request.id, -32602, "Missing PSBT parameter".to_string()),
     };
-    // Validate it's valid base64/PSBT
-    match base64::Engine::decode(&base64::engine::general_purpose::STANDARD, psbt_base64) {
-        Ok(bytes) if bytes.len() >= 5 && &bytes[0..5] == b"psbt\xff" => {
-            // Return unchanged — in account-based model, no UTXO data to add
-            ok_response(&request.id, json!(psbt_base64))
+    let bytes = match base64::Engine::decode(&base64::engine::general_purpose::STANDARD, psbt_base64)
+    {
+        Ok(bytes) => bytes,
+        Err(_) => {
+            return err_response(
+                &request.id,
+                -22,
+                "TX decode failed (invalid PSBT)".to_string(),
+            )
         }
-        _ => err_response(
+    };
+    if bytes.len() < 5 || &bytes[0..5] != b"psbt\xff" {
+        return err_response(
             &request.id,
             -22,
             "TX decode failed (invalid PSBT)".to_string(),
-        ),
+        );
     }
+    if extract_unsigned_tx_hex(&bytes).is_empty() {
+        return err_response(
+            &request.id,
+            -22,
+            "TX decode failed (missing PSBT_GLOBAL_UNSIGNED_TX)".to_string(),
+        );
+    }
+    // Return unchanged — in account-based model, no UTXO data to add
+    ok_response(&request.id, json!(psbt_base64))
 }
 
 /// abandontransaction - mark a tx as abandoned (no-op)
@@ -10611,7 +10626,7 @@ mod tests {
     use super::{
         derive_script_pub_key_hex, encode_bitcoin_varint, extract_unsigned_tx_hex,
         handle_analyzepsbt, handle_combinepsbt, handle_createpsbt, handle_decodepsbt,
-        handle_finalizepsbt, handle_joinpsbts,
+        handle_finalizepsbt, handle_joinpsbts, handle_utxoupdatepsbt,
         parse_patoshi_record_bytes, verify_bitcoin_message_signature, write_compact_size,
         JsonRpcRequest,
     };
@@ -11265,6 +11280,101 @@ mod tests {
             finalize_response.error.as_ref().map(|e| e.code),
             Some(-22),
             "missing magic should return decode error code"
+        );
+    }
+
+    #[test]
+    fn test_utxoupdatepsbt_roundtrip_valid_psbt() {
+        let create_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(70),
+            method: "createpsbt".to_string(),
+            params: json!([
+                [{"txid": "aa".repeat(32), "vout": 0}],
+                [{"1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa": 0.01}],
+                0,
+                true
+            ]),
+        };
+        let create_response = handle_createpsbt(&create_request);
+        let psbt_b64 = create_response
+            .result
+            .as_ref()
+            .and_then(|v| v.as_str())
+            .expect("createpsbt should return PSBT")
+            .to_string();
+
+        let update_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(71),
+            method: "utxoupdatepsbt".to_string(),
+            params: json!([psbt_b64.clone()]),
+        };
+        let update_response = handle_utxoupdatepsbt(&update_request);
+        assert!(update_response.error.is_none(), "utxoupdatepsbt should not error");
+        assert_eq!(
+            update_response
+                .result
+                .as_ref()
+                .and_then(|v| v.as_str()),
+            Some(psbt_b64.as_str()),
+            "utxoupdatepsbt should return PSBT unchanged in account model"
+        );
+    }
+
+    #[test]
+    fn test_utxoupdatepsbt_rejects_invalid_base64() {
+        let update_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(72),
+            method: "utxoupdatepsbt".to_string(),
+            params: json!(["***not-base64***"]),
+        };
+        let update_response = handle_utxoupdatepsbt(&update_request);
+        assert!(update_response.result.is_none(), "invalid psbt should not produce result");
+        assert_eq!(
+            update_response.error.as_ref().map(|e| e.code),
+            Some(-22),
+            "invalid PSBT base64 should return decode error code"
+        );
+    }
+
+    #[test]
+    fn test_utxoupdatepsbt_rejects_missing_magic() {
+        let bad_psbt = base64::engine::general_purpose::STANDARD.encode(b"not-a-psbt");
+        let update_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(73),
+            method: "utxoupdatepsbt".to_string(),
+            params: json!([bad_psbt]),
+        };
+        let update_response = handle_utxoupdatepsbt(&update_request);
+        assert!(update_response.result.is_none(), "invalid psbt should not produce result");
+        assert_eq!(
+            update_response.error.as_ref().map(|e| e.code),
+            Some(-22),
+            "missing magic should return decode error code"
+        );
+    }
+
+    #[test]
+    fn test_utxoupdatepsbt_rejects_missing_unsigned_tx() {
+        let mut malformed_psbt = Vec::new();
+        malformed_psbt.extend_from_slice(b"psbt\xff");
+        malformed_psbt.push(0x00); // end global map without PSBT_GLOBAL_UNSIGNED_TX
+        let malformed_b64 = base64::engine::general_purpose::STANDARD.encode(malformed_psbt);
+        let update_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(74),
+            method: "utxoupdatepsbt".to_string(),
+            params: json!([malformed_b64]),
+        };
+        let update_response = handle_utxoupdatepsbt(&update_request);
+        assert!(update_response.result.is_none(), "invalid psbt should not produce result");
+        assert_eq!(
+            update_response.error.as_ref().map(|e| e.code),
+            Some(-22),
+            "missing global unsigned tx should return decode error code"
         );
     }
 
