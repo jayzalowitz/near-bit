@@ -163,6 +163,36 @@ Verification reruns (this continuation):
 
 Passed.
 
+## Incremental Update (2026-02-21, continued auth and alias depth)
+
+Additional logical commits pushed after the previous continuation:
+
+- `7ce8e3817`
+  - Added unit test coverage for reverse quantum alias flow:
+    - canonical lookup after lowercase-alias registration.
+- `bf6fc4694`
+  - Extended E2E quantum flow to register first key via lowercase alias and assert canonical visibility immediately.
+  - Added `quantum_after_alias_add_count` to summary.
+- `88d5e60bb`
+  - Extended auth-depth E2E checks to include `sendrawtransaction` write path:
+    - no-auth -> `401`
+    - wrong auth -> `401`
+    - correct auth -> `200`
+  - Added `auth_sendraw_*` summary fields.
+- `12660f9a7`
+  - Added E2E empty-destination invalid-path assertions (`-32602`) for:
+    - `createrawtransaction`
+    - `createpsbt`
+    - `walletcreatefundedpsbt`
+  - Added corresponding summary fields for these rejection paths.
+
+Verification reruns (this continuation):
+
+- `cargo test -q -p bitinfinity-btcrpc` (45 passing)
+- `./scripts/e2e_testnet.sh`
+
+All passed.
+
 ## What was implemented in this change set
 
 ### 1) Canonical Bitcoin address support (Issue #1 critical)
