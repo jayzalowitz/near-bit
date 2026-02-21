@@ -531,6 +531,22 @@ if [[ "$JOINED_PSBT" != "$COMBINED_PSBT" ]]; then
   exit 1
 fi
 
+COMBINE_MISMATCH_PSBT_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"combinepsbt-mismatch\",\"method\":\"combinepsbt\",\"params\":[[\"$CREATED_PSBT\",\"$SIGNED_PSBT\"]]}" \
+  | tee "$ARTIFACT_DIR/btc_combinepsbt_mismatch_response.json")"
+COMBINE_MISMATCH_ERROR_CODE="$(echo "$COMBINE_MISMATCH_PSBT_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$COMBINE_MISMATCH_ERROR_CODE" != "-8" ]]; then
+  echo "combinepsbt mismatched-transaction path did not return -8 (got: $COMBINE_MISMATCH_ERROR_CODE)" >&2
+  exit 1
+fi
+
+JOIN_MISMATCH_PSBT_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"joinpsbts-mismatch\",\"method\":\"joinpsbts\",\"params\":[[\"$CREATED_PSBT\",\"$SIGNED_PSBT\"]]}" \
+  | tee "$ARTIFACT_DIR/btc_joinpsbts_mismatch_response.json")"
+JOIN_MISMATCH_ERROR_CODE="$(echo "$JOIN_MISMATCH_PSBT_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$JOIN_MISMATCH_ERROR_CODE" != "-8" ]]; then
+  echo "joinpsbts mismatched-transaction path did not return -8 (got: $JOIN_MISMATCH_ERROR_CODE)" >&2
+  exit 1
+fi
+
 JOIN_INVALID_PSBT_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"joinpsbts-invalid","method":"joinpsbts","params":[["***not-base64***",""]]}' \
   | tee "$ARTIFACT_DIR/btc_joinpsbts_invalid_response.json")"
 JOIN_INVALID_ERROR_CODE="$(echo "$JOIN_INVALID_PSBT_RESPONSE" | jq -r '.error.code // empty')"
@@ -759,6 +775,8 @@ psbt_signed_sig_count=$SIGNED_PSBT_SIG_COUNT
 psbt_analyze_next_signed=$ANALYZE_SIGNED_NEXT
 psbt_analyze_signed_input0_final=$ANALYZE_SIGNED_IS_FINAL
 psbt_join_len=${#JOINED_PSBT}
+psbt_combine_mismatch_error_code=$COMBINE_MISMATCH_ERROR_CODE
+psbt_join_mismatch_error_code=$JOIN_MISMATCH_ERROR_CODE
 psbt_join_invalid_error_code=$JOIN_INVALID_ERROR_CODE
 psbt_finalize_complete=$FINALIZED_PSBT_COMPLETE
 psbt_final_hex_len=${#FINALIZED_PSBT_HEX}

@@ -5939,6 +5939,7 @@ fn handle_combinepsbt(request: &JsonRpcRequest) -> JsonRpcResponse {
     }
 
     let mut best: Option<(&str, usize, usize)> = None; // (psbt, total_signatures, len)
+    let mut reference_unsigned_tx: Option<String> = None;
 
     for psbt in psbts {
         let bytes = match base64_decode(psbt) {
@@ -5947,6 +5948,22 @@ fn handle_combinepsbt(request: &JsonRpcRequest) -> JsonRpcResponse {
         };
         if bytes.len() < 5 || &bytes[..5] != b"psbt\xff" {
             continue;
+        }
+
+        let unsigned_tx_hex = extract_unsigned_tx_hex(&bytes);
+        if unsigned_tx_hex.is_empty() {
+            continue;
+        }
+        match &reference_unsigned_tx {
+            Some(reference) if reference != &unsigned_tx_hex => {
+                return err_response(
+                    &request.id,
+                    -8,
+                    "PSBTs do not refer to the same transaction".to_string(),
+                );
+            }
+            None => reference_unsigned_tx = Some(unsigned_tx_hex),
+            _ => {}
         }
 
         let total_signatures: usize = psbt_input_signature_counts(&bytes).iter().sum();
@@ -11015,6 +11032,74 @@ mod tests {
     }
 
     #[test]
+    fn test_combinepsbt_rejects_mismatched_unsigned_transactions() {
+        let create_a = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(60),
+            method: "createpsbt".to_string(),
+            params: json!([
+                [{"txid": "66".repeat(32), "vout": 0}],
+                [{"1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa": 0.01}],
+                0,
+                true
+            ]),
+        };
+        let resp_a = handle_createpsbt(&create_a);
+        let psbt_a_b64 = resp_a
+            .result
+            .as_ref()
+            .and_then(|v| v.as_str())
+            .expect("createpsbt A should return PSBT");
+        let psbt_a_bytes = base64::engine::general_purpose::STANDARD
+            .decode(psbt_a_b64)
+            .expect("PSBT A should decode");
+        let unsigned_a = extract_unsigned_tx_hex(&psbt_a_bytes);
+        let signed_a = build_signed_psbt_for_test(&unsigned_a);
+
+        let create_b = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(61),
+            method: "createpsbt".to_string(),
+            params: json!([
+                [{"txid": "77".repeat(32), "vout": 0}],
+                [{"1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa": 0.02}],
+                0,
+                true
+            ]),
+        };
+        let resp_b = handle_createpsbt(&create_b);
+        let psbt_b_b64 = resp_b
+            .result
+            .as_ref()
+            .and_then(|v| v.as_str())
+            .expect("createpsbt B should return PSBT");
+        let psbt_b_bytes = base64::engine::general_purpose::STANDARD
+            .decode(psbt_b_b64)
+            .expect("PSBT B should decode");
+        let unsigned_b = extract_unsigned_tx_hex(&psbt_b_bytes);
+        let signed_b = build_signed_psbt_for_test(&unsigned_b);
+
+        assert_ne!(
+            unsigned_a, unsigned_b,
+            "test setup must use different unsigned transactions"
+        );
+
+        let combine_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(62),
+            method: "combinepsbt".to_string(),
+            params: json!([[signed_a, signed_b]]),
+        };
+        let combine_response = handle_combinepsbt(&combine_request);
+        assert!(combine_response.result.is_none(), "mismatch should not produce result");
+        assert_eq!(
+            combine_response.error.as_ref().map(|e| e.code),
+            Some(-8),
+            "mismatched unsigned tx candidates should be rejected"
+        );
+    }
+
+    #[test]
     fn test_joinpsbts_prefers_more_signatures_over_larger_payload() {
         let create_request = JsonRpcRequest {
             jsonrpc: "2.0".to_string(),
@@ -11077,6 +11162,74 @@ mod tests {
             join_response.error.as_ref().map(|e| e.code),
             Some(-22),
             "all invalid candidates should return invalid PSBT error"
+        );
+    }
+
+    #[test]
+    fn test_joinpsbts_rejects_mismatched_unsigned_transactions() {
+        let create_a = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(63),
+            method: "createpsbt".to_string(),
+            params: json!([
+                [{"txid": "88".repeat(32), "vout": 0}],
+                [{"1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa": 0.01}],
+                0,
+                true
+            ]),
+        };
+        let resp_a = handle_createpsbt(&create_a);
+        let psbt_a_b64 = resp_a
+            .result
+            .as_ref()
+            .and_then(|v| v.as_str())
+            .expect("createpsbt A should return PSBT");
+        let psbt_a_bytes = base64::engine::general_purpose::STANDARD
+            .decode(psbt_a_b64)
+            .expect("PSBT A should decode");
+        let unsigned_a = extract_unsigned_tx_hex(&psbt_a_bytes);
+        let signed_a = build_signed_psbt_for_test(&unsigned_a);
+
+        let create_b = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(64),
+            method: "createpsbt".to_string(),
+            params: json!([
+                [{"txid": "99".repeat(32), "vout": 0}],
+                [{"1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa": 0.02}],
+                0,
+                true
+            ]),
+        };
+        let resp_b = handle_createpsbt(&create_b);
+        let psbt_b_b64 = resp_b
+            .result
+            .as_ref()
+            .and_then(|v| v.as_str())
+            .expect("createpsbt B should return PSBT");
+        let psbt_b_bytes = base64::engine::general_purpose::STANDARD
+            .decode(psbt_b_b64)
+            .expect("PSBT B should decode");
+        let unsigned_b = extract_unsigned_tx_hex(&psbt_b_bytes);
+        let signed_b = build_signed_psbt_for_test(&unsigned_b);
+
+        assert_ne!(
+            unsigned_a, unsigned_b,
+            "test setup must use different unsigned transactions"
+        );
+
+        let join_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(65),
+            method: "joinpsbts".to_string(),
+            params: json!([[signed_a, signed_b]]),
+        };
+        let join_response = handle_joinpsbts(&join_request);
+        assert!(join_response.result.is_none(), "mismatch should not produce result");
+        assert_eq!(
+            join_response.error.as_ref().map(|e| e.code),
+            Some(-8),
+            "mismatched unsigned tx candidates should be rejected"
         );
     }
 
