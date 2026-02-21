@@ -648,6 +648,26 @@ Notes:
 - Runtime Bitcoin address detection tests now use checksum-valid canonical vectors (Taproot + P2SH), and `bitcoin_tx::tests` is green.
 - Installed `cargo-fuzz` and nightly toolchain to execute sanitizer-backed fuzz smoke runs.
 
+## Continuation (2026-02-21): walletcreatefundedpsbt auth-gating coverage
+
+Implemented:
+- Extended `scripts/e2e_testnet.sh` auth-depth coverage to include `walletcreatefundedpsbt` with explicit:
+  - unauthenticated request returns HTTP `401`,
+  - wrong-credential request returns HTTP `401`,
+  - correct-credential request returns HTTP `200` and preserves JSON-RPC `id`.
+- Added corresponding summary exports for this method:
+  - `auth_walletcreatefundedpsbt_noauth_http_code`
+  - `auth_walletcreatefundedpsbt_wrong_http_code`
+  - `auth_walletcreatefundedpsbt_ok_http_code`
+
+Primary file:
+- `scripts/e2e_testnet.sh`
+
+Verification rerun:
+- `bash -n scripts/e2e_testnet.sh`
+- `./scripts/e2e_testnet.sh`
+- `cargo test -q -p bitinfinity-btcrpc`
+
 ## Issue #1 goal check
 
 Status:
