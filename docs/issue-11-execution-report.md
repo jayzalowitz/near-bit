@@ -220,6 +220,26 @@ Verification reruns (this continuation):
 
 Passed.
 
+## Incremental Update (2026-02-21, continued auth-depth expansion)
+
+Additional logical commit pushed after the previous continuation:
+
+- `02ee5d869`
+  - Extended auth-depth E2E checks to `addquantumkey`:
+    - no-auth -> `401`
+    - wrong auth -> `401`
+    - correct auth -> `200` with structured JSON-RPC response.
+  - Added summary fields:
+    - `auth_addquantumkey_noauth_http_code`
+    - `auth_addquantumkey_wrong_http_code`
+    - `auth_addquantumkey_ok_http_code`
+
+Verification rerun (this continuation):
+
+- `./scripts/e2e_testnet.sh`
+
+Passed.
+
 ## What was implemented in this change set
 
 ### 1) Canonical Bitcoin address support (Issue #1 critical)
