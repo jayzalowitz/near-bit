@@ -5942,8 +5942,7 @@ fn handle_finalizepsbt(request: &JsonRpcRequest) -> JsonRpcResponse {
 }
 
 fn handle_combinepsbt(request: &JsonRpcRequest) -> JsonRpcResponse {
-    // Combine multiple PSBTs — prefer candidates with more partial signatures.
-    // Tie-breaker: larger payload size.
+    // Combine multiple PSBTs by merging partial signatures for the same unsigned tx.
     let psbt_array = request
         .params
         .as_array()
@@ -5959,8 +5958,12 @@ fn handle_combinepsbt(request: &JsonRpcRequest) -> JsonRpcResponse {
         return err_response(&request.id, -32602, "Empty PSBTs array".to_string());
     }
 
-    let mut best: Option<(&str, usize, usize)> = None; // (psbt, total_signatures, len)
     let mut reference_unsigned_tx: Option<String> = None;
+    let mut reference_unsigned_tx_bytes: Vec<u8> = Vec::new();
+    let mut expected_inputs: usize = 0;
+    let mut expected_outputs: usize = 0;
+    let mut merged_signatures: Vec<std::collections::BTreeMap<String, String>> = Vec::new();
+    let mut saw_valid_candidate = false;
 
     for psbt in psbts {
         let bytes = match base64_decode(psbt) {
@@ -5975,6 +5978,14 @@ fn handle_combinepsbt(request: &JsonRpcRequest) -> JsonRpcResponse {
         if unsigned_tx_hex.is_empty() {
             continue;
         }
+        let unsigned_tx_bytes = match hex::decode(&unsigned_tx_hex) {
+            Ok(bytes) => bytes,
+            Err(_) => continue,
+        };
+        let (vin, vout, _, _) = parse_psbt_unsigned_tx(&bytes);
+        let input_count = vin.len();
+        let output_count = vout.len();
+
         match &reference_unsigned_tx {
             Some(reference) if reference != &unsigned_tx_hex => {
                 return err_response(
@@ -5983,34 +5994,80 @@ fn handle_combinepsbt(request: &JsonRpcRequest) -> JsonRpcResponse {
                     "PSBTs do not refer to the same transaction".to_string(),
                 );
             }
-            None => reference_unsigned_tx = Some(unsigned_tx_hex),
+            None => {
+                reference_unsigned_tx = Some(unsigned_tx_hex);
+                reference_unsigned_tx_bytes = unsigned_tx_bytes;
+                expected_inputs = input_count;
+                expected_outputs = output_count;
+                merged_signatures = vec![std::collections::BTreeMap::new(); expected_inputs];
+            }
             _ => {}
         }
 
-        let total_signatures: usize = psbt_input_signature_counts(&bytes).iter().sum();
-        let candidate = (psbt, total_signatures, psbt.len());
+        if input_count != expected_inputs || output_count != expected_outputs {
+            return err_response(
+                &request.id,
+                -8,
+                "PSBTs do not refer to the same transaction".to_string(),
+            );
+        }
 
-        match best {
-            Some((_, best_sigs, best_len)) => {
-                if total_signatures > best_sigs
-                    || (total_signatures == best_sigs && psbt.len() > best_len)
-                {
-                    best = Some(candidate);
+        let input_maps = parse_psbt_input_maps(&bytes, expected_inputs);
+        for (idx, input_map) in input_maps.iter().enumerate().take(expected_inputs) {
+            let Some(partial_sigs) = input_map.get("partial_signatures").and_then(|v| v.as_object())
+            else {
+                continue;
+            };
+            for (pubkey_hex, sig_hex_value) in partial_sigs {
+                if let Some(sig_hex) = sig_hex_value.as_str() {
+                    merged_signatures[idx].insert(pubkey_hex.clone(), sig_hex.to_string());
                 }
             }
-            None => best = Some(candidate),
         }
+        saw_valid_candidate = true;
     }
 
-    let Some((best_psbt, _, _)) = best else {
+    if !saw_valid_candidate || reference_unsigned_tx.is_none() {
         return err_response(
             &request.id,
             -22,
             "Invalid PSBT: no valid candidates".to_string(),
         );
-    };
+    }
 
-    ok_response(&request.id, json!(best_psbt))
+    let mut combined_psbt: Vec<u8> = Vec::new();
+    combined_psbt.extend_from_slice(b"psbt\xff");
+    combined_psbt.push(0x01); // key len
+    combined_psbt.push(0x00); // PSBT_GLOBAL_UNSIGNED_TX
+    write_compact_size(&mut combined_psbt, reference_unsigned_tx_bytes.len() as u64);
+    combined_psbt.extend_from_slice(&reference_unsigned_tx_bytes);
+    combined_psbt.push(0x00); // end global map
+
+    for input_sig_map in &merged_signatures {
+        for (pubkey_hex, sig_hex) in input_sig_map {
+            let pubkey_bytes = match hex::decode(pubkey_hex) {
+                Ok(bytes) => bytes,
+                Err(_) => continue,
+            };
+            let sig_bytes = match hex::decode(sig_hex) {
+                Ok(bytes) => bytes,
+                Err(_) => continue,
+            };
+
+            write_compact_size(&mut combined_psbt, (1 + pubkey_bytes.len()) as u64);
+            combined_psbt.push(0x02); // PSBT_IN_PARTIAL_SIG
+            combined_psbt.extend_from_slice(&pubkey_bytes);
+            write_compact_size(&mut combined_psbt, sig_bytes.len() as u64);
+            combined_psbt.extend_from_slice(&sig_bytes);
+        }
+        combined_psbt.push(0x00); // end input map
+    }
+
+    for _ in 0..expected_outputs {
+        combined_psbt.push(0x00); // empty output map
+    }
+
+    ok_response(&request.id, json!(base64_encode(&combined_psbt)))
 }
 
 /// deriveaddresses - derive addresses from a descriptor
@@ -10917,7 +10974,11 @@ mod tests {
         );
     }
 
-    fn build_signed_psbt_for_test(unsigned_tx_hex: &str) -> String {
+    fn build_signed_psbt_for_test_with_pubkey(
+        unsigned_tx_hex: &str,
+        pubkey_prefix: u8,
+        pubkey_fill: u8,
+    ) -> String {
         let tx_bytes = hex::decode(unsigned_tx_hex).expect("unsigned tx hex should decode");
         let mut psbt = Vec::new();
         psbt.extend_from_slice(b"psbt\xff");
@@ -10930,7 +10991,8 @@ mod tests {
         psbt.push(0x00); // end global map
 
         // Input map with one partial signature.
-        let pubkey = vec![0x02; 33];
+        let mut pubkey = vec![pubkey_fill; 33];
+        pubkey[0] = pubkey_prefix;
         write_compact_size(&mut psbt, (1 + pubkey.len()) as u64);
         psbt.push(0x02); // PSBT_IN_PARTIAL_SIG
         psbt.extend_from_slice(&pubkey);
@@ -10944,6 +11006,10 @@ mod tests {
 
         use base64::Engine;
         base64::engine::general_purpose::STANDARD.encode(psbt)
+    }
+
+    fn build_signed_psbt_for_test(unsigned_tx_hex: &str) -> String {
+        build_signed_psbt_for_test_with_pubkey(unsigned_tx_hex, 0x02, 0x02)
     }
 
     fn build_unsigned_psbt_with_unknown_input_field(unsigned_tx_hex: &str, extra_len: usize) -> String {
@@ -10971,6 +11037,35 @@ mod tests {
 
         use base64::Engine;
         base64::engine::general_purpose::STANDARD.encode(psbt)
+    }
+
+    fn psbt_partial_signature_count(psbt_b64: &str) -> usize {
+        let decode_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(9001),
+            method: "decodepsbt".to_string(),
+            params: json!([psbt_b64]),
+        };
+        let decode_response = handle_decodepsbt(&decode_request);
+        assert!(decode_response.error.is_none(), "decodepsbt should not fail");
+        decode_response
+            .result
+            .as_ref()
+            .and_then(|r| r.get("inputs"))
+            .and_then(|inputs| inputs.as_array())
+            .map(|inputs| {
+                inputs
+                    .iter()
+                    .map(|input| {
+                        input
+                            .get("partial_signatures")
+                            .and_then(|v| v.as_object())
+                            .map(|m| m.len())
+                            .unwrap_or(0)
+                    })
+                    .sum()
+            })
+            .unwrap_or(0)
     }
 
     #[test]
@@ -11131,13 +11226,62 @@ mod tests {
         };
         let combine_response = handle_combinepsbt(&combine_request);
         assert!(combine_response.error.is_none(), "combinepsbt should not error");
+        let combined_psbt = combine_response
+            .result
+            .as_ref()
+            .and_then(|v| v.as_str())
+            .expect("combinepsbt should return PSBT");
         assert_eq!(
-            combine_response
-                .result
-                .as_ref()
-                .and_then(|v| v.as_str()),
-            Some(signed_psbt.as_str()),
-            "combinepsbt should prefer the PSBT with more signatures"
+            psbt_partial_signature_count(combined_psbt),
+            1,
+            "combinepsbt should preserve available partial signatures"
+        );
+    }
+
+    #[test]
+    fn test_combinepsbt_merges_distinct_partial_signatures() {
+        let create_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(54),
+            method: "createpsbt".to_string(),
+            params: json!([
+                [{"txid": "54".repeat(32), "vout": 0}],
+                [{"1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa": 0.01}],
+                0,
+                true
+            ]),
+        };
+        let create_response = handle_createpsbt(&create_request);
+        let psbt_b64 = create_response
+            .result
+            .as_ref()
+            .and_then(|v| v.as_str())
+            .expect("createpsbt should return PSBT");
+        let psbt_bytes = base64::engine::general_purpose::STANDARD
+            .decode(psbt_b64)
+            .expect("PSBT should decode");
+        let unsigned_tx_hex = extract_unsigned_tx_hex(&psbt_bytes);
+        assert!(!unsigned_tx_hex.is_empty(), "unsigned tx hex must be present");
+
+        let signed_a = build_signed_psbt_for_test_with_pubkey(&unsigned_tx_hex, 0x02, 0x11);
+        let signed_b = build_signed_psbt_for_test_with_pubkey(&unsigned_tx_hex, 0x03, 0x22);
+        let combine_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(55),
+            method: "combinepsbt".to_string(),
+            params: json!([[signed_a, signed_b]]),
+        };
+        let combine_response = handle_combinepsbt(&combine_request);
+        assert!(combine_response.error.is_none(), "combinepsbt should not error");
+        let combined_psbt = combine_response
+            .result
+            .as_ref()
+            .and_then(|v| v.as_str())
+            .expect("combinepsbt should return PSBT");
+        assert_eq!(
+            psbt_partial_signature_count(combined_psbt),
+            2,
+            "combinepsbt should merge partial signatures across candidates"
         );
     }
 
@@ -11268,10 +11412,15 @@ mod tests {
         };
         let join_response = handle_joinpsbts(&join_request);
         assert!(join_response.error.is_none(), "joinpsbts should not error");
+        let joined_psbt = join_response
+            .result
+            .as_ref()
+            .and_then(|v| v.as_str())
+            .expect("joinpsbts should return PSBT");
         assert_eq!(
-            join_response.result.as_ref().and_then(|v| v.as_str()),
-            Some(signed_psbt.as_str()),
-            "joinpsbts should prefer the PSBT with more signatures"
+            psbt_partial_signature_count(joined_psbt),
+            1,
+            "joinpsbts should preserve available partial signatures"
         );
     }
 
