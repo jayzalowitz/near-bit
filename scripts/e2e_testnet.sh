@@ -467,6 +467,30 @@ if [[ "$UNLOCKED_VISIBLE_COUNT" -lt 1 ]]; then
   exit 1
 fi
 
+LOCK_NUMERIC_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"lockunspent-lock-numeric\",\"method\":\"lockunspent\",\"params\":[0,[{\"txid\":\"$LOCK_TXID\",\"vout\":$LOCK_VOUT}]]}" \
+  | tee "$ARTIFACT_DIR/btc_lockunspent_lock_numeric_response.json")"
+LOCK_NUMERIC_RESULT="$(echo "$LOCK_NUMERIC_RESPONSE" | jq -r '.result // false')"
+if [[ "$LOCK_NUMERIC_RESULT" != "true" ]]; then
+  echo "lockunspent with numeric lock flag failed for $LOCK_TXID:$LOCK_VOUT" >&2
+  exit 1
+fi
+
+UNLOCK_NUMERIC_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"lockunspent-unlock-numeric","method":"lockunspent","params":[1]}' \
+  | tee "$ARTIFACT_DIR/btc_lockunspent_unlock_numeric_response.json")"
+UNLOCK_NUMERIC_RESULT="$(echo "$UNLOCK_NUMERIC_RESPONSE" | jq -r '.result // false')"
+if [[ "$UNLOCK_NUMERIC_RESULT" != "true" ]]; then
+  echo "lockunspent with numeric unlock-all flag failed" >&2
+  exit 1
+fi
+
+LISTLOCKED_AFTER_NUMERIC_UNLOCK="$(btc_rpc_call '{"jsonrpc":"2.0","id":"listlockunspent-after-numeric-unlock","method":"listlockunspent","params":[]}' \
+  | tee "$ARTIFACT_DIR/btc_listlockunspent_after_numeric_unlock_response.json")"
+LOCKED_AFTER_NUMERIC_UNLOCK_COUNT="$(echo "$LISTLOCKED_AFTER_NUMERIC_UNLOCK" | jq --arg txid "$LOCK_TXID" --argjson vout "$LOCK_VOUT" '[.result[] | select(.txid == $txid and .vout == $vout)] | length')"
+if [[ "$LOCKED_AFTER_NUMERIC_UNLOCK_COUNT" -ne 0 ]]; then
+  echo "listlockunspent still contains $LOCK_TXID:$LOCK_VOUT after numeric unlock-all" >&2
+  exit 1
+fi
+
 echo "[10/12] Verifying PSBT flow, then sending via raw+wallet and sendtoaddress..."
 CREATE_PSBT_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"create-psbt\",\"method\":\"createpsbt\",\"params\":[[{\"txid\":\"$LOCK_TXID\",\"vout\":$LOCK_VOUT}],[{\"$SATOSHI_ADDR\":0.01}],0,true]}" \
   | tee "$ARTIFACT_DIR/btc_createpsbt_response.json")"
@@ -980,6 +1004,8 @@ psbt_finalize_complete=$FINALIZED_PSBT_COMPLETE
 psbt_final_hex_len=${#FINALIZED_PSBT_HEX}
 lock_txid=$LOCK_TXID
 lock_vout=$LOCK_VOUT
+lock_numeric_result=$LOCK_NUMERIC_RESULT
+unlock_numeric_result=$UNLOCK_NUMERIC_RESULT
 near_amount_yoctobit=$NEAR_AMOUNT
 satoshi_balance_before=$SATOSHI_BALANCE_BEFORE
 satoshi_balance_after=$SATOSHI_BALANCE_AFTER
