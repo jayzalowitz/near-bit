@@ -411,6 +411,25 @@ if [[ "$(echo "$WCF_PSBT_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
   exit 1
 fi
 
+WCF_PSBT_OBJECT_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"walletcreatefundedpsbt-object-outputs\",\"method\":\"walletcreatefundedpsbt\",\"params\":[[],{\"$SATOSHI_ADDR\":$SEND_AMOUNT_PSBT},0,{}]}" \
+  | tee "$ARTIFACT_DIR/btc_walletcreatefundedpsbt_object_outputs_response.json")"
+FUNDED_OBJECT_PSBT="$(echo "$WCF_PSBT_OBJECT_RESPONSE" | jq -r '.result.psbt // empty')"
+if [[ -z "$FUNDED_OBJECT_PSBT" ]]; then
+  echo "walletcreatefundedpsbt (object outputs) returned empty psbt" >&2
+  exit 1
+fi
+if [[ "$(echo "$WCF_PSBT_OBJECT_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "walletcreatefundedpsbt (object outputs) failed" >&2
+  exit 1
+fi
+DECODE_FUNDED_OBJECT_PSBT_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"decodepsbt-funded-object-outputs\",\"method\":\"decodepsbt\",\"params\":[\"$FUNDED_OBJECT_PSBT\"]}" \
+  | tee "$ARTIFACT_DIR/btc_decodepsbt_funded_object_outputs_response.json")"
+FUNDED_OBJECT_PSBT_VOUT_COUNT="$(echo "$DECODE_FUNDED_OBJECT_PSBT_RESPONSE" | jq -r '.result.tx.vout | length')"
+if [[ "$FUNDED_OBJECT_PSBT_VOUT_COUNT" -lt 1 ]]; then
+  echo "walletcreatefundedpsbt object outputs decode had no outputs" >&2
+  exit 1
+fi
+
 WCF_PSBT_INSUFFICIENT_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"walletcreatefundedpsbt-insufficient\",\"method\":\"walletcreatefundedpsbt\",\"params\":[[],[{\"$SATOSHI_ADDR\":999999.0}],0,{}]}" \
   | tee "$ARTIFACT_DIR/btc_walletcreatefundedpsbt_insufficient_response.json")"
 WCF_PSBT_INSUFFICIENT_ERROR_CODE="$(echo "$WCF_PSBT_INSUFFICIENT_RESPONSE" | jq -r '.error.code // empty')"
@@ -793,6 +812,7 @@ raw_replay_error=$RAW_REPLAY_ERROR
 psbt_create_len=${#CREATED_PSBT}
 psbt_create_object_vout_count=$OBJECT_PSBT_VOUT_COUNT
 psbt_funded_len=${#FUNDED_PSBT}
+psbt_funded_object_vout_count=$FUNDED_OBJECT_PSBT_VOUT_COUNT
 psbt_funded_input_txid=$FUNDED_PSBT_INPUT_TXID
 psbt_walletcreate_insufficient_error_code=$WCF_PSBT_INSUFFICIENT_ERROR_CODE
 psbt_analyze_next_unsigned=$ANALYZE_PSBT_NEXT
