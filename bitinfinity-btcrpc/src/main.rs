@@ -11065,8 +11065,9 @@ mod tests {
         JsonRpcRequest, RpcState,
     };
     use base64::Engine;
-    use serde_json::json;
     use secp256k1::{Message, Secp256k1, SecretKey};
+    use serde_json::json;
+    use std::sync::{Mutex, OnceLock};
 
     fn sign_bitcoin_message(secret_key: &SecretKey, message: &str) -> String {
         use sha2::Digest as _;
@@ -11104,6 +11105,30 @@ mod tests {
         let checksum = sha2::Sha256::digest(sha2::Sha256::digest(&payload));
         payload.extend_from_slice(&checksum[..4]);
         bs58::encode(payload).into_string()
+    }
+
+    fn run_with_clean_quantum_registry<F>(test: F)
+    where
+        F: FnOnce(tokio::runtime::Runtime, RpcState),
+    {
+        static QUANTUM_TEST_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+        let _guard = QUANTUM_TEST_LOCK
+            .get_or_init(|| Mutex::new(()))
+            .lock()
+            .expect("quantum test lock should not be poisoned");
+
+        let registry_path = super::quantum_keys_path();
+        let _ = std::fs::remove_file(&registry_path);
+
+        let runtime = tokio::runtime::Runtime::new().expect("tokio runtime should initialize");
+        let state = RpcState::new(
+            "bitinfinity-testnet".to_string(),
+            "test".to_string(),
+            "http://127.0.0.1:3030".to_string(),
+        );
+        test(runtime, state);
+
+        let _ = std::fs::remove_file(&registry_path);
     }
 
     #[test]
@@ -12192,309 +12217,281 @@ mod tests {
 
     #[test]
     fn test_listquantumkeys_supports_legacy_lowercase_alias() {
-        let rt = tokio::runtime::Runtime::new().expect("tokio runtime should initialize");
-        let state = RpcState::new(
-            "bitinfinity-testnet".to_string(),
-            "test".to_string(),
-            "http://127.0.0.1:3030".to_string(),
-        );
-        let canonical_address = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
-        let legacy_lowercase = canonical_address.to_lowercase();
+        run_with_clean_quantum_registry(|rt, state| {
+            let canonical_address = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
+            let legacy_lowercase = canonical_address.to_lowercase();
 
-        let add_request = JsonRpcRequest {
-            jsonrpc: "2.0".to_string(),
-            id: json!(5000),
-            method: "addquantumkey".to_string(),
-            params: json!([canonical_address, "dilithium3", "11".repeat(32)]),
-        };
-        let add_response = rt.block_on(handle_addquantumkey(&state, &add_request));
-        assert!(
-            add_response.error.is_none(),
-            "addquantumkey should accept canonical address"
-        );
+            let add_request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(5000),
+                method: "addquantumkey".to_string(),
+                params: json!([canonical_address, "dilithium3", "11".repeat(32)]),
+            };
+            let add_response = rt.block_on(handle_addquantumkey(&state, &add_request));
+            assert!(
+                add_response.error.is_none(),
+                "addquantumkey should accept canonical address"
+            );
 
-        let list_request = JsonRpcRequest {
-            jsonrpc: "2.0".to_string(),
-            id: json!(5001),
-            method: "listquantumkeys".to_string(),
-            params: json!([legacy_lowercase]),
-        };
-        let list_response = rt.block_on(handle_listquantumkeys(&state, &list_request));
-        assert!(
-            list_response.error.is_none(),
-            "listquantumkeys should support lowercase alias lookup"
-        );
-        assert_eq!(
-            list_response
-                .result
-                .as_ref()
-                .and_then(|r| r.get("quantum_keys"))
-                .and_then(|v| v.as_array())
-                .map(|keys| keys.len()),
-            Some(1),
-            "legacy lowercase alias should return registered keys from canonical address"
-        );
+            let list_request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(5001),
+                method: "listquantumkeys".to_string(),
+                params: json!([legacy_lowercase]),
+            };
+            let list_response = rt.block_on(handle_listquantumkeys(&state, &list_request));
+            assert!(
+                list_response.error.is_none(),
+                "listquantumkeys should support lowercase alias lookup"
+            );
+            assert_eq!(
+                list_response
+                    .result
+                    .as_ref()
+                    .and_then(|r| r.get("quantum_keys"))
+                    .and_then(|v| v.as_array())
+                    .map(|keys| keys.len()),
+                Some(1),
+                "legacy lowercase alias should return registered keys from canonical address"
+            );
+        });
     }
 
     #[test]
     fn test_removequantumkey_supports_legacy_lowercase_alias() {
-        let rt = tokio::runtime::Runtime::new().expect("tokio runtime should initialize");
-        let state = RpcState::new(
-            "bitinfinity-testnet".to_string(),
-            "test".to_string(),
-            "http://127.0.0.1:3030".to_string(),
-        );
-        let canonical_address = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
-        let legacy_lowercase = canonical_address.to_lowercase();
-        let pubkey_hex = "22".repeat(32);
+        run_with_clean_quantum_registry(|rt, state| {
+            let canonical_address = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
+            let legacy_lowercase = canonical_address.to_lowercase();
+            let pubkey_hex = "22".repeat(32);
 
-        let add_request = JsonRpcRequest {
-            jsonrpc: "2.0".to_string(),
-            id: json!(5002),
-            method: "addquantumkey".to_string(),
-            params: json!([canonical_address, "falcon512", pubkey_hex]),
-        };
-        let add_response = rt.block_on(handle_addquantumkey(&state, &add_request));
-        assert!(
-            add_response.error.is_none(),
-            "addquantumkey should accept canonical address"
-        );
+            let add_request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(5002),
+                method: "addquantumkey".to_string(),
+                params: json!([canonical_address, "falcon512", pubkey_hex]),
+            };
+            let add_response = rt.block_on(handle_addquantumkey(&state, &add_request));
+            assert!(
+                add_response.error.is_none(),
+                "addquantumkey should accept canonical address"
+            );
 
-        let remove_request = JsonRpcRequest {
-            jsonrpc: "2.0".to_string(),
-            id: json!(5003),
-            method: "removequantumkey".to_string(),
-            params: json!([legacy_lowercase, "falcon512", pubkey_hex]),
-        };
-        let remove_response = rt.block_on(handle_removequantumkey(&state, &remove_request));
-        assert!(
-            remove_response.error.is_none(),
-            "removequantumkey should support lowercase alias"
-        );
-        assert_eq!(
-            remove_response
-                .result
-                .as_ref()
-                .and_then(|r| r.get("removed"))
-                .and_then(|v| v.as_bool()),
-            Some(true),
-            "removequantumkey should report success for lowercase alias"
-        );
+            let remove_request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(5003),
+                method: "removequantumkey".to_string(),
+                params: json!([legacy_lowercase, "falcon512", pubkey_hex]),
+            };
+            let remove_response = rt.block_on(handle_removequantumkey(&state, &remove_request));
+            assert!(
+                remove_response.error.is_none(),
+                "removequantumkey should support lowercase alias"
+            );
+            assert_eq!(
+                remove_response
+                    .result
+                    .as_ref()
+                    .and_then(|r| r.get("removed"))
+                    .and_then(|v| v.as_bool()),
+                Some(true),
+                "removequantumkey should report success for lowercase alias"
+            );
 
-        let list_request = JsonRpcRequest {
-            jsonrpc: "2.0".to_string(),
-            id: json!(5004),
-            method: "listquantumkeys".to_string(),
-            params: json!([canonical_address]),
-        };
-        let list_response = rt.block_on(handle_listquantumkeys(&state, &list_request));
-        assert!(
-            list_response.error.is_none(),
-            "listquantumkeys should still work for canonical address"
-        );
-        assert_eq!(
-            list_response
-                .result
-                .as_ref()
-                .and_then(|r| r.get("quantum_keys"))
-                .and_then(|v| v.as_array())
-                .map(|keys| keys.len()),
-            Some(0),
-            "remove via lowercase alias should remove canonical registration"
-        );
+            let list_request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(5004),
+                method: "listquantumkeys".to_string(),
+                params: json!([canonical_address]),
+            };
+            let list_response = rt.block_on(handle_listquantumkeys(&state, &list_request));
+            assert!(
+                list_response.error.is_none(),
+                "listquantumkeys should still work for canonical address"
+            );
+            assert_eq!(
+                list_response
+                    .result
+                    .as_ref()
+                    .and_then(|r| r.get("quantum_keys"))
+                    .and_then(|v| v.as_array())
+                    .map(|keys| keys.len()),
+                Some(0),
+                "remove via lowercase alias should remove canonical registration"
+            );
+        });
     }
 
     #[test]
     fn test_listquantumkeys_supports_canonical_lookup_after_lowercase_add() {
-        let rt = tokio::runtime::Runtime::new().expect("tokio runtime should initialize");
-        let state = RpcState::new(
-            "bitinfinity-testnet".to_string(),
-            "test".to_string(),
-            "http://127.0.0.1:3030".to_string(),
-        );
-        let canonical_address = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
-        let legacy_lowercase = canonical_address.to_lowercase();
+        run_with_clean_quantum_registry(|rt, state| {
+            let canonical_address = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
+            let legacy_lowercase = canonical_address.to_lowercase();
 
-        let add_request = JsonRpcRequest {
-            jsonrpc: "2.0".to_string(),
-            id: json!(5005),
-            method: "addquantumkey".to_string(),
-            params: json!([legacy_lowercase, "sphincsplus", "33".repeat(32)]),
-        };
-        let add_response = rt.block_on(handle_addquantumkey(&state, &add_request));
-        assert!(
-            add_response.error.is_none(),
-            "addquantumkey should accept lowercase alias"
-        );
+            let add_request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(5005),
+                method: "addquantumkey".to_string(),
+                params: json!([legacy_lowercase, "sphincsplus", "33".repeat(32)]),
+            };
+            let add_response = rt.block_on(handle_addquantumkey(&state, &add_request));
+            assert!(
+                add_response.error.is_none(),
+                "addquantumkey should accept lowercase alias"
+            );
 
-        let list_request = JsonRpcRequest {
-            jsonrpc: "2.0".to_string(),
-            id: json!(5006),
-            method: "listquantumkeys".to_string(),
-            params: json!([canonical_address]),
-        };
-        let list_response = rt.block_on(handle_listquantumkeys(&state, &list_request));
-        assert!(
-            list_response.error.is_none(),
-            "listquantumkeys should support canonical lookup after lowercase add"
-        );
-        assert_eq!(
-            list_response
-                .result
-                .as_ref()
-                .and_then(|r| r.get("quantum_keys"))
-                .and_then(|v| v.as_array())
-                .map(|keys| keys.len()),
-            Some(1),
-            "canonical lookup should see key registered via lowercase alias"
-        );
+            let list_request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(5006),
+                method: "listquantumkeys".to_string(),
+                params: json!([canonical_address]),
+            };
+            let list_response = rt.block_on(handle_listquantumkeys(&state, &list_request));
+            assert!(
+                list_response.error.is_none(),
+                "listquantumkeys should support canonical lookup after lowercase add"
+            );
+            assert_eq!(
+                list_response
+                    .result
+                    .as_ref()
+                    .and_then(|r| r.get("quantum_keys"))
+                    .and_then(|v| v.as_array())
+                    .map(|keys| keys.len()),
+                Some(1),
+                "canonical lookup should see key registered via lowercase alias"
+            );
+        });
     }
 
     #[test]
     fn test_addquantumkey_rejects_duplicate_across_canonical_and_lowercase_alias() {
-        let rt = tokio::runtime::Runtime::new().expect("tokio runtime should initialize");
-        let state = RpcState::new(
-            "bitinfinity-testnet".to_string(),
-            "test".to_string(),
-            "http://127.0.0.1:3030".to_string(),
-        );
-        let canonical_address = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
-        let legacy_lowercase = canonical_address.to_lowercase();
-        let pubkey_hex = "44".repeat(32);
+        run_with_clean_quantum_registry(|rt, state| {
+            let canonical_address = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
+            let legacy_lowercase = canonical_address.to_lowercase();
+            let pubkey_hex = "44".repeat(32);
 
-        let add_alias_request = JsonRpcRequest {
-            jsonrpc: "2.0".to_string(),
-            id: json!(5007),
-            method: "addquantumkey".to_string(),
-            params: json!([legacy_lowercase, "dilithium3", pubkey_hex]),
-        };
-        let add_alias_response = rt.block_on(handle_addquantumkey(&state, &add_alias_request));
-        assert!(
-            add_alias_response.error.is_none(),
-            "addquantumkey should accept lowercase alias"
-        );
+            let add_alias_request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(5007),
+                method: "addquantumkey".to_string(),
+                params: json!([legacy_lowercase, "dilithium3", pubkey_hex]),
+            };
+            let add_alias_response = rt.block_on(handle_addquantumkey(&state, &add_alias_request));
+            assert!(
+                add_alias_response.error.is_none(),
+                "addquantumkey should accept lowercase alias"
+            );
 
-        let duplicate_canonical_request = JsonRpcRequest {
-            jsonrpc: "2.0".to_string(),
-            id: json!(5008),
-            method: "addquantumkey".to_string(),
-            params: json!([canonical_address, "dilithium3", "44".repeat(32)]),
-        };
-        let duplicate_canonical_response =
-            rt.block_on(handle_addquantumkey(&state, &duplicate_canonical_request));
-        assert!(
-            duplicate_canonical_response.result.is_none(),
-            "duplicate registration across aliases should not produce result"
-        );
-        assert_eq!(
-            duplicate_canonical_response.error.as_ref().map(|e| e.code),
-            Some(-32602),
-            "duplicate registration across aliases should return invalid-params"
-        );
+            let duplicate_canonical_request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(5008),
+                method: "addquantumkey".to_string(),
+                params: json!([canonical_address, "dilithium3", "44".repeat(32)]),
+            };
+            let duplicate_canonical_response =
+                rt.block_on(handle_addquantumkey(&state, &duplicate_canonical_request));
+            assert!(
+                duplicate_canonical_response.result.is_none(),
+                "duplicate registration across aliases should not produce result"
+            );
+            assert_eq!(
+                duplicate_canonical_response.error.as_ref().map(|e| e.code),
+                Some(-32602),
+                "duplicate registration across aliases should return invalid-params"
+            );
+        });
     }
 
     #[test]
     fn test_listquantumkeys_deduplicates_alias_storage_entries() {
-        let rt = tokio::runtime::Runtime::new().expect("tokio runtime should initialize");
-        let state = RpcState::new(
-            "bitinfinity-testnet".to_string(),
-            "test".to_string(),
-            "http://127.0.0.1:3030".to_string(),
-        );
-        let canonical_address = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
-        let legacy_lowercase = canonical_address.to_lowercase();
+        run_with_clean_quantum_registry(|rt, state| {
+            let canonical_address = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
+            let legacy_lowercase = canonical_address.to_lowercase();
 
-        rt.block_on(async {
-            let mut keys = state.quantum_keys.write().await;
-            keys.insert(
-                canonical_address.to_string(),
-                vec![
-                    ("dilithium3".to_string(), "11".repeat(32)),
-                    ("falcon512".to_string(), "22".repeat(32)),
-                ],
-            );
-            keys.insert(
-                legacy_lowercase.clone(),
-                vec![
-                    ("dilithium3".to_string(), "11".repeat(32)),
-                    ("sphincsplus".to_string(), "33".repeat(32)),
-                ],
+            rt.block_on(async {
+                let mut keys = state.quantum_keys.write().await;
+                keys.insert(
+                    canonical_address.to_string(),
+                    vec![
+                        ("dilithium3".to_string(), "11".repeat(32)),
+                        ("falcon512".to_string(), "22".repeat(32)),
+                    ],
+                );
+                keys.insert(
+                    legacy_lowercase.clone(),
+                    vec![
+                        ("dilithium3".to_string(), "11".repeat(32)),
+                        ("sphincsplus".to_string(), "33".repeat(32)),
+                    ],
+                );
+            });
+
+            let request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(5009),
+                method: "listquantumkeys".to_string(),
+                params: json!([canonical_address]),
+            };
+            let response = rt.block_on(handle_listquantumkeys(&state, &request));
+            assert!(response.error.is_none(), "listquantumkeys should not fail");
+            assert_eq!(
+                response
+                    .result
+                    .as_ref()
+                    .and_then(|r| r.get("quantum_keys"))
+                    .and_then(|v| v.as_array())
+                    .map(|keys| keys.len()),
+                Some(3),
+                "overlapping alias entries should be de-duplicated"
             );
         });
-
-        let request = JsonRpcRequest {
-            jsonrpc: "2.0".to_string(),
-            id: json!(5009),
-            method: "listquantumkeys".to_string(),
-            params: json!([canonical_address]),
-        };
-        let response = rt.block_on(handle_listquantumkeys(&state, &request));
-        assert!(response.error.is_none(), "listquantumkeys should not fail");
-        assert_eq!(
-            response
-                .result
-                .as_ref()
-                .and_then(|r| r.get("quantum_keys"))
-                .and_then(|v| v.as_array())
-                .map(|keys| keys.len()),
-            Some(3),
-            "overlapping alias entries should be de-duplicated"
-        );
     }
 
     #[test]
     fn test_removequantumkey_rejects_invalid_keytype() {
-        let rt = tokio::runtime::Runtime::new().expect("tokio runtime should initialize");
-        let state = RpcState::new(
-            "bitinfinity-testnet".to_string(),
-            "test".to_string(),
-            "http://127.0.0.1:3030".to_string(),
-        );
-        let request = JsonRpcRequest {
-            jsonrpc: "2.0".to_string(),
-            id: json!(5001),
-            method: "removequantumkey".to_string(),
-            params: json!([
-                "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
-                "not-a-type",
-                "11".repeat(32)
-            ]),
-        };
+        run_with_clean_quantum_registry(|rt, state| {
+            let request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(5001),
+                method: "removequantumkey".to_string(),
+                params: json!([
+                    "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
+                    "not-a-type",
+                    "11".repeat(32)
+                ]),
+            };
 
-        let response = rt.block_on(handle_removequantumkey(&state, &request));
-        assert!(response.result.is_none(), "invalid keytype should not produce result");
-        assert_eq!(
-            response.error.as_ref().map(|e| e.code),
-            Some(-32602),
-            "invalid keytype should return invalid-params"
-        );
+            let response = rt.block_on(handle_removequantumkey(&state, &request));
+            assert!(response.result.is_none(), "invalid keytype should not produce result");
+            assert_eq!(
+                response.error.as_ref().map(|e| e.code),
+                Some(-32602),
+                "invalid keytype should return invalid-params"
+            );
+        });
     }
 
     #[test]
     fn test_removequantumkey_rejects_invalid_pubkey_hex() {
-        let rt = tokio::runtime::Runtime::new().expect("tokio runtime should initialize");
-        let state = RpcState::new(
-            "bitinfinity-testnet".to_string(),
-            "test".to_string(),
-            "http://127.0.0.1:3030".to_string(),
-        );
-        let request = JsonRpcRequest {
-            jsonrpc: "2.0".to_string(),
-            id: json!(5002),
-            method: "removequantumkey".to_string(),
-            params: json!([
-                "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
-                "falcon512",
-                "not-hex"
-            ]),
-        };
+        run_with_clean_quantum_registry(|rt, state| {
+            let request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(5002),
+                method: "removequantumkey".to_string(),
+                params: json!([
+                    "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
+                    "falcon512",
+                    "not-hex"
+                ]),
+            };
 
-        let response = rt.block_on(handle_removequantumkey(&state, &request));
-        assert!(response.result.is_none(), "invalid pubkey hex should not produce result");
-        assert_eq!(
-            response.error.as_ref().map(|e| e.code),
-            Some(-32602),
-            "invalid pubkey hex should return invalid-params"
-        );
+            let response = rt.block_on(handle_removequantumkey(&state, &request));
+            assert!(response.result.is_none(), "invalid pubkey hex should not produce result");
+            assert_eq!(
+                response.error.as_ref().map(|e| e.code),
+                Some(-32602),
+                "invalid pubkey hex should return invalid-params"
+            );
+        });
     }
 }
