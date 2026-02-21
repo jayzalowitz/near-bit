@@ -586,6 +586,14 @@ if [[ "$WCF_PSBT_INSUFFICIENT_ERROR_CODE" != "-4" ]]; then
   exit 1
 fi
 
+DECODE_INVALID_PSBT_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"decodepsbt-invalid","method":"decodepsbt","params":["***not-base64***"]}' \
+  | tee "$ARTIFACT_DIR/btc_decodepsbt_invalid_response.json")"
+DECODE_INVALID_ERROR_CODE="$(echo "$DECODE_INVALID_PSBT_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$DECODE_INVALID_ERROR_CODE" != "-22" ]]; then
+  echo "decodepsbt invalid path did not return -22 (got: $DECODE_INVALID_ERROR_CODE)" >&2
+  exit 1
+fi
+
 DECODE_PSBT_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"decodepsbt-funded\",\"method\":\"decodepsbt\",\"params\":[\"$FUNDED_PSBT\"]}" \
   | tee "$ARTIFACT_DIR/btc_decodepsbt_funded_response.json")"
 if [[ "$(echo "$DECODE_PSBT_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
@@ -602,6 +610,14 @@ if [[ "$FUNDED_PSBT_INPUT_TXID" != "$LOCK_TXID" ]]; then
   exit 1
 fi
 
+ANALYZE_INVALID_PSBT_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"analyzepsbt-invalid","method":"analyzepsbt","params":["***not-base64***"]}' \
+  | tee "$ARTIFACT_DIR/btc_analyzepsbt_invalid_response.json")"
+ANALYZE_INVALID_ERROR_CODE="$(echo "$ANALYZE_INVALID_PSBT_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$ANALYZE_INVALID_ERROR_CODE" != "-22" ]]; then
+  echo "analyzepsbt invalid path did not return -22 (got: $ANALYZE_INVALID_ERROR_CODE)" >&2
+  exit 1
+fi
+
 ANALYZE_PSBT_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"analyzepsbt-funded\",\"method\":\"analyzepsbt\",\"params\":[\"$FUNDED_PSBT\"]}" \
   | tee "$ARTIFACT_DIR/btc_analyzepsbt_funded_response.json")"
 if [[ "$(echo "$ANALYZE_PSBT_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
@@ -611,6 +627,14 @@ fi
 ANALYZE_PSBT_NEXT="$(echo "$ANALYZE_PSBT_RESPONSE" | jq -r '.result.next // empty')"
 if [[ "$ANALYZE_PSBT_NEXT" != "signer" ]]; then
   echo "analyzepsbt expected next=signer before signing, got: $ANALYZE_PSBT_NEXT" >&2
+  exit 1
+fi
+
+FINALIZE_INVALID_PSBT_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"finalizepsbt-invalid","method":"finalizepsbt","params":["***not-base64***"]}' \
+  | tee "$ARTIFACT_DIR/btc_finalizepsbt_invalid_response.json")"
+FINALIZE_INVALID_ERROR_CODE="$(echo "$FINALIZE_INVALID_PSBT_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$FINALIZE_INVALID_ERROR_CODE" != "-22" ]]; then
+  echo "finalizepsbt invalid path did not return -22 (got: $FINALIZE_INVALID_ERROR_CODE)" >&2
   exit 1
 fi
 
@@ -648,6 +672,14 @@ UTXOUPDATE_INVALID_PSBT_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"utxoupd
 UTXOUPDATE_INVALID_ERROR_CODE="$(echo "$UTXOUPDATE_INVALID_PSBT_RESPONSE" | jq -r '.error.code // empty')"
 if [[ "$UTXOUPDATE_INVALID_ERROR_CODE" != "-22" ]]; then
   echo "utxoupdatepsbt invalid path did not return -22 (got: $UTXOUPDATE_INVALID_ERROR_CODE)" >&2
+  exit 1
+fi
+
+WALLETPROCESS_INVALID_PSBT_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"walletprocesspsbt-invalid","method":"walletprocesspsbt","params":["***not-base64***"]}' \
+  | tee "$ARTIFACT_DIR/btc_walletprocesspsbt_invalid_response.json")"
+WALLETPROCESS_INVALID_ERROR_CODE="$(echo "$WALLETPROCESS_INVALID_PSBT_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$WALLETPROCESS_INVALID_ERROR_CODE" != "-22" ]]; then
+  echo "walletprocesspsbt invalid path did not return -22 (got: $WALLETPROCESS_INVALID_ERROR_CODE)" >&2
   exit 1
 fi
 
@@ -1031,10 +1063,14 @@ psbt_funded_object_vout_count=$FUNDED_OBJECT_PSBT_VOUT_COUNT
 psbt_walletcreate_invalid_output_error_code=$WCF_PSBT_INVALID_ERROR_CODE
 psbt_funded_input_txid=$FUNDED_PSBT_INPUT_TXID
 psbt_walletcreate_insufficient_error_code=$WCF_PSBT_INSUFFICIENT_ERROR_CODE
+psbt_decode_invalid_error_code=$DECODE_INVALID_ERROR_CODE
 psbt_analyze_next_unsigned=$ANALYZE_PSBT_NEXT
+psbt_analyze_invalid_error_code=$ANALYZE_INVALID_ERROR_CODE
+psbt_finalize_invalid_error_code=$FINALIZE_INVALID_ERROR_CODE
 psbt_finalize_unsigned_complete=$FINALIZE_UNSIGNED_COMPLETE
 psbt_finalize_unsigned_hex_len=${#FINALIZE_UNSIGNED_HEX}
 psbt_utxoupdate_invalid_error_code=$UTXOUPDATE_INVALID_ERROR_CODE
+psbt_walletprocess_invalid_error_code=$WALLETPROCESS_INVALID_ERROR_CODE
 psbt_signed_complete=$SIGNED_PSBT_COMPLETE
 psbt_signed_sig_count=$SIGNED_PSBT_SIG_COUNT
 psbt_analyze_next_signed=$ANALYZE_SIGNED_NEXT
