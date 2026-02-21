@@ -11,6 +11,7 @@ FUNDED_BALANCE_YOCTO="5000000000000000000000000" # 5 BIT
 SEND_AMOUNT_RAW="0.1"
 SEND_AMOUNT_1="1.0"
 SEND_AMOUNT_2="0.25"
+SEND_AMOUNT_TOO_HIGH="999999.0"
 NEAR_RPC_URL="${NEAR_RPC_URL:-http://127.0.0.1:3030}"
 BTC_RPC_ADDR="${BTC_RPC_ADDR:-127.0.0.1:18332}"
 
@@ -417,6 +418,41 @@ if [[ -z "$TXID2" ]]; then
   exit 1
 fi
 
+REPLAY_RAW_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"send-raw-replay\",\"method\":\"sendrawtransaction\",\"params\":[\"$SIGNED_RAW_HEX\"]}" \
+  | tee "$ARTIFACT_DIR/btc_sendrawtransaction_replay_response.json")"
+RAW_REPLAY_ERROR="$(echo "$REPLAY_RAW_RESPONSE" | jq -r '.error.message // empty')"
+RAW_REPLAY_RESULT="$(echo "$REPLAY_RAW_RESPONSE" | jq -r '.result // empty')"
+if [[ -n "$RAW_REPLAY_ERROR" ]]; then
+  RAW_REPLAY_MODE="rejected"
+else
+  if [[ "$RAW_REPLAY_RESULT" != "$RAW_TXID" ]]; then
+    echo "Replay sendrawtransaction returned unexpected txid: $RAW_REPLAY_RESULT (expected $RAW_TXID)" >&2
+    exit 1
+  fi
+  RAW_REPLAY_MODE="idempotent"
+fi
+
+LAST_RAW_HEX_CHAR="${SIGNED_RAW_HEX: -1}"
+if [[ "$LAST_RAW_HEX_CHAR" == "0" ]]; then
+  TAMPERED_LAST_CHAR="1"
+else
+  TAMPERED_LAST_CHAR="0"
+fi
+TAMPERED_SIGNED_RAW_HEX="${SIGNED_RAW_HEX%?}$TAMPERED_LAST_CHAR"
+TAMPERED_SEND_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"send-raw-tampered\",\"method\":\"sendrawtransaction\",\"params\":[\"$TAMPERED_SIGNED_RAW_HEX\"]}" \
+  | tee "$ARTIFACT_DIR/btc_sendrawtransaction_tampered_response.json")"
+if [[ "$(echo "$TAMPERED_SEND_RESPONSE" | jq -r '.error // empty')" == "" ]]; then
+  echo "Tampered signed raw transaction unexpectedly accepted" >&2
+  exit 1
+fi
+
+INSUFFICIENT_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"send-insufficient\",\"method\":\"sendtoaddress\",\"params\":[\"$SATOSHI_ADDR\",$SEND_AMOUNT_TOO_HIGH]}" \
+  | tee "$ARTIFACT_DIR/btc_sendtoaddress_insufficient_response.json")"
+if [[ "$(echo "$INSUFFICIENT_RESPONSE" | jq -r '.error // empty')" == "" ]]; then
+  echo "Insufficient-balance sendtoaddress unexpectedly succeeded" >&2
+  exit 1
+fi
+
 echo "[11/12] Verifying transaction query methods..."
 GETRAW_RAWTX_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"getraw-rawtx\",\"method\":\"getrawtransaction\",\"params\":[\"$RAW_TXID\",false]}" \
   | tee "$ARTIFACT_DIR/btc_getrawtransaction_rawtx_response.json")"
@@ -508,6 +544,8 @@ funded_address=$FUNDED_ADDR
 txid_raw=$RAW_TXID
 txid1=$TXID1
 txid2=$TXID2
+raw_replay_mode=$RAW_REPLAY_MODE
+raw_replay_error=$RAW_REPLAY_ERROR
 lock_txid=$LOCK_TXID
 lock_vout=$LOCK_VOUT
 near_amount_yoctobit=$NEAR_AMOUNT
