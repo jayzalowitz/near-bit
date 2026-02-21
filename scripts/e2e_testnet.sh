@@ -270,6 +270,103 @@ if [[ "$ADDRESSINFO_INVALID_ERROR_CODE" != "-5" ]]; then
   exit 1
 fi
 
+QKEY1_HEX="1111111111111111111111111111111111111111111111111111111111111111"
+QKEY2_HEX="2222222222222222222222222222222222222222222222222222222222222222"
+QKEY3_HEX="3333333333333333333333333333333333333333333333333333333333333333"
+QKEY4_HEX="4444444444444444444444444444444444444444444444444444444444444444"
+
+QKEY_LIST_INITIAL_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"quantum-list-initial\",\"method\":\"listquantumkeys\",\"params\":[\"$FUNDED_ADDR\"]}" \
+  | tee "$ARTIFACT_DIR/btc_quantum_list_initial_response.json")"
+QKEY_INITIAL_COUNT="$(echo "$QKEY_LIST_INITIAL_RESPONSE" | jq -r '.result.quantum_keys | length')"
+if [[ "$(echo "$QKEY_LIST_INITIAL_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "listquantumkeys initial query failed" >&2
+  exit 1
+fi
+
+QKEY_ADD1_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"quantum-add-1\",\"method\":\"addquantumkey\",\"params\":[\"$FUNDED_ADDR\",\"dilithium3\",\"$QKEY1_HEX\"]}" \
+  | tee "$ARTIFACT_DIR/btc_quantum_add1_response.json")"
+if [[ "$(echo "$QKEY_ADD1_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "addquantumkey failed for key 1" >&2
+  exit 1
+fi
+
+QKEY_DUPLICATE_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"quantum-duplicate\",\"method\":\"addquantumkey\",\"params\":[\"$FUNDED_ADDR\",\"dilithium3\",\"$QKEY1_HEX\"]}" \
+  | tee "$ARTIFACT_DIR/btc_quantum_duplicate_response.json")"
+QKEY_DUPLICATE_ERROR_CODE="$(echo "$QKEY_DUPLICATE_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$QKEY_DUPLICATE_ERROR_CODE" != "-32602" ]]; then
+  echo "addquantumkey duplicate path did not return -32602 (got: $QKEY_DUPLICATE_ERROR_CODE)" >&2
+  exit 1
+fi
+
+QKEY_INVALID_TYPE_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"quantum-invalid-type\",\"method\":\"addquantumkey\",\"params\":[\"$FUNDED_ADDR\",\"not-a-type\",\"$QKEY2_HEX\"]}" \
+  | tee "$ARTIFACT_DIR/btc_quantum_invalid_type_response.json")"
+QKEY_INVALID_TYPE_ERROR_CODE="$(echo "$QKEY_INVALID_TYPE_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$QKEY_INVALID_TYPE_ERROR_CODE" != "-32602" ]]; then
+  echo "addquantumkey invalid-keytype path did not return -32602 (got: $QKEY_INVALID_TYPE_ERROR_CODE)" >&2
+  exit 1
+fi
+
+QKEY_ADD2_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"quantum-add-2\",\"method\":\"addquantumkey\",\"params\":[\"$FUNDED_ADDR\",\"falcon512\",\"$QKEY2_HEX\"]}" \
+  | tee "$ARTIFACT_DIR/btc_quantum_add2_response.json")"
+if [[ "$(echo "$QKEY_ADD2_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "addquantumkey failed for key 2" >&2
+  exit 1
+fi
+
+QKEY_ADD3_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"quantum-add-3\",\"method\":\"addquantumkey\",\"params\":[\"$FUNDED_ADDR\",\"sphincsplus\",\"$QKEY3_HEX\"]}" \
+  | tee "$ARTIFACT_DIR/btc_quantum_add3_response.json")"
+if [[ "$(echo "$QKEY_ADD3_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "addquantumkey failed for key 3" >&2
+  exit 1
+fi
+
+QKEY_MAX_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"quantum-max\",\"method\":\"addquantumkey\",\"params\":[\"$FUNDED_ADDR\",\"dilithium3\",\"$QKEY4_HEX\"]}" \
+  | tee "$ARTIFACT_DIR/btc_quantum_max_response.json")"
+QKEY_MAX_ERROR_CODE="$(echo "$QKEY_MAX_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$QKEY_MAX_ERROR_CODE" != "-32602" ]]; then
+  echo "addquantumkey max-keys path did not return -32602 (got: $QKEY_MAX_ERROR_CODE)" >&2
+  exit 1
+fi
+
+QKEY_LIST_ADDED_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"quantum-list-added\",\"method\":\"listquantumkeys\",\"params\":[\"$FUNDED_ADDR\"]}" \
+  | tee "$ARTIFACT_DIR/btc_quantum_list_added_response.json")"
+QKEY_ADDED_COUNT="$(echo "$QKEY_LIST_ADDED_RESPONSE" | jq -r '.result.quantum_keys | length')"
+if [[ "$(echo "$QKEY_LIST_ADDED_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "listquantumkeys after add failed" >&2
+  exit 1
+fi
+if [[ "$QKEY_ADDED_COUNT" -ne 3 ]]; then
+  echo "listquantumkeys expected 3 keys after add (got: $QKEY_ADDED_COUNT)" >&2
+  exit 1
+fi
+
+QKEY_REMOVE_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"quantum-remove\",\"method\":\"removequantumkey\",\"params\":[\"$FUNDED_ADDR\",\"falcon512\",\"$QKEY2_HEX\"]}" \
+  | tee "$ARTIFACT_DIR/btc_quantum_remove_response.json")"
+if [[ "$(echo "$QKEY_REMOVE_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "removequantumkey failed for existing key" >&2
+  exit 1
+fi
+
+QKEY_REMOVE_MISSING_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"quantum-remove-missing\",\"method\":\"removequantumkey\",\"params\":[\"$FUNDED_ADDR\",\"falcon512\",\"$QKEY2_HEX\"]}" \
+  | tee "$ARTIFACT_DIR/btc_quantum_remove_missing_response.json")"
+QKEY_REMOVE_MISSING_ERROR_CODE="$(echo "$QKEY_REMOVE_MISSING_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$QKEY_REMOVE_MISSING_ERROR_CODE" != "-32602" ]]; then
+  echo "removequantumkey missing-key path did not return -32602 (got: $QKEY_REMOVE_MISSING_ERROR_CODE)" >&2
+  exit 1
+fi
+
+QKEY_LIST_REMOVED_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"quantum-list-removed\",\"method\":\"listquantumkeys\",\"params\":[\"$FUNDED_ADDR\"]}" \
+  | tee "$ARTIFACT_DIR/btc_quantum_list_removed_response.json")"
+QKEY_REMOVED_COUNT="$(echo "$QKEY_LIST_REMOVED_RESPONSE" | jq -r '.result.quantum_keys | length')"
+if [[ "$(echo "$QKEY_LIST_REMOVED_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "listquantumkeys after remove failed" >&2
+  exit 1
+fi
+if [[ "$QKEY_REMOVED_COUNT" -ne 2 ]]; then
+  echo "listquantumkeys expected 2 keys after remove (got: $QKEY_REMOVED_COUNT)" >&2
+  exit 1
+fi
+
 BESTBLOCK_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"bestblock","method":"getbestblockhash","params":[]}' \
   | tee "$ARTIFACT_DIR/btc_getbestblockhash_response.json")"
 BEST_BLOCK_HASH="$(echo "$BESTBLOCK_RESPONSE" | jq -r '.result // empty')"
@@ -1309,6 +1406,13 @@ funded_debit=$FUNDED_DEBIT
 walletcreate_while_locked_error_code=$WCF_WHILE_LOCKED_ERROR_CODE
 access_key_count=$ACCESS_KEY_COUNT
 getaddressinfo_invalid_error_code=$ADDRESSINFO_INVALID_ERROR_CODE
+quantum_initial_count=$QKEY_INITIAL_COUNT
+quantum_after_add_count=$QKEY_ADDED_COUNT
+quantum_after_remove_count=$QKEY_REMOVED_COUNT
+quantum_duplicate_error_code=$QKEY_DUPLICATE_ERROR_CODE
+quantum_invalid_type_error_code=$QKEY_INVALID_TYPE_ERROR_CODE
+quantum_max_keys_error_code=$QKEY_MAX_ERROR_CODE
+quantum_remove_missing_error_code=$QKEY_REMOVE_MISSING_ERROR_CODE
 gettransaction_unknown_error_code=$GETTX_UNKNOWN_ERROR_CODE
 getrawtransaction_unknown_error_code=$GETRAW_UNKNOWN_ERROR_CODE
 getblockheader_unknown_error_code=$BLOCKHEADER_UNKNOWN_ERROR_CODE
