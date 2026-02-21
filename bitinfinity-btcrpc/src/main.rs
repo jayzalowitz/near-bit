@@ -5243,6 +5243,14 @@ async fn handle_scantxoutset(state: &RpcState, request: &JsonRpcRequest) -> Json
     use sha2::Digest as _;
     let action = get_str_param(&request.params, 0).unwrap_or("start");
 
+    if action != "start" && action != "status" && action != "abort" {
+        return err_response(
+            &request.id,
+            -8,
+            format!("Unknown scan action: {}", action),
+        );
+    }
+
     if action == "abort" || action == "status" {
         return ok_response(&request.id, json!({"success": true, "progress": 100}));
     }
