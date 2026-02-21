@@ -1689,6 +1689,30 @@ if [[ "$AUTH_WALLETPROCESS_OK_ID" != "auth-walletprocesspsbt" ]]; then
   exit 1
 fi
 
+AUTH_WALLETCREATE_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-walletcreatefundedpsbt\",\"method\":\"walletcreatefundedpsbt\",\"params\":[[],[{\"$SATOSHI_ADDR\":0.0001}],0,{}]}"
+AUTH_WALLETCREATE_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_WALLETCREATE_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_WALLETCREATE_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for walletcreatefundedpsbt without auth, got: $AUTH_WALLETCREATE_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_WALLETCREATE_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_WALLETCREATE_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_WALLETCREATE_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for walletcreatefundedpsbt with wrong auth, got: $AUTH_WALLETCREATE_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_WALLETCREATE_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_walletcreatefundedpsbt_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_WALLETCREATE_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_WALLETCREATE_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated walletcreatefundedpsbt, got: $AUTH_WALLETCREATE_OK_CODE" >&2
+  exit 1
+fi
+AUTH_WALLETCREATE_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_walletcreatefundedpsbt_success_response.json")"
+if [[ "$AUTH_WALLETCREATE_OK_ID" != "auth-walletcreatefundedpsbt" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated walletcreatefundedpsbt" >&2
+  exit 1
+fi
+
 AUTH_QUANTUM_PAYLOAD='{"jsonrpc":"2.0","id":"auth-addquantumkey","method":"addquantumkey","params":["'"$FUNDED_ADDR"'","dilithium3","aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"]}'
 AUTH_QUANTUM_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_QUANTUM_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
 if [[ "$AUTH_QUANTUM_NOAUTH_CODE" != "401" ]]; then
@@ -1897,6 +1921,9 @@ auth_lockunspent_ok_http_code=$AUTH_LOCKUNSPENT_OK_CODE
 auth_walletprocesspsbt_noauth_http_code=$AUTH_WALLETPROCESS_NOAUTH_CODE
 auth_walletprocesspsbt_wrong_http_code=$AUTH_WALLETPROCESS_WRONG_CODE
 auth_walletprocesspsbt_ok_http_code=$AUTH_WALLETPROCESS_OK_CODE
+auth_walletcreatefundedpsbt_noauth_http_code=$AUTH_WALLETCREATE_NOAUTH_CODE
+auth_walletcreatefundedpsbt_wrong_http_code=$AUTH_WALLETCREATE_WRONG_CODE
+auth_walletcreatefundedpsbt_ok_http_code=$AUTH_WALLETCREATE_OK_CODE
 auth_addquantumkey_noauth_http_code=$AUTH_QUANTUM_NOAUTH_CODE
 auth_addquantumkey_wrong_http_code=$AUTH_QUANTUM_WRONG_CODE
 auth_addquantumkey_ok_http_code=$AUTH_QUANTUM_OK_CODE
