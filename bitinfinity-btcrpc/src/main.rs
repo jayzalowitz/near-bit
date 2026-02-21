@@ -9,7 +9,7 @@ use clap::Parser;
 use near_account_id::{AccountIdRef, AccountType};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
@@ -10275,6 +10275,88 @@ fn handle_verifychain(request: &JsonRpcRequest) -> JsonRpcResponse {
 /// Supported quantum key algorithms.
 const QUANTUM_KEY_TYPES: &[&str] = &["dilithium3", "falcon512", "sphincsplus"];
 
+fn quantum_casefold_address(address: &str) -> Option<String> {
+    if address.starts_with('1') || address.starts_with('3') {
+        Some(address.to_lowercase())
+    } else {
+        None
+    }
+}
+
+fn collect_quantum_keys_for_address(keys: &QuantumKeyMap, address: &str) -> Vec<(String, String)> {
+    let mut merged = Vec::new();
+    let mut seen: HashSet<(String, String)> = HashSet::new();
+
+    if let Some(casefold) = quantum_casefold_address(address) {
+        for (entry_address, entry_keys) in keys.iter() {
+            if quantum_casefold_address(entry_address).as_deref() == Some(casefold.as_str()) {
+                for (keytype, pubkey_hex) in entry_keys {
+                    let pair = (keytype.clone(), pubkey_hex.clone());
+                    if seen.insert(pair.clone()) {
+                        merged.push(pair);
+                    }
+                }
+            }
+        }
+    } else if let Some(entry_keys) = keys.get(address) {
+        for (keytype, pubkey_hex) in entry_keys {
+            let pair = (keytype.clone(), pubkey_hex.clone());
+            if seen.insert(pair.clone()) {
+                merged.push(pair);
+            }
+        }
+    }
+
+    merged
+}
+
+fn sync_quantum_keys_for_address(
+    keys: &mut QuantumKeyMap,
+    address: &str,
+    entries: &[(String, String)],
+) {
+    if let Some(casefold) = quantum_casefold_address(address) {
+        let related_addresses: Vec<String> = keys
+            .keys()
+            .filter(|existing| {
+                quantum_casefold_address(existing).as_deref() == Some(casefold.as_str())
+            })
+            .cloned()
+            .collect();
+        let canonical_existing = related_addresses
+            .iter()
+            .find(|existing| existing.chars().any(|ch| ch.is_ascii_uppercase()))
+            .cloned();
+
+        for existing in related_addresses {
+            keys.remove(&existing);
+        }
+
+        if entries.is_empty() {
+            return;
+        }
+
+        let mut storage_addresses = vec![
+            canonical_existing.unwrap_or_else(|| address.to_string()),
+            casefold,
+            address.to_string(),
+        ];
+        let mut dedup = HashSet::new();
+        for storage_address in storage_addresses.drain(..) {
+            if dedup.insert(storage_address.clone()) {
+                keys.insert(storage_address, entries.to_vec());
+            }
+        }
+        return;
+    }
+
+    if entries.is_empty() {
+        keys.remove(address);
+    } else {
+        keys.insert(address.to_string(), entries.to_vec());
+    }
+}
+
 /// Register a quantum-safe public key on an address.
 ///
 /// Params: [address, keytype, pubkey_hex]
@@ -10352,7 +10434,7 @@ async fn handle_addquantumkey(state: &RpcState, request: &JsonRpcRequest) -> Jso
     }
 
     let mut keys = state.quantum_keys.write().await;
-    let entry = keys.entry(address.clone()).or_default();
+    let mut entry = collect_quantum_keys_for_address(&keys, &address);
 
     // Max 3 quantum keys per address
     if entry.len() >= 3 {
@@ -10376,6 +10458,7 @@ async fn handle_addquantumkey(state: &RpcState, request: &JsonRpcRequest) -> Jso
     }
 
     entry.push((keytype.clone(), pubkey_hex.clone()));
+    sync_quantum_keys_for_address(&mut keys, &address, &entry);
     if let Err(e) = save_quantum_keys_to_disk(&keys) {
         log::error!("Failed to persist quantum keys after addquantumkey: {}", e);
     }
@@ -10465,20 +10548,11 @@ async fn handle_removequantumkey(state: &RpcState, request: &JsonRpcRequest) -> 
     }
 
     let mut keys = state.quantum_keys.write().await;
-    let mut removed = false;
-    let mut remove_address_entry = false;
-    if let Some(entry) = keys.get_mut(&address) {
-        let before = entry.len();
-        entry.retain(|(kt, pk)| !(kt == &keytype && pk == &pubkey_hex));
-        if entry.len() < before {
-            removed = true;
-            remove_address_entry = entry.is_empty();
-        }
-    }
-    if removed {
-        if remove_address_entry {
-            keys.remove(&address);
-        }
+    let mut entry = collect_quantum_keys_for_address(&keys, &address);
+    let before = entry.len();
+    entry.retain(|(kt, pk)| !(kt == &keytype && pk == &pubkey_hex));
+    if entry.len() < before {
+        sync_quantum_keys_for_address(&mut keys, &address, &entry);
         if let Err(e) = save_quantum_keys_to_disk(&keys) {
             log::error!("Failed to persist quantum keys after removequantumkey: {}", e);
         }
@@ -10526,15 +10600,10 @@ async fn handle_listquantumkeys(state: &RpcState, request: &JsonRpcRequest) -> J
     }
 
     let keys = state.quantum_keys.read().await;
-    let registered: Vec<serde_json::Value> = keys
-        .get(&address)
-        .map(|entry| {
-            entry
-                .iter()
-                .map(|(kt, pk)| json!({ "keytype": kt, "pubkey_hex": pk }))
-                .collect()
-        })
-        .unwrap_or_default();
+    let registered: Vec<serde_json::Value> = collect_quantum_keys_for_address(&keys, &address)
+        .iter()
+        .map(|(kt, pk)| json!({ "keytype": kt, "pubkey_hex": pk }))
+        .collect();
 
     ok_response(
         &request.id,
@@ -10989,11 +11058,11 @@ async fn main() {
 mod tests {
     use super::{
         derive_script_pub_key_hex, encode_bitcoin_varint, extract_unsigned_tx_hex,
-        handle_analyzepsbt, handle_combinepsbt, handle_createpsbt, handle_createrawtransaction,
-        handle_decodepsbt, handle_finalizepsbt, handle_joinpsbts, handle_removequantumkey,
-        handle_utxoupdatepsbt, RpcState,
+        handle_addquantumkey, handle_analyzepsbt, handle_combinepsbt, handle_createpsbt,
+        handle_createrawtransaction, handle_decodepsbt, handle_finalizepsbt, handle_joinpsbts,
+        handle_listquantumkeys, handle_removequantumkey, handle_utxoupdatepsbt,
         parse_patoshi_record_bytes, verify_bitcoin_message_signature, write_compact_size,
-        JsonRpcRequest,
+        JsonRpcRequest, RpcState,
     };
     use base64::Engine;
     use serde_json::json;
@@ -12118,6 +12187,120 @@ mod tests {
                 .map(|h| !h.is_empty())
                 .unwrap_or(false),
             "finalized PSBT should include tx hex"
+        );
+    }
+
+    #[test]
+    fn test_listquantumkeys_supports_legacy_lowercase_alias() {
+        let rt = tokio::runtime::Runtime::new().expect("tokio runtime should initialize");
+        let state = RpcState::new(
+            "bitinfinity-testnet".to_string(),
+            "test".to_string(),
+            "http://127.0.0.1:3030".to_string(),
+        );
+        let canonical_address = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
+        let legacy_lowercase = canonical_address.to_lowercase();
+
+        let add_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(5000),
+            method: "addquantumkey".to_string(),
+            params: json!([canonical_address, "dilithium3", "11".repeat(32)]),
+        };
+        let add_response = rt.block_on(handle_addquantumkey(&state, &add_request));
+        assert!(
+            add_response.error.is_none(),
+            "addquantumkey should accept canonical address"
+        );
+
+        let list_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(5001),
+            method: "listquantumkeys".to_string(),
+            params: json!([legacy_lowercase]),
+        };
+        let list_response = rt.block_on(handle_listquantumkeys(&state, &list_request));
+        assert!(
+            list_response.error.is_none(),
+            "listquantumkeys should support lowercase alias lookup"
+        );
+        assert_eq!(
+            list_response
+                .result
+                .as_ref()
+                .and_then(|r| r.get("quantum_keys"))
+                .and_then(|v| v.as_array())
+                .map(|keys| keys.len()),
+            Some(1),
+            "legacy lowercase alias should return registered keys from canonical address"
+        );
+    }
+
+    #[test]
+    fn test_removequantumkey_supports_legacy_lowercase_alias() {
+        let rt = tokio::runtime::Runtime::new().expect("tokio runtime should initialize");
+        let state = RpcState::new(
+            "bitinfinity-testnet".to_string(),
+            "test".to_string(),
+            "http://127.0.0.1:3030".to_string(),
+        );
+        let canonical_address = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
+        let legacy_lowercase = canonical_address.to_lowercase();
+        let pubkey_hex = "22".repeat(32);
+
+        let add_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(5002),
+            method: "addquantumkey".to_string(),
+            params: json!([canonical_address, "falcon512", pubkey_hex]),
+        };
+        let add_response = rt.block_on(handle_addquantumkey(&state, &add_request));
+        assert!(
+            add_response.error.is_none(),
+            "addquantumkey should accept canonical address"
+        );
+
+        let remove_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(5003),
+            method: "removequantumkey".to_string(),
+            params: json!([legacy_lowercase, "falcon512", pubkey_hex]),
+        };
+        let remove_response = rt.block_on(handle_removequantumkey(&state, &remove_request));
+        assert!(
+            remove_response.error.is_none(),
+            "removequantumkey should support lowercase alias"
+        );
+        assert_eq!(
+            remove_response
+                .result
+                .as_ref()
+                .and_then(|r| r.get("removed"))
+                .and_then(|v| v.as_bool()),
+            Some(true),
+            "removequantumkey should report success for lowercase alias"
+        );
+
+        let list_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(5004),
+            method: "listquantumkeys".to_string(),
+            params: json!([canonical_address]),
+        };
+        let list_response = rt.block_on(handle_listquantumkeys(&state, &list_request));
+        assert!(
+            list_response.error.is_none(),
+            "listquantumkeys should still work for canonical address"
+        );
+        assert_eq!(
+            list_response
+                .result
+                .as_ref()
+                .and_then(|r| r.get("quantum_keys"))
+                .and_then(|v| v.as_array())
+                .map(|keys| keys.len()),
+            Some(0),
+            "remove via lowercase alias should remove canonical registration"
         );
     }
 
