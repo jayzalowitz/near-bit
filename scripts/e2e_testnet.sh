@@ -411,6 +411,17 @@ if [[ "$QKEY_REMOVED_COUNT" -ne 2 ]]; then
   exit 1
 fi
 
+QKEY_REGISTRY_PATH="$BTCRPC_HOME/.bitinfinity/quantum_keys.json"
+if [[ ! -f "$QKEY_REGISTRY_PATH" ]]; then
+  echo "quantum key registry file not found at $QKEY_REGISTRY_PATH" >&2
+  exit 1
+fi
+QKEY_REGISTRY_COUNT="$(jq -r --arg addr "$FUNDED_ADDR" '.[$addr] | if type == "array" then length else 0 end' "$QKEY_REGISTRY_PATH")"
+if [[ "$QKEY_REGISTRY_COUNT" -ne 2 ]]; then
+  echo "quantum key registry file expected 2 persisted keys for funded address (got: $QKEY_REGISTRY_COUNT)" >&2
+  exit 1
+fi
+
 BESTBLOCK_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"bestblock","method":"getbestblockhash","params":[]}' \
   | tee "$ARTIFACT_DIR/btc_getbestblockhash_response.json")"
 BEST_BLOCK_HASH="$(echo "$BESTBLOCK_RESPONSE" | jq -r '.result // empty')"
@@ -1486,6 +1497,8 @@ quantum_invalid_address_list_error_code=$QKEY_INVALID_ADDR_LIST_ERROR_CODE
 quantum_invalid_address_remove_error_code=$QKEY_INVALID_ADDR_REMOVE_ERROR_CODE
 quantum_max_keys_error_code=$QKEY_MAX_ERROR_CODE
 quantum_remove_missing_error_code=$QKEY_REMOVE_MISSING_ERROR_CODE
+quantum_registry_count=$QKEY_REGISTRY_COUNT
+quantum_registry_path=$QKEY_REGISTRY_PATH
 gettransaction_unknown_error_code=$GETTX_UNKNOWN_ERROR_CODE
 getrawtransaction_unknown_error_code=$GETRAW_UNKNOWN_ERROR_CODE
 getblockhash_initial_len=${#BLOCK_HASH_INITIAL}
