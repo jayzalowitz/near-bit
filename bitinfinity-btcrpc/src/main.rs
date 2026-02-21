@@ -5722,7 +5722,6 @@ async fn handle_walletcreatefundedpsbt(
     state: &RpcState,
     request: &JsonRpcRequest,
 ) -> JsonRpcResponse {
-    use sha2::Digest as _;
     // walletcreatefundedpsbt(inputs, outputs, locktime, options)
     // If inputs is empty, auto-select from wallet UTXOs
     let inputs = request
@@ -5769,21 +5768,12 @@ async fn handle_walletcreatefundedpsbt(
         let addrs: Vec<String> = keystore.addresses().iter().map(|a| a.to_string()).collect();
         drop(keystore);
 
-        let block_height = state
-            .near_client
-            .status()
-            .await
-            .map(|s| s.latest_block_height)
-            .unwrap_or(0);
-
         let mut selected = Vec::new();
         for addr in &addrs {
             if let Ok(account) = state.near_client.view_account(addr).await {
                 let btc = account.balance_as_btc();
                 if btc >= total_output + fee_btc {
-                    let txid = hex::encode(sha2::Sha256::digest(
-                        format!("bitinfinity-utxo:{}:{}", addr, block_height).as_bytes(),
-                    ));
+                    let txid = SyntheticUtxo::txid_for_account(addr);
                     selected.push((txid, 0u32));
                     break;
                 }

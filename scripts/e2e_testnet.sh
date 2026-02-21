@@ -402,6 +402,11 @@ if [[ "$(echo "$DECODE_PSBT_RESPONSE" | jq -r '.result.tx.vout | length')" -lt 1
   echo "decodepsbt reported no outputs for funded psbt" >&2
   exit 1
 fi
+FUNDED_PSBT_INPUT_TXID="$(echo "$DECODE_PSBT_RESPONSE" | jq -r '.result.tx.vin[0].txid // empty')"
+if [[ "$FUNDED_PSBT_INPUT_TXID" != "$LOCK_TXID" ]]; then
+  echo "walletcreatefundedpsbt used unstable/unexpected synthetic input txid ($FUNDED_PSBT_INPUT_TXID != $LOCK_TXID)" >&2
+  exit 1
+fi
 
 ANALYZE_PSBT_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"analyzepsbt-funded\",\"method\":\"analyzepsbt\",\"params\":[\"$FUNDED_PSBT\"]}" \
   | tee "$ARTIFACT_DIR/btc_analyzepsbt_funded_response.json")"
@@ -736,6 +741,7 @@ raw_replay_mode=$RAW_REPLAY_MODE
 raw_replay_error=$RAW_REPLAY_ERROR
 psbt_create_len=${#CREATED_PSBT}
 psbt_funded_len=${#FUNDED_PSBT}
+psbt_funded_input_txid=$FUNDED_PSBT_INPUT_TXID
 psbt_analyze_next_unsigned=$ANALYZE_PSBT_NEXT
 psbt_finalize_unsigned_complete=$FINALIZE_UNSIGNED_COMPLETE
 psbt_finalize_unsigned_hex_len=${#FINALIZE_UNSIGNED_HEX}
