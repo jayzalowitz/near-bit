@@ -193,6 +193,33 @@ Verification reruns (this continuation):
 
 All passed.
 
+## Incremental Update (2026-02-21, continued auth/registry hardening)
+
+Additional logical commits pushed after the previous continuation:
+
+- `68dec9d25`
+  - Extended auth-depth E2E checks for `sendtoaddress`:
+    - no-auth -> `401`
+    - wrong auth -> `401`
+    - correct auth -> `200` with structured JSON-RPC response.
+  - Added `auth_sendtoaddress_*` summary fields.
+- `6ab6a35df`
+  - Added E2E on-disk quantum registry parity assertion:
+    - lowercase alias entry count in `~/.bitinfinity/quantum_keys.json` must match canonical entry count.
+  - Added `quantum_registry_alias_count` summary field.
+- `b198cfe55`
+  - Extended auth-depth E2E checks for `walletprocesspsbt`:
+    - no-auth -> `401`
+    - wrong auth -> `401`
+    - correct auth -> `200` with structured JSON-RPC response.
+  - Added `auth_walletprocesspsbt_*` summary fields.
+
+Verification reruns (this continuation):
+
+- `./scripts/e2e_testnet.sh`
+
+Passed.
+
 ## What was implemented in this change set
 
 ### 1) Canonical Bitcoin address support (Issue #1 critical)
