@@ -438,8 +438,8 @@ if [[ "$(echo "$WALLETPROCESS_PSBT_RESPONSE" | jq -r '.error // empty')" != "" ]
   echo "walletprocesspsbt failed" >&2
   exit 1
 fi
-if [[ "$SIGNED_PSBT_COMPLETE" != "true" && "$SIGNED_PSBT_COMPLETE" != "false" ]]; then
-  echo "walletprocesspsbt returned invalid complete flag: $SIGNED_PSBT_COMPLETE" >&2
+if [[ "$SIGNED_PSBT_COMPLETE" != "true" ]]; then
+  echo "walletprocesspsbt did not report complete=true" >&2
   exit 1
 fi
 
