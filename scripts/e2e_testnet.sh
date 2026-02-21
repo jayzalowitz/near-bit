@@ -262,6 +262,14 @@ if [[ "$(echo "$ADDRESSINFO_RESPONSE" | jq -r '.result.address // empty')" != "$
   exit 1
 fi
 
+ADDRESSINFO_INVALID_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"addressinfo-invalid","method":"getaddressinfo","params":["not-a-bitcoin-address"]}' \
+  | tee "$ARTIFACT_DIR/btc_getaddressinfo_invalid_response.json")"
+ADDRESSINFO_INVALID_ERROR_CODE="$(echo "$ADDRESSINFO_INVALID_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$ADDRESSINFO_INVALID_ERROR_CODE" != "-5" ]]; then
+  echo "getaddressinfo invalid-address path did not return -5 (got: $ADDRESSINFO_INVALID_ERROR_CODE)" >&2
+  exit 1
+fi
+
 BESTBLOCK_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"bestblock","method":"getbestblockhash","params":[]}' \
   | tee "$ARTIFACT_DIR/btc_getbestblockhash_response.json")"
 BEST_BLOCK_HASH="$(echo "$BESTBLOCK_RESPONSE" | jq -r '.result // empty')"
@@ -328,6 +336,23 @@ if [[ "$(echo "$GETRAW_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
 fi
 if [[ "$(echo "$GETRAW_RESPONSE" | jq -r '.result.txid // empty')" != "$LOCK_TXID" ]]; then
   echo "getrawtransaction returned unexpected txid for synthetic tx" >&2
+  exit 1
+fi
+
+UNKNOWN_TXID="$(printf 'f%.0s' $(seq 1 64))"
+GETTX_UNKNOWN_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"gettransaction-unknown\",\"method\":\"gettransaction\",\"params\":[\"$UNKNOWN_TXID\"]}" \
+  | tee "$ARTIFACT_DIR/btc_gettransaction_unknown_response.json")"
+GETTX_UNKNOWN_ERROR_CODE="$(echo "$GETTX_UNKNOWN_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$GETTX_UNKNOWN_ERROR_CODE" != "-5" ]]; then
+  echo "gettransaction unknown-tx path did not return -5 (got: $GETTX_UNKNOWN_ERROR_CODE)" >&2
+  exit 1
+fi
+
+GETRAW_UNKNOWN_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"getrawtransaction-unknown\",\"method\":\"getrawtransaction\",\"params\":[\"$UNKNOWN_TXID\",1]}" \
+  | tee "$ARTIFACT_DIR/btc_getrawtransaction_unknown_response.json")"
+GETRAW_UNKNOWN_ERROR_CODE="$(echo "$GETRAW_UNKNOWN_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$GETRAW_UNKNOWN_ERROR_CODE" != "-5" ]]; then
+  echo "getrawtransaction unknown-tx path did not return -5 (got: $GETRAW_UNKNOWN_ERROR_CODE)" >&2
   exit 1
 fi
 
@@ -906,6 +931,9 @@ funded_balance_after=$FUNDED_BALANCE_AFTER
 funded_debit=$FUNDED_DEBIT
 walletcreate_while_locked_error_code=$WCF_WHILE_LOCKED_ERROR_CODE
 access_key_count=$ACCESS_KEY_COUNT
+getaddressinfo_invalid_error_code=$ADDRESSINFO_INVALID_ERROR_CODE
+gettransaction_unknown_error_code=$GETTX_UNKNOWN_ERROR_CODE
+getrawtransaction_unknown_error_code=$GETRAW_UNKNOWN_ERROR_CODE
 auth_noauth_http_code=$AUTH_NOAUTH_CODE
 auth_wrong_http_code=$AUTH_WRONG_CODE
 auth_ok_result=$AUTH_OK_RESULT
