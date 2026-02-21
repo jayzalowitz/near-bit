@@ -985,6 +985,14 @@ if [[ "$CREATE_PSBT_INVALID_ERROR_CODE" != "-32602" ]]; then
   exit 1
 fi
 
+CREATE_PSBT_EMPTY_DEST_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"create-psbt-empty-destination\",\"method\":\"createpsbt\",\"params\":[[{\"txid\":\"$LOCK_TXID\",\"vout\":$LOCK_VOUT}],{},0,true]}" \
+  | tee "$ARTIFACT_DIR/btc_createpsbt_empty_destination_response.json")"
+CREATE_PSBT_EMPTY_DEST_ERROR_CODE="$(echo "$CREATE_PSBT_EMPTY_DEST_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$CREATE_PSBT_EMPTY_DEST_ERROR_CODE" != "-32602" ]]; then
+  echo "createpsbt empty-destination path did not return -32602 (got: $CREATE_PSBT_EMPTY_DEST_ERROR_CODE)" >&2
+  exit 1
+fi
+
 CREATE_PSBT_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"create-psbt\",\"method\":\"createpsbt\",\"params\":[[{\"txid\":\"$LOCK_TXID\",\"vout\":$LOCK_VOUT}],[{\"$SATOSHI_ADDR\":0.01}],0,true]}" \
   | tee "$ARTIFACT_DIR/btc_createpsbt_response.json")"
 CREATED_PSBT="$(echo "$CREATE_PSBT_RESPONSE" | jq -r '.result // empty')"
@@ -1052,6 +1060,14 @@ WCF_PSBT_INVALID_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"walletc
 WCF_PSBT_INVALID_ERROR_CODE="$(echo "$WCF_PSBT_INVALID_RESPONSE" | jq -r '.error.code // empty')"
 if [[ "$WCF_PSBT_INVALID_ERROR_CODE" != "-32602" ]]; then
   echo "walletcreatefundedpsbt invalid-output path did not return -32602 (got: $WCF_PSBT_INVALID_ERROR_CODE)" >&2
+  exit 1
+fi
+
+WCF_PSBT_EMPTY_DEST_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"walletcreatefundedpsbt-empty-destination","method":"walletcreatefundedpsbt","params":[[],{},0,{}]}' \
+  | tee "$ARTIFACT_DIR/btc_walletcreatefundedpsbt_empty_destination_response.json")"
+WCF_PSBT_EMPTY_DEST_ERROR_CODE="$(echo "$WCF_PSBT_EMPTY_DEST_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$WCF_PSBT_EMPTY_DEST_ERROR_CODE" != "-32602" ]]; then
+  echo "walletcreatefundedpsbt empty-destination path did not return -32602 (got: $WCF_PSBT_EMPTY_DEST_ERROR_CODE)" >&2
   exit 1
 fi
 
@@ -1288,6 +1304,14 @@ CREATE_RAW_INVALID_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"creat
 CREATE_RAW_INVALID_ERROR_CODE="$(echo "$CREATE_RAW_INVALID_RESPONSE" | jq -r '.error.code // empty')"
 if [[ "$CREATE_RAW_INVALID_ERROR_CODE" != "-32602" ]]; then
   echo "createrawtransaction invalid-output path did not return -32602 (got: $CREATE_RAW_INVALID_ERROR_CODE)" >&2
+  exit 1
+fi
+
+CREATE_RAW_EMPTY_DEST_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"create-raw-empty-destination","method":"createrawtransaction","params":[[],{}]}' \
+  | tee "$ARTIFACT_DIR/btc_createrawtransaction_empty_destination_response.json")"
+CREATE_RAW_EMPTY_DEST_ERROR_CODE="$(echo "$CREATE_RAW_EMPTY_DEST_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$CREATE_RAW_EMPTY_DEST_ERROR_CODE" != "-32602" ]]; then
+  echo "createrawtransaction empty-destination path did not return -32602 (got: $CREATE_RAW_EMPTY_DEST_ERROR_CODE)" >&2
   exit 1
 fi
 
@@ -1583,9 +1607,11 @@ raw_replay_error=$RAW_REPLAY_ERROR
 psbt_create_len=${#CREATED_PSBT}
 psbt_create_object_vout_count=$OBJECT_PSBT_VOUT_COUNT
 psbt_create_invalid_output_error_code=$CREATE_PSBT_INVALID_ERROR_CODE
+psbt_create_empty_destination_error_code=$CREATE_PSBT_EMPTY_DEST_ERROR_CODE
 psbt_funded_len=${#FUNDED_PSBT}
 psbt_funded_object_vout_count=$FUNDED_OBJECT_PSBT_VOUT_COUNT
 psbt_walletcreate_invalid_output_error_code=$WCF_PSBT_INVALID_ERROR_CODE
+psbt_walletcreate_empty_destination_error_code=$WCF_PSBT_EMPTY_DEST_ERROR_CODE
 psbt_funded_input_txid=$FUNDED_PSBT_INPUT_TXID
 psbt_walletcreate_insufficient_error_code=$WCF_PSBT_INSUFFICIENT_ERROR_CODE
 psbt_decode_invalid_error_code=$DECODE_INVALID_ERROR_CODE
@@ -1608,6 +1634,7 @@ psbt_join_invalid_error_code=$JOIN_INVALID_ERROR_CODE
 psbt_finalize_complete=$FINALIZED_PSBT_COMPLETE
 psbt_final_hex_len=${#FINALIZED_PSBT_HEX}
 createrawtransaction_invalid_output_error_code=$CREATE_RAW_INVALID_ERROR_CODE
+createrawtransaction_empty_destination_error_code=$CREATE_RAW_EMPTY_DEST_ERROR_CODE
 signrawtransaction_invalid_intent_error_code=$SIGN_RAW_INVALID_ERROR_CODE
 lock_txid=$LOCK_TXID
 lock_vout=$LOCK_VOUT
