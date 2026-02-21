@@ -202,6 +202,18 @@ if ! wait_for_btcrpc; then
   exit 1
 fi
 
+BLOCKCHAININFO_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"blockchaininfo","method":"getblockchaininfo","params":[]}' \
+  | tee "$ARTIFACT_DIR/btc_getblockchaininfo_response.json")"
+if [[ "$(echo "$BLOCKCHAININFO_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "getblockchaininfo failed" >&2
+  exit 1
+fi
+QUANTUM_ENFORCEMENT_ACTIVE="$(echo "$BLOCKCHAININFO_RESPONSE" | jq -r 'if (.result | has("quantum_enforcement_active")) then (.result.quantum_enforcement_active | tostring) else empty end')"
+if [[ "$QUANTUM_ENFORCEMENT_ACTIVE" != "false" ]]; then
+  echo "getblockchaininfo quantum_enforcement_active expected false (got: $QUANTUM_ENFORCEMENT_ACTIVE)" >&2
+  exit 1
+fi
+
 echo "[8/12] Querying initial balances..."
 cat >"$ARTIFACT_DIR/near_view_account_request.json" <<JSON
 {"jsonrpc":"2.0","id":"e2e","method":"query","params":{"request_type":"view_account","finality":"final","account_id":"$SATOSHI_ADDR"}}
@@ -1355,6 +1367,7 @@ chain_id=$CHAIN_ID
 near_rpc_url=$NEAR_RPC_URL
 btc_rpc_addr=$BTC_RPC_ADDR
 btc_rpc_auth_addr=$BTC_RPC_AUTH_ADDR
+quantum_enforcement_active=$QUANTUM_ENFORCEMENT_ACTIVE
 initial_height=$INITIAL_HEIGHT
 later_height=$LATER_HEIGHT
 height_increased=$([[ "$LATER_HEIGHT" -gt "$INITIAL_HEIGHT" ]] && echo true || echo false)

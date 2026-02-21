@@ -1132,6 +1132,7 @@ async fn handle_getblockchaininfo(state: &RpcState, request: &JsonRpcRequest) ->
                 "chainwork": format!("{:064x}", status.latest_block_height as u128 * 0x100000000u128),
                 "size_on_disk": status.latest_block_height * 2048,
                 "pruned": false,
+                "quantum_enforcement_active": false,
                 "warnings": ""
             }),
         ),
@@ -1147,6 +1148,7 @@ async fn handle_getblockchaininfo(state: &RpcState, request: &JsonRpcRequest) ->
                 "mediantime": chrono::Utc::now().timestamp(),
                 "verificationprogress": 0.0,
                 "initialblockdownload": true,
+                "quantum_enforcement_active": false,
                 "warnings": "nearcore node not connected"
             }),
         ),
