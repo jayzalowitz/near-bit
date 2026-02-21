@@ -286,6 +286,7 @@ QKEY1_HEX="1111111111111111111111111111111111111111111111111111111111111111"
 QKEY2_HEX="2222222222222222222222222222222222222222222222222222222222222222"
 QKEY3_HEX="3333333333333333333333333333333333333333333333333333333333333333"
 QKEY4_HEX="4444444444444444444444444444444444444444444444444444444444444444"
+QKEY_LEGACY_ADDR="$(printf '%s' "$FUNDED_ADDR" | tr '[:upper:]' '[:lower:]')"
 
 QKEY_LIST_INITIAL_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"quantum-list-initial\",\"method\":\"listquantumkeys\",\"params\":[\"$FUNDED_ADDR\"]}" \
   | tee "$ARTIFACT_DIR/btc_quantum_list_initial_response.json")"
@@ -384,7 +385,19 @@ if [[ "$QKEY_ADDED_COUNT" -ne 3 ]]; then
   exit 1
 fi
 
-QKEY_REMOVE_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"quantum-remove\",\"method\":\"removequantumkey\",\"params\":[\"$FUNDED_ADDR\",\"falcon512\",\"$QKEY2_HEX\"]}" \
+QKEY_LIST_ALIAS_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"quantum-list-alias\",\"method\":\"listquantumkeys\",\"params\":[\"$QKEY_LEGACY_ADDR\"]}" \
+  | tee "$ARTIFACT_DIR/btc_quantum_list_alias_response.json")"
+QKEY_ALIAS_COUNT="$(echo "$QKEY_LIST_ALIAS_RESPONSE" | jq -r '.result.quantum_keys | length')"
+if [[ "$(echo "$QKEY_LIST_ALIAS_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "listquantumkeys lowercase-alias query failed" >&2
+  exit 1
+fi
+if [[ "$QKEY_ALIAS_COUNT" -ne "$QKEY_ADDED_COUNT" ]]; then
+  echo "listquantumkeys lowercase-alias expected $QKEY_ADDED_COUNT keys (got: $QKEY_ALIAS_COUNT)" >&2
+  exit 1
+fi
+
+QKEY_REMOVE_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"quantum-remove\",\"method\":\"removequantumkey\",\"params\":[\"$QKEY_LEGACY_ADDR\",\"falcon512\",\"$QKEY2_HEX\"]}" \
   | tee "$ARTIFACT_DIR/btc_quantum_remove_response.json")"
 if [[ "$(echo "$QKEY_REMOVE_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
   echo "removequantumkey failed for existing key" >&2
@@ -1559,6 +1572,7 @@ access_key_count=$ACCESS_KEY_COUNT
 getaddressinfo_invalid_error_code=$ADDRESSINFO_INVALID_ERROR_CODE
 quantum_initial_count=$QKEY_INITIAL_COUNT
 quantum_after_add_count=$QKEY_ADDED_COUNT
+quantum_alias_count=$QKEY_ALIAS_COUNT
 quantum_after_remove_count=$QKEY_REMOVED_COUNT
 quantum_duplicate_error_code=$QKEY_DUPLICATE_ERROR_CODE
 quantum_invalid_type_error_code=$QKEY_INVALID_TYPE_ERROR_CODE
