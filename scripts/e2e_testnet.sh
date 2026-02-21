@@ -1665,6 +1665,30 @@ if [[ "$AUTH_LOCKUNSPENT_OK_ID" != "auth-lockunspent" ]]; then
   exit 1
 fi
 
+AUTH_LISTLOCKUNSPENT_PAYLOAD='{"jsonrpc":"2.0","id":"auth-listlockunspent","method":"listlockunspent","params":[]}'
+AUTH_LISTLOCKUNSPENT_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_LISTLOCKUNSPENT_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_LISTLOCKUNSPENT_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for listlockunspent without auth, got: $AUTH_LISTLOCKUNSPENT_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_LISTLOCKUNSPENT_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_LISTLOCKUNSPENT_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_LISTLOCKUNSPENT_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for listlockunspent with wrong auth, got: $AUTH_LISTLOCKUNSPENT_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_LISTLOCKUNSPENT_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_listlockunspent_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_LISTLOCKUNSPENT_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_LISTLOCKUNSPENT_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated listlockunspent, got: $AUTH_LISTLOCKUNSPENT_OK_CODE" >&2
+  exit 1
+fi
+AUTH_LISTLOCKUNSPENT_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_listlockunspent_success_response.json")"
+if [[ "$AUTH_LISTLOCKUNSPENT_OK_ID" != "auth-listlockunspent" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated listlockunspent" >&2
+  exit 1
+fi
+
 AUTH_WALLETPROCESS_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-walletprocesspsbt\",\"method\":\"walletprocesspsbt\",\"params\":[\"$FUNDED_PSBT\"]}"
 AUTH_WALLETPROCESS_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_WALLETPROCESS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
 if [[ "$AUTH_WALLETPROCESS_NOAUTH_CODE" != "401" ]]; then
@@ -1918,6 +1942,9 @@ auth_sendtoaddress_ok_http_code=$AUTH_SENDTOADDR_OK_CODE
 auth_lockunspent_noauth_http_code=$AUTH_LOCKUNSPENT_NOAUTH_CODE
 auth_lockunspent_wrong_http_code=$AUTH_LOCKUNSPENT_WRONG_CODE
 auth_lockunspent_ok_http_code=$AUTH_LOCKUNSPENT_OK_CODE
+auth_listlockunspent_noauth_http_code=$AUTH_LISTLOCKUNSPENT_NOAUTH_CODE
+auth_listlockunspent_wrong_http_code=$AUTH_LISTLOCKUNSPENT_WRONG_CODE
+auth_listlockunspent_ok_http_code=$AUTH_LISTLOCKUNSPENT_OK_CODE
 auth_walletprocesspsbt_noauth_http_code=$AUTH_WALLETPROCESS_NOAUTH_CODE
 auth_walletprocesspsbt_wrong_http_code=$AUTH_WALLETPROCESS_WRONG_CODE
 auth_walletprocesspsbt_ok_http_code=$AUTH_WALLETPROCESS_OK_CODE
