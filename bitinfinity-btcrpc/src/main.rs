@@ -12305,6 +12305,52 @@ mod tests {
     }
 
     #[test]
+    fn test_listquantumkeys_supports_canonical_lookup_after_lowercase_add() {
+        let rt = tokio::runtime::Runtime::new().expect("tokio runtime should initialize");
+        let state = RpcState::new(
+            "bitinfinity-testnet".to_string(),
+            "test".to_string(),
+            "http://127.0.0.1:3030".to_string(),
+        );
+        let canonical_address = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
+        let legacy_lowercase = canonical_address.to_lowercase();
+
+        let add_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(5005),
+            method: "addquantumkey".to_string(),
+            params: json!([legacy_lowercase, "sphincsplus", "33".repeat(32)]),
+        };
+        let add_response = rt.block_on(handle_addquantumkey(&state, &add_request));
+        assert!(
+            add_response.error.is_none(),
+            "addquantumkey should accept lowercase alias"
+        );
+
+        let list_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(5006),
+            method: "listquantumkeys".to_string(),
+            params: json!([canonical_address]),
+        };
+        let list_response = rt.block_on(handle_listquantumkeys(&state, &list_request));
+        assert!(
+            list_response.error.is_none(),
+            "listquantumkeys should support canonical lookup after lowercase add"
+        );
+        assert_eq!(
+            list_response
+                .result
+                .as_ref()
+                .and_then(|r| r.get("quantum_keys"))
+                .and_then(|v| v.as_array())
+                .map(|keys| keys.len()),
+            Some(1),
+            "canonical lookup should see key registered via lowercase alias"
+        );
+    }
+
+    #[test]
     fn test_removequantumkey_rejects_invalid_keytype() {
         let rt = tokio::runtime::Runtime::new().expect("tokio runtime should initialize");
         let state = RpcState::new(
