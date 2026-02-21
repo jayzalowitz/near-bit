@@ -391,6 +391,22 @@ if [[ "$(echo "$QKEY_REMOVE_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
   exit 1
 fi
 
+QKEY_REMOVE_INVALID_TYPE_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"quantum-remove-invalid-type\",\"method\":\"removequantumkey\",\"params\":[\"$FUNDED_ADDR\",\"not-a-type\",\"$QKEY2_HEX\"]}" \
+  | tee "$ARTIFACT_DIR/btc_quantum_remove_invalid_type_response.json")"
+QKEY_REMOVE_INVALID_TYPE_ERROR_CODE="$(echo "$QKEY_REMOVE_INVALID_TYPE_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$QKEY_REMOVE_INVALID_TYPE_ERROR_CODE" != "-32602" ]]; then
+  echo "removequantumkey invalid-keytype path did not return -32602 (got: $QKEY_REMOVE_INVALID_TYPE_ERROR_CODE)" >&2
+  exit 1
+fi
+
+QKEY_REMOVE_INVALID_HEX_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"quantum-remove-invalid-hex","method":"removequantumkey","params":["'"$FUNDED_ADDR"'","falcon512","not-hex"]}' \
+  | tee "$ARTIFACT_DIR/btc_quantum_remove_invalid_hex_response.json")"
+QKEY_REMOVE_INVALID_HEX_ERROR_CODE="$(echo "$QKEY_REMOVE_INVALID_HEX_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$QKEY_REMOVE_INVALID_HEX_ERROR_CODE" != "-32602" ]]; then
+  echo "removequantumkey invalid-pubkey-hex path did not return -32602 (got: $QKEY_REMOVE_INVALID_HEX_ERROR_CODE)" >&2
+  exit 1
+fi
+
 QKEY_REMOVE_MISSING_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"quantum-remove-missing\",\"method\":\"removequantumkey\",\"params\":[\"$FUNDED_ADDR\",\"falcon512\",\"$QKEY2_HEX\"]}" \
   | tee "$ARTIFACT_DIR/btc_quantum_remove_missing_response.json")"
 QKEY_REMOVE_MISSING_ERROR_CODE="$(echo "$QKEY_REMOVE_MISSING_RESPONSE" | jq -r '.error.code // empty')"
@@ -1496,6 +1512,8 @@ quantum_invalid_address_add_error_code=$QKEY_INVALID_ADDR_ADD_ERROR_CODE
 quantum_invalid_address_list_error_code=$QKEY_INVALID_ADDR_LIST_ERROR_CODE
 quantum_invalid_address_remove_error_code=$QKEY_INVALID_ADDR_REMOVE_ERROR_CODE
 quantum_max_keys_error_code=$QKEY_MAX_ERROR_CODE
+quantum_remove_invalid_type_error_code=$QKEY_REMOVE_INVALID_TYPE_ERROR_CODE
+quantum_remove_invalid_hex_error_code=$QKEY_REMOVE_INVALID_HEX_ERROR_CODE
 quantum_remove_missing_error_code=$QKEY_REMOVE_MISSING_ERROR_CODE
 quantum_registry_count=$QKEY_REGISTRY_COUNT
 quantum_registry_path=$QKEY_REGISTRY_PATH

@@ -10436,6 +10436,25 @@ async fn handle_removequantumkey(state: &RpcState, request: &JsonRpcRequest) -> 
         }
     };
 
+    if !QUANTUM_KEY_TYPES.contains(&keytype.as_str()) {
+        return err_response(
+            &request.id,
+            -32602,
+            format!(
+                "Invalid keytype '{}'. Supported: dilithium3, falcon512, sphincsplus",
+                keytype
+            ),
+        );
+    }
+
+    if hex::decode(&pubkey_hex).is_err() {
+        return err_response(
+            &request.id,
+            -32602,
+            "pubkey_hex must be valid hex".to_string(),
+        );
+    }
+
     let mut keys = state.quantum_keys.write().await;
     let mut removed = false;
     let mut remove_address_entry = false;
