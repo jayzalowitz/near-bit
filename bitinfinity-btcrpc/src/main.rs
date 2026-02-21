@@ -6808,6 +6808,13 @@ async fn handle_lockunspent(state: &RpcState, request: &JsonRpcRequest) -> JsonR
         locked.clear();
         return ok_response(&request.id, json!(true));
     }
+    if !unlock && transactions.is_none() {
+        return err_response(
+            &request.id,
+            -32602,
+            "Missing transactions array".to_string(),
+        );
+    }
 
     if let Some(txs) = transactions {
         for tx in txs {
