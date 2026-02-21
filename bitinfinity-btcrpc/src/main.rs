@@ -8535,34 +8535,19 @@ async fn handle_walletprocesspsbt(state: &RpcState, request: &JsonRpcRequest) ->
         );
     }
 
-    // Sign using the same logic as signrawtransactionwithwallet
-    let sign_request = JsonRpcRequest {
-        jsonrpc: "2.0".to_string(),
-        method: "signrawtransactionwithwallet".to_string(),
-        params: json!([unsigned_tx_hex]),
-        id: request.id.clone(),
-    };
-    let sign_result = handle_signrawtransactionwithwallet(state, &sign_request).await;
-
-    // Check if signing succeeded
-    if let Some(result) = sign_result.result.as_ref() {
-        if let Some(complete) = result.get("complete").and_then(|v| v.as_bool()) {
-            if complete {
-                // Build a proper signed PSBT with partial_sig in per-input maps
-                let signed_psbt = build_signed_psbt(&psbt_bytes, state).await;
-
-                return ok_response(
-                    &request.id,
-                    json!({
-                        "psbt": base64_encode(&signed_psbt),
-                        "complete": true
-                    }),
-                );
-            }
-        }
+    // Direct PSBT signing path: add partial_sig entries when a wallet key exists.
+    let (signed_psbt, complete) = build_signed_psbt(&psbt_bytes, state).await;
+    if complete {
+        return ok_response(
+            &request.id,
+            json!({
+                "psbt": base64_encode(&signed_psbt),
+                "complete": true
+            }),
+        );
     }
 
-    // Signing failed — return original PSBT as incomplete
+    // No suitable key material was available — return original PSBT as incomplete.
     ok_response(
         &request.id,
         json!({
@@ -8573,23 +8558,37 @@ async fn handle_walletprocesspsbt(state: &RpcState, request: &JsonRpcRequest) ->
 }
 
 /// Build a signed PSBT by adding partial_sig entries to per-input maps
-async fn build_signed_psbt(original_psbt: &[u8], state: &RpcState) -> Vec<u8> {
+/// Returns `(signed_psbt, complete)`.
+async fn build_signed_psbt(original_psbt: &[u8], state: &RpcState) -> (Vec<u8>, bool) {
     // Parse the global map and unsigned tx to count inputs
     let (vin, _vout, _version, _locktime) = parse_psbt_unsigned_tx(original_psbt);
     let num_inputs = vin.len();
 
-    // Get wallet pubkey for the partial_sig
-    let keystore = state.keystore.read().await;
-    let addresses = keystore.addresses();
-    let pubkey_hex = if let Some(first_addr) = addresses.first() {
-        keystore
-            .get(first_addr)
-            .map(|entry| entry.public_key_compressed_hex.clone())
-            .unwrap_or_default()
-    } else {
-        String::new()
+    // Select signer material from wallet.
+    let signer_material = {
+        let keystore = state.keystore.read().await;
+        let mut material = None;
+        for addr in keystore.addresses() {
+            let Some(entry) = keystore.get(&addr) else {
+                continue;
+            };
+            let Ok(pubkey_bytes) = hex::decode(&entry.public_key_compressed_hex) else {
+                continue;
+            };
+            let Ok(sk_bytes) = entry.private_key_bytes() else {
+                continue;
+            };
+            let Ok(secret_key) = secp256k1::SecretKey::from_slice(&sk_bytes) else {
+                continue;
+            };
+            material = Some((pubkey_bytes, secret_key));
+            break;
+        }
+        material
     };
-    drop(keystore);
+    let Some((pubkey_bytes, secret_key)) = signer_material else {
+        return (original_psbt.to_vec(), false);
+    };
 
     // Re-serialize: magic + global map + per-input maps with partial_sig + per-output maps
     let mut result: Vec<u8> = Vec::new();
@@ -8621,64 +8620,36 @@ async fn build_signed_psbt(original_psbt: &[u8], state: &RpcState) -> Vec<u8> {
         result.push(0x00);
     }
 
-    // Per-input maps: add PSBT_IN_PARTIAL_SIG (key type 0x02) with real signature
-    // Get secret key for signing
-    let secret_key = {
-        let keystore = state.keystore.read().await;
-        if let Some(first_addr) = keystore.addresses().first() {
-            keystore.get(first_addr).and_then(|entry| {
-                entry
-                    .private_key_bytes()
-                    .ok()
-                    .and_then(|sk_bytes| secp256k1::SecretKey::from_slice(&sk_bytes).ok())
-            })
-        } else {
-            None
-        }
-    };
-
     for input_idx in 0..num_inputs {
-        if !pubkey_hex.is_empty() {
-            if let Ok(pubkey_bytes) = hex::decode(&pubkey_hex) {
-                // Key: 0x02 + pubkey
-                let key_len = 1 + pubkey_bytes.len();
-                write_compact_size(&mut result, key_len as u64);
-                result.push(0x02); // PSBT_IN_PARTIAL_SIG
-                result.extend_from_slice(&pubkey_bytes);
+        // Key: 0x02 + pubkey
+        let key_len = 1 + pubkey_bytes.len();
+        write_compact_size(&mut result, key_len as u64);
+        result.push(0x02); // PSBT_IN_PARTIAL_SIG
+        result.extend_from_slice(&pubkey_bytes);
 
-                // Value: real DER-encoded secp256k1 signature over sighash
-                let sig_bytes = if let Some(ref sk) = secret_key {
-                    // Compute a sighash-like message from the unsigned tx + input index
-                    use sha2::{Digest as _, Sha256};
-                    let mut sighash_preimage = Vec::new();
-                    // Use the unsigned tx hex as the base for the sighash
-                    let unsigned_tx_hex2 = extract_unsigned_tx_hex(original_psbt);
-                    sighash_preimage.extend_from_slice(unsigned_tx_hex2.as_bytes());
-                    sighash_preimage.extend_from_slice(&(input_idx as u32).to_le_bytes());
-                    sighash_preimage.extend_from_slice(&1u32.to_le_bytes()); // SIGHASH_ALL
-                    let hash1 = Sha256::digest(&sighash_preimage);
-                    let hash2 = Sha256::digest(&hash1);
+        // Value: DER-encoded secp256k1 signature over pseudo-sighash.
+        use sha2::{Digest as _, Sha256};
+        let mut sighash_preimage = Vec::new();
+        let unsigned_tx_hex2 = extract_unsigned_tx_hex(original_psbt);
+        sighash_preimage.extend_from_slice(unsigned_tx_hex2.as_bytes());
+        sighash_preimage.extend_from_slice(&(input_idx as u32).to_le_bytes());
+        sighash_preimage.extend_from_slice(&1u32.to_le_bytes()); // SIGHASH_ALL
+        let hash1 = Sha256::digest(&sighash_preimage);
+        let hash2 = Sha256::digest(&hash1);
 
-                    let secp = secp256k1::Secp256k1::new();
-                    let msg = secp256k1::Message::from_digest(*hash2.as_ref());
-                    let sig = secp.sign_ecdsa(&msg, sk);
-                    let mut der = sig.serialize_der().to_vec();
-                    der.push(0x01); // SIGHASH_ALL
-                    der
-                } else {
-                    // Fallback: minimal valid DER sig structure if no key available
-                    vec![0x30, 0x06, 0x02, 0x01, 0x01, 0x02, 0x01, 0x01, 0x01]
-                };
-                write_compact_size(&mut result, sig_bytes.len() as u64);
-                result.extend_from_slice(&sig_bytes);
+        let secp = secp256k1::Secp256k1::new();
+        let msg = secp256k1::Message::from_digest(*hash2.as_ref());
+        let sig = secp.sign_ecdsa(&msg, &secret_key);
+        let mut der = sig.serialize_der().to_vec();
+        der.push(0x01); // SIGHASH_ALL
+        write_compact_size(&mut result, der.len() as u64);
+        result.extend_from_slice(&der);
 
-                // PSBT_IN_SIGHASH_TYPE (key type 0x03)
-                result.push(0x01); // key length = 1
-                result.push(0x03); // key type
-                result.push(0x04); // value length = 4
-                result.extend_from_slice(&1u32.to_le_bytes()); // SIGHASH_ALL = 1
-            }
-        }
+        // PSBT_IN_SIGHASH_TYPE (key type 0x03)
+        result.push(0x01); // key length = 1
+        result.push(0x03); // key type
+        result.push(0x04); // value length = 4
+        result.extend_from_slice(&1u32.to_le_bytes()); // SIGHASH_ALL = 1
 
         // Skip original per-input map entries
         while pos < original_psbt.len() {
@@ -8719,7 +8690,7 @@ async fn build_signed_psbt(original_psbt: &[u8], state: &RpcState) -> Vec<u8> {
         result.push(0x00); // end of this output map
     }
 
-    result
+    (result, num_inputs > 0)
 }
 
 /// Extract the unsigned transaction hex from PSBT bytes.
