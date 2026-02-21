@@ -1665,6 +1665,54 @@ if [[ "$AUTH_QUANTUM_OK_ID" != "auth-addquantumkey" ]]; then
   exit 1
 fi
 
+AUTH_REMOVEQUANTUM_PAYLOAD='{"jsonrpc":"2.0","id":"auth-removequantumkey","method":"removequantumkey","params":["'"$FUNDED_ADDR"'","falcon512","ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"]}'
+AUTH_REMOVEQUANTUM_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_REMOVEQUANTUM_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_REMOVEQUANTUM_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for removequantumkey without auth, got: $AUTH_REMOVEQUANTUM_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_REMOVEQUANTUM_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_REMOVEQUANTUM_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_REMOVEQUANTUM_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for removequantumkey with wrong auth, got: $AUTH_REMOVEQUANTUM_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_REMOVEQUANTUM_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_removequantumkey_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_REMOVEQUANTUM_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_REMOVEQUANTUM_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated removequantumkey, got: $AUTH_REMOVEQUANTUM_OK_CODE" >&2
+  exit 1
+fi
+AUTH_REMOVEQUANTUM_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_removequantumkey_success_response.json")"
+if [[ "$AUTH_REMOVEQUANTUM_OK_ID" != "auth-removequantumkey" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated removequantumkey" >&2
+  exit 1
+fi
+
+AUTH_LISTQUANTUM_PAYLOAD='{"jsonrpc":"2.0","id":"auth-listquantumkeys","method":"listquantumkeys","params":["'"$FUNDED_ADDR"'"]}'
+AUTH_LISTQUANTUM_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_LISTQUANTUM_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_LISTQUANTUM_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for listquantumkeys without auth, got: $AUTH_LISTQUANTUM_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_LISTQUANTUM_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_LISTQUANTUM_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_LISTQUANTUM_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for listquantumkeys with wrong auth, got: $AUTH_LISTQUANTUM_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_LISTQUANTUM_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_listquantumkeys_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_LISTQUANTUM_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_LISTQUANTUM_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated listquantumkeys, got: $AUTH_LISTQUANTUM_OK_CODE" >&2
+  exit 1
+fi
+AUTH_LISTQUANTUM_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_listquantumkeys_success_response.json")"
+if [[ "$AUTH_LISTQUANTUM_OK_ID" != "auth-listquantumkeys" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated listquantumkeys" >&2
+  exit 1
+fi
+
 cat >"$ARTIFACT_DIR/summary.txt" <<TXT
 chain_id=$CHAIN_ID
 near_rpc_url=$NEAR_RPC_URL
@@ -1798,6 +1846,12 @@ auth_walletprocesspsbt_ok_http_code=$AUTH_WALLETPROCESS_OK_CODE
 auth_addquantumkey_noauth_http_code=$AUTH_QUANTUM_NOAUTH_CODE
 auth_addquantumkey_wrong_http_code=$AUTH_QUANTUM_WRONG_CODE
 auth_addquantumkey_ok_http_code=$AUTH_QUANTUM_OK_CODE
+auth_removequantumkey_noauth_http_code=$AUTH_REMOVEQUANTUM_NOAUTH_CODE
+auth_removequantumkey_wrong_http_code=$AUTH_REMOVEQUANTUM_WRONG_CODE
+auth_removequantumkey_ok_http_code=$AUTH_REMOVEQUANTUM_OK_CODE
+auth_listquantumkeys_noauth_http_code=$AUTH_LISTQUANTUM_NOAUTH_CODE
+auth_listquantumkeys_wrong_http_code=$AUTH_LISTQUANTUM_WRONG_CODE
+auth_listquantumkeys_ok_http_code=$AUTH_LISTQUANTUM_OK_CODE
 node_log=$ARTIFACT_DIR/node.log
 btcrpc_log=$ARTIFACT_DIR/btcrpc.log
 btcrpc_auth_log=$ARTIFACT_DIR/btcrpc_auth.log
