@@ -438,6 +438,37 @@ if [[ "$QKEY_REGISTRY_COUNT" -ne 2 ]]; then
   exit 1
 fi
 
+# Restart btcrpc and ensure persisted quantum keys are reloaded.
+if kill -0 "$BTCRPC_PID" 2>/dev/null; then
+  kill "$BTCRPC_PID" 2>/dev/null || true
+  wait "$BTCRPC_PID" 2>/dev/null || true
+fi
+
+(
+  HOME="$BTCRPC_HOME" BTC_RPC_NOAUTH=1 "$BTCRPC_BIN" \
+    --near-rpc-url "$NEAR_RPC_URL" \
+    --btc-rpc-addr "$BTC_RPC_ADDR" \
+    >"$ARTIFACT_DIR/btcrpc.log" 2>&1 || true
+) &
+BTCRPC_PID=$!
+
+if ! wait_for_btcrpc; then
+  echo "Bitcoin RPC bridge did not become ready after restart" >&2
+  exit 1
+fi
+
+QKEY_LIST_RESTART_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"quantum-list-restart\",\"method\":\"listquantumkeys\",\"params\":[\"$FUNDED_ADDR\"]}" \
+  | tee "$ARTIFACT_DIR/btc_quantum_list_restart_response.json")"
+QKEY_RESTART_COUNT="$(echo "$QKEY_LIST_RESTART_RESPONSE" | jq -r '.result.quantum_keys | length')"
+if [[ "$(echo "$QKEY_LIST_RESTART_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "listquantumkeys after btcrpc restart failed" >&2
+  exit 1
+fi
+if [[ "$QKEY_RESTART_COUNT" -ne 2 ]]; then
+  echo "listquantumkeys expected 2 keys after btcrpc restart (got: $QKEY_RESTART_COUNT)" >&2
+  exit 1
+fi
+
 BESTBLOCK_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"bestblock","method":"getbestblockhash","params":[]}' \
   | tee "$ARTIFACT_DIR/btc_getbestblockhash_response.json")"
 BEST_BLOCK_HASH="$(echo "$BESTBLOCK_RESPONSE" | jq -r '.result // empty')"
@@ -1516,6 +1547,7 @@ quantum_remove_invalid_type_error_code=$QKEY_REMOVE_INVALID_TYPE_ERROR_CODE
 quantum_remove_invalid_hex_error_code=$QKEY_REMOVE_INVALID_HEX_ERROR_CODE
 quantum_remove_missing_error_code=$QKEY_REMOVE_MISSING_ERROR_CODE
 quantum_registry_count=$QKEY_REGISTRY_COUNT
+quantum_after_restart_count=$QKEY_RESTART_COUNT
 quantum_registry_path=$QKEY_REGISTRY_PATH
 gettransaction_unknown_error_code=$GETTX_UNKNOWN_ERROR_CODE
 getrawtransaction_unknown_error_code=$GETRAW_UNKNOWN_ERROR_CODE
