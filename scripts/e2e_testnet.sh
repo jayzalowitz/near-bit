@@ -295,6 +295,30 @@ if [[ "$(echo "$QKEY_LIST_INITIAL_RESPONSE" | jq -r '.error // empty')" != "" ]]
   exit 1
 fi
 
+QKEY_INVALID_ADDR_ADD_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"quantum-invalid-address-add\",\"method\":\"addquantumkey\",\"params\":[\"not-a-bitcoin-address\",\"dilithium3\",\"$QKEY1_HEX\"]}" \
+  | tee "$ARTIFACT_DIR/btc_quantum_invalid_address_add_response.json")"
+QKEY_INVALID_ADDR_ADD_ERROR_CODE="$(echo "$QKEY_INVALID_ADDR_ADD_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$QKEY_INVALID_ADDR_ADD_ERROR_CODE" != "-5" ]]; then
+  echo "addquantumkey invalid-address path did not return -5 (got: $QKEY_INVALID_ADDR_ADD_ERROR_CODE)" >&2
+  exit 1
+fi
+
+QKEY_INVALID_ADDR_LIST_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"quantum-invalid-address-list","method":"listquantumkeys","params":["not-a-bitcoin-address"]}' \
+  | tee "$ARTIFACT_DIR/btc_quantum_invalid_address_list_response.json")"
+QKEY_INVALID_ADDR_LIST_ERROR_CODE="$(echo "$QKEY_INVALID_ADDR_LIST_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$QKEY_INVALID_ADDR_LIST_ERROR_CODE" != "-5" ]]; then
+  echo "listquantumkeys invalid-address path did not return -5 (got: $QKEY_INVALID_ADDR_LIST_ERROR_CODE)" >&2
+  exit 1
+fi
+
+QKEY_INVALID_ADDR_REMOVE_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"quantum-invalid-address-remove\",\"method\":\"removequantumkey\",\"params\":[\"not-a-bitcoin-address\",\"dilithium3\",\"$QKEY1_HEX\"]}" \
+  | tee "$ARTIFACT_DIR/btc_quantum_invalid_address_remove_response.json")"
+QKEY_INVALID_ADDR_REMOVE_ERROR_CODE="$(echo "$QKEY_INVALID_ADDR_REMOVE_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$QKEY_INVALID_ADDR_REMOVE_ERROR_CODE" != "-5" ]]; then
+  echo "removequantumkey invalid-address path did not return -5 (got: $QKEY_INVALID_ADDR_REMOVE_ERROR_CODE)" >&2
+  exit 1
+fi
+
 QKEY_ADD1_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"quantum-add-1\",\"method\":\"addquantumkey\",\"params\":[\"$FUNDED_ADDR\",\"dilithium3\",\"$QKEY1_HEX\"]}" \
   | tee "$ARTIFACT_DIR/btc_quantum_add1_response.json")"
 if [[ "$(echo "$QKEY_ADD1_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
@@ -1448,6 +1472,9 @@ quantum_after_add_count=$QKEY_ADDED_COUNT
 quantum_after_remove_count=$QKEY_REMOVED_COUNT
 quantum_duplicate_error_code=$QKEY_DUPLICATE_ERROR_CODE
 quantum_invalid_type_error_code=$QKEY_INVALID_TYPE_ERROR_CODE
+quantum_invalid_address_add_error_code=$QKEY_INVALID_ADDR_ADD_ERROR_CODE
+quantum_invalid_address_list_error_code=$QKEY_INVALID_ADDR_LIST_ERROR_CODE
+quantum_invalid_address_remove_error_code=$QKEY_INVALID_ADDR_REMOVE_ERROR_CODE
 quantum_max_keys_error_code=$QKEY_MAX_ERROR_CODE
 quantum_remove_missing_error_code=$QKEY_REMOVE_MISSING_ERROR_CODE
 gettransaction_unknown_error_code=$GETTX_UNKNOWN_ERROR_CODE
