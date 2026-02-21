@@ -5807,10 +5807,22 @@ async fn handle_walletcreatefundedpsbt(
         unsigned_tx.extend_from_slice(&0xFFFFFFFDu32.to_le_bytes()); // sequence
     }
     unsigned_tx.push(num_outputs as u8);
-    for (_addr, btc_amount) in &output_pairs {
+    let hrp = state.bech32_hrp();
+    for (addr, btc_amount) in &output_pairs {
         let satoshis = (*btc_amount * 100_000_000.0) as u64;
         unsigned_tx.extend_from_slice(&satoshis.to_le_bytes());
-        unsigned_tx.push(0x00); // empty scriptPubKey placeholder
+        let script_hex = derive_script_pub_key_hex(addr, hrp);
+        if script_hex.is_empty() {
+            unsigned_tx.push(0x00);
+        } else {
+            match hex::decode(&script_hex) {
+                Ok(script_bytes) => {
+                    write_compact_size(&mut unsigned_tx, script_bytes.len() as u64);
+                    unsigned_tx.extend_from_slice(&script_bytes);
+                }
+                Err(_) => unsigned_tx.push(0x00),
+            }
+        }
     }
     unsigned_tx.extend_from_slice(&locktime.to_le_bytes());
 
@@ -8784,12 +8796,27 @@ fn handle_createpsbt(request: &JsonRpcRequest) -> JsonRpcResponse {
     if let Some(outs) = outputs {
         for out_obj in outs {
             if let Some(obj) = out_obj.as_object() {
-                for (_addr, amount_val) in obj {
+                for (addr, amount_val) in obj {
                     let btc_amount = amount_val.as_f64().unwrap_or(0.0);
                     let satoshis = (btc_amount * 100_000_000.0) as u64;
                     unsigned_tx.extend_from_slice(&satoshis.to_le_bytes());
-                    // Empty scriptPubKey placeholder (wallets will fill via UTXO update)
-                    unsigned_tx.push(0x00);
+                    let hrp_guess = addr
+                        .split_once('1')
+                        .map(|(prefix, _)| prefix)
+                        .filter(|prefix| !prefix.is_empty())
+                        .unwrap_or("bc");
+                    let script_hex = derive_script_pub_key_hex(addr, hrp_guess);
+                    if script_hex.is_empty() {
+                        unsigned_tx.push(0x00);
+                    } else {
+                        match hex::decode(&script_hex) {
+                            Ok(script_bytes) => {
+                                write_compact_size(&mut unsigned_tx, script_bytes.len() as u64);
+                                unsigned_tx.extend_from_slice(&script_bytes);
+                            }
+                            Err(_) => unsigned_tx.push(0x00),
+                        }
+                    }
                 }
             }
         }
