@@ -17,6 +17,9 @@ MIN_EXPECTED_TOTAL_SENT="1.35"
 MAX_EXPECTED_TOTAL_DEBIT="1.40"
 NEAR_RPC_URL="${NEAR_RPC_URL:-http://127.0.0.1:3030}"
 BTC_RPC_ADDR="${BTC_RPC_ADDR:-127.0.0.1:18332}"
+BTC_RPC_AUTH_ADDR="${BTC_RPC_AUTH_ADDR:-127.0.0.1:18333}"
+BTCRPC_AUTH_USER="${BTCRPC_AUTH_USER:-e2euser}"
+BTCRPC_AUTH_PASS="${BTCRPC_AUTH_PASS:-e2epass}"
 
 NEARD_BIN="${NEARD_BIN:-$ROOT_DIR/nearcore/target/release/neard}"
 TOOLS_BIN="${TOOLS_BIN:-$ROOT_DIR/target/debug/bitinfinity-tools}"
@@ -25,6 +28,7 @@ BTCRPC_BIN="${BTCRPC_BIN:-$ROOT_DIR/target/debug/bitinfinity-btcrpc}"
 GENESIS_DIR="$WORK_DIR/genesis"
 NODE_HOME="$WORK_DIR/home"
 BTCRPC_HOME="$WORK_DIR/btcrpc-home"
+BTCRPC_AUTH_HOME="$WORK_DIR/btcrpc-auth-home"
 FUNDED_KEY_JSON="$WORK_DIR/funded-keypair.json"
 EXTRA_RECORDS="$WORK_DIR/extra-records.json"
 BTC_RECORDS="$WORK_DIR/generated-btc-records.json"
@@ -32,10 +36,16 @@ FUNDED_RECORD="$WORK_DIR/funded-record.json"
 
 mkdir -p "$ARTIFACT_DIR"
 mkdir -p "$BTCRPC_HOME"
+mkdir -p "$BTCRPC_AUTH_HOME"
 
 NODE_PID=""
 BTCRPC_PID=""
+BTCRPC_AUTH_PID=""
 cleanup() {
+  if [[ -n "$BTCRPC_AUTH_PID" ]] && kill -0 "$BTCRPC_AUTH_PID" 2>/dev/null; then
+    kill "$BTCRPC_AUTH_PID" || true
+    wait "$BTCRPC_AUTH_PID" || true
+  fi
   if [[ -n "$BTCRPC_PID" ]] && kill -0 "$BTCRPC_PID" 2>/dev/null; then
     kill "$BTCRPC_PID" || true
     wait "$BTCRPC_PID" || true
@@ -803,10 +813,59 @@ if [[ "$ACCESS_KEY_COUNT" -lt 1 ]]; then
   exit 1
 fi
 
+echo "[auth] Verifying Bitcoin RPC auth behavior..."
+(
+  HOME="$BTCRPC_AUTH_HOME" \
+  BTC_RPC_USER="$BTCRPC_AUTH_USER" \
+  BTC_RPC_PASS="$BTCRPC_AUTH_PASS" \
+  "$BTCRPC_BIN" \
+    --near-rpc-url "$NEAR_RPC_URL" \
+    --btc-rpc-addr "$BTC_RPC_AUTH_ADDR" \
+    >"$ARTIFACT_DIR/btcrpc_auth.log" 2>&1 || true
+) &
+BTCRPC_AUTH_PID=$!
+
+wait_for_btcrpc_auth() {
+  local payload='{"jsonrpc":"2.0","id":"auth-ready","method":"getblockcount","params":[]}'
+  for _ in $(seq 1 60); do
+    if curl -sf -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$payload" "http://$BTC_RPC_AUTH_ADDR/" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 1
+  done
+  return 1
+}
+
+if ! wait_for_btcrpc_auth; then
+  echo "Auth-enabled Bitcoin RPC bridge did not become ready" >&2
+  exit 1
+fi
+
+AUTH_PAYLOAD='{"jsonrpc":"2.0","id":"auth-check","method":"getblockcount","params":[]}'
+AUTH_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 without auth, got: $AUTH_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 with wrong auth, got: $AUTH_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_OK_RESPONSE="$(curl -s -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/" | tee "$ARTIFACT_DIR/btc_auth_success_response.json")"
+AUTH_OK_RESULT="$(echo "$AUTH_OK_RESPONSE" | jq -r '.result // empty')"
+if [[ -z "$AUTH_OK_RESULT" ]]; then
+  echo "Expected successful authenticated RPC response" >&2
+  exit 1
+fi
+
 cat >"$ARTIFACT_DIR/summary.txt" <<TXT
 chain_id=$CHAIN_ID
 near_rpc_url=$NEAR_RPC_URL
 btc_rpc_addr=$BTC_RPC_ADDR
+btc_rpc_auth_addr=$BTC_RPC_AUTH_ADDR
 initial_height=$INITIAL_HEIGHT
 later_height=$LATER_HEIGHT
 height_increased=$([[ "$LATER_HEIGHT" -gt "$INITIAL_HEIGHT" ]] && echo true || echo false)
@@ -847,8 +906,12 @@ funded_balance_after=$FUNDED_BALANCE_AFTER
 funded_debit=$FUNDED_DEBIT
 walletcreate_while_locked_error_code=$WCF_WHILE_LOCKED_ERROR_CODE
 access_key_count=$ACCESS_KEY_COUNT
+auth_noauth_http_code=$AUTH_NOAUTH_CODE
+auth_wrong_http_code=$AUTH_WRONG_CODE
+auth_ok_result=$AUTH_OK_RESULT
 node_log=$ARTIFACT_DIR/node.log
 btcrpc_log=$ARTIFACT_DIR/btcrpc.log
+btcrpc_auth_log=$ARTIFACT_DIR/btcrpc_auth.log
 TXT
 
 echo "E2E transaction flow succeeded. Artifacts written to $ARTIFACT_DIR"
