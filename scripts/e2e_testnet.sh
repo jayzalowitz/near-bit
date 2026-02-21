@@ -344,6 +344,14 @@ if [[ "$LOCKED_VISIBLE_COUNT" -ne 0 ]]; then
   exit 1
 fi
 
+WCF_WHILE_LOCKED_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"walletcreatefundedpsbt-while-locked\",\"method\":\"walletcreatefundedpsbt\",\"params\":[[],[{\"$SATOSHI_ADDR\":0.01}],0,{}]}" \
+  | tee "$ARTIFACT_DIR/btc_walletcreatefundedpsbt_while_locked_response.json")"
+WCF_WHILE_LOCKED_ERROR_CODE="$(echo "$WCF_WHILE_LOCKED_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$WCF_WHILE_LOCKED_ERROR_CODE" != "-4" ]]; then
+  echo "walletcreatefundedpsbt while locked did not return -4 (got: $WCF_WHILE_LOCKED_ERROR_CODE)" >&2
+  exit 1
+fi
+
 UNLOCK_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"lockunspent-unlock\",\"method\":\"lockunspent\",\"params\":[true,[{\"txid\":\"$LOCK_TXID\",\"vout\":$LOCK_VOUT}]]}" \
   | tee "$ARTIFACT_DIR/btc_lockunspent_unlock_response.json")"
 if [[ "$(echo "$UNLOCK_RESPONSE" | jq -r '.result // false')" != "true" ]]; then
@@ -837,6 +845,7 @@ satoshi_balance_after=$SATOSHI_BALANCE_AFTER
 funded_balance_before=$FUNDED_BALANCE_BEFORE
 funded_balance_after=$FUNDED_BALANCE_AFTER
 funded_debit=$FUNDED_DEBIT
+walletcreate_while_locked_error_code=$WCF_WHILE_LOCKED_ERROR_CODE
 access_key_count=$ACCESS_KEY_COUNT
 node_log=$ARTIFACT_DIR/node.log
 btcrpc_log=$ARTIFACT_DIR/btcrpc.log

@@ -5781,13 +5781,20 @@ async fn handle_walletcreatefundedpsbt(
         let keystore = state.keystore.read().await;
         let addrs: Vec<String> = keystore.addresses().iter().map(|a| a.to_string()).collect();
         drop(keystore);
+        let locked_utxos: std::collections::HashSet<(String, u32)> = {
+            let locked = state.locked_utxos.read().await;
+            locked.iter().cloned().collect()
+        };
 
         let mut selected = Vec::new();
         for addr in &addrs {
+            let txid = SyntheticUtxo::txid_for_account(addr);
+            if locked_utxos.contains(&(txid.clone(), 0u32)) {
+                continue;
+            }
             if let Ok(account) = state.near_client.view_account(addr).await {
                 let btc = account.balance_as_btc();
                 if btc >= total_output + fee_btc {
-                    let txid = SyntheticUtxo::txid_for_account(addr);
                     selected.push((txid, 0u32));
                     break;
                 }
