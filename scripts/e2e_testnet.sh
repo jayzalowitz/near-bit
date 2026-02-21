@@ -462,6 +462,11 @@ if [[ "$QKEY_REGISTRY_COUNT" -ne 2 ]]; then
   echo "quantum key registry file expected 2 persisted keys for funded address (got: $QKEY_REGISTRY_COUNT)" >&2
   exit 1
 fi
+QKEY_REGISTRY_ALIAS_COUNT="$(jq -r --arg addr "$QKEY_LEGACY_ADDR" '.[$addr] | if type == "array" then length else 0 end' "$QKEY_REGISTRY_PATH")"
+if [[ "$QKEY_REGISTRY_ALIAS_COUNT" -ne "$QKEY_REGISTRY_COUNT" ]]; then
+  echo "quantum key registry file expected lowercase alias count to match canonical ($QKEY_REGISTRY_ALIAS_COUNT != $QKEY_REGISTRY_COUNT)" >&2
+  exit 1
+fi
 
 # Restart btcrpc and ensure persisted quantum keys are reloaded.
 if kill -0 "$BTCRPC_PID" 2>/dev/null; then
@@ -1689,6 +1694,7 @@ quantum_remove_invalid_type_error_code=$QKEY_REMOVE_INVALID_TYPE_ERROR_CODE
 quantum_remove_invalid_hex_error_code=$QKEY_REMOVE_INVALID_HEX_ERROR_CODE
 quantum_remove_missing_error_code=$QKEY_REMOVE_MISSING_ERROR_CODE
 quantum_registry_count=$QKEY_REGISTRY_COUNT
+quantum_registry_alias_count=$QKEY_REGISTRY_ALIAS_COUNT
 quantum_after_restart_count=$QKEY_RESTART_COUNT
 quantum_after_restart_alias_count=$QKEY_RESTART_ALIAS_COUNT
 quantum_registry_path=$QKEY_REGISTRY_PATH
