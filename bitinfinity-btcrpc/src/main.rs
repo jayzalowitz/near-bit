@@ -5287,11 +5287,12 @@ async fn handle_scantxoutset(state: &RpcState, request: &JsonRpcRequest) -> Json
         }
     }
 
-    // Fallback to all wallet addresses if no scanobjects specified
-    if scan_addresses.is_empty() {
-        let keystore = state.keystore.read().await;
-        scan_addresses = keystore.all_addresses();
-        drop(keystore);
+    if action == "start" && scan_addresses.is_empty() {
+        return err_response(
+            &request.id,
+            -8,
+            "scanobjects array is required for action=start".to_string(),
+        );
     }
 
     let status = state.near_client.status().await;
