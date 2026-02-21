@@ -10240,6 +10240,23 @@ async fn handle_addquantumkey(state: &RpcState, request: &JsonRpcRequest) -> Jso
             )
         }
     };
+    let parsed_account = match AccountIdRef::new(&address) {
+        Ok(account) => account,
+        Err(_) => {
+            return err_response(
+                &request.id,
+                -5,
+                format!("Invalid Bitcoin address: {}", address),
+            )
+        }
+    };
+    if !matches!(parsed_account.get_account_type(), AccountType::BtcImplicitAccount) {
+        return err_response(
+            &request.id,
+            -5,
+            format!("Invalid Bitcoin address: {}", address),
+        );
+    }
     let keytype = match get_str_param(&request.params, 1) {
         Some(k) => k.to_lowercase(),
         None => {
@@ -10333,6 +10350,23 @@ async fn handle_removequantumkey(state: &RpcState, request: &JsonRpcRequest) -> 
             )
         }
     };
+    let parsed_account = match AccountIdRef::new(&address) {
+        Ok(account) => account,
+        Err(_) => {
+            return err_response(
+                &request.id,
+                -5,
+                format!("Invalid Bitcoin address: {}", address),
+            )
+        }
+    };
+    if !matches!(parsed_account.get_account_type(), AccountType::BtcImplicitAccount) {
+        return err_response(
+            &request.id,
+            -5,
+            format!("Invalid Bitcoin address: {}", address),
+        );
+    }
     let keytype = match get_str_param(&request.params, 1) {
         Some(k) => k.to_lowercase(),
         None => {
@@ -10385,6 +10419,23 @@ async fn handle_listquantumkeys(state: &RpcState, request: &JsonRpcRequest) -> J
         Some(a) => a.to_string(),
         None => return err_response(&request.id, -32602, "params: [address]".to_string()),
     };
+    let parsed_account = match AccountIdRef::new(&address) {
+        Ok(account) => account,
+        Err(_) => {
+            return err_response(
+                &request.id,
+                -5,
+                format!("Invalid Bitcoin address: {}", address),
+            )
+        }
+    };
+    if !matches!(parsed_account.get_account_type(), AccountType::BtcImplicitAccount) {
+        return err_response(
+            &request.id,
+            -5,
+            format!("Invalid Bitcoin address: {}", address),
+        );
+    }
 
     let keys = state.quantum_keys.read().await;
     let registered: Vec<serde_json::Value> = keys
