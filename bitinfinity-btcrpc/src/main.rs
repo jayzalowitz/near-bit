@@ -10826,6 +10826,74 @@ mod tests {
     }
 
     #[test]
+    fn test_analyzepsbt_unsigned_reports_signer() {
+        let create_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(31),
+            method: "createpsbt".to_string(),
+            params: json!([
+                [{"txid": "33".repeat(32), "vout": 0}],
+                [{"1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa": 0.01}],
+                0,
+                true
+            ]),
+        };
+        let create_response = handle_createpsbt(&create_request);
+        let unsigned_psbt = create_response
+            .result
+            .as_ref()
+            .and_then(|v| v.as_str())
+            .expect("createpsbt should return PSBT")
+            .to_string();
+
+        let analyze_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(32),
+            method: "analyzepsbt".to_string(),
+            params: json!([unsigned_psbt]),
+        };
+        let analyze_response = handle_analyzepsbt(&analyze_request);
+        assert!(analyze_response.error.is_none(), "analyzepsbt should not error");
+        assert_eq!(
+            analyze_response
+                .result
+                .as_ref()
+                .and_then(|r| r.get("next"))
+                .and_then(|v| v.as_str()),
+            Some("signer"),
+            "unsigned PSBT should report signer step"
+        );
+        assert_eq!(
+            analyze_response
+                .result
+                .as_ref()
+                .and_then(|r| r.get("inputs"))
+                .and_then(|v| v.get(0))
+                .and_then(|i| i.get("is_final"))
+                .and_then(|v| v.as_bool()),
+            Some(false),
+            "unsigned PSBT input should not be final"
+        );
+    }
+
+    #[test]
+    fn test_analyzepsbt_rejects_invalid_base64() {
+        let analyze_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(41),
+            method: "analyzepsbt".to_string(),
+            params: json!(["***not-base64***"]),
+        };
+        let analyze_response = handle_analyzepsbt(&analyze_request);
+        assert!(analyze_response.result.is_none(), "invalid psbt should not produce result");
+        assert_eq!(
+            analyze_response.error.as_ref().map(|e| e.code),
+            Some(-22),
+            "invalid PSBT base64 should return decode error code"
+        );
+    }
+
+    #[test]
     fn test_analyzepsbt_and_finalizepsbt_for_signed_input() {
         let create_request = JsonRpcRequest {
             jsonrpc: "2.0".to_string(),
