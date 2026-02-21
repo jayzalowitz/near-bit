@@ -10505,7 +10505,11 @@ async fn main() {
 
 #[cfg(test)]
 mod tests {
-    use super::{encode_bitcoin_varint, parse_patoshi_record_bytes, verify_bitcoin_message_signature};
+    use super::{
+        derive_script_pub_key_hex, encode_bitcoin_varint, handle_createpsbt, handle_decodepsbt,
+        parse_patoshi_record_bytes, verify_bitcoin_message_signature, JsonRpcRequest,
+    };
+    use serde_json::json;
     use secp256k1::{Message, Secp256k1, SecretKey};
 
     fn sign_bitcoin_message(secret_key: &SecretKey, message: &str) -> String {
@@ -10624,5 +10628,57 @@ mod tests {
         let bytes = vec![0u8; 5];
         let err = parse_patoshi_record_bytes(&bytes).expect_err("short payload must fail");
         assert!(err.contains("invalid Patoshi record length"));
+    }
+
+    #[test]
+    fn test_createpsbt_roundtrip_preserves_output_scriptpubkey() {
+        let address = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
+        let dummy_txid = "00".repeat(32);
+        let create_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(1),
+            method: "createpsbt".to_string(),
+            params: json!([
+                [{"txid": dummy_txid, "vout": 0}],
+                [{address: 0.01}],
+                0,
+                true
+            ]),
+        };
+
+        let create_response = handle_createpsbt(&create_request);
+        assert!(create_response.error.is_none(), "createpsbt should not fail");
+        let psbt_b64 = create_response
+            .result
+            .as_ref()
+            .and_then(|v| v.as_str())
+            .expect("createpsbt should return PSBT base64");
+
+        let decode_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(2),
+            method: "decodepsbt".to_string(),
+            params: json!([psbt_b64]),
+        };
+        let decode_response = handle_decodepsbt(&decode_request);
+        assert!(decode_response.error.is_none(), "decodepsbt should not fail");
+
+        let decoded_script = decode_response
+            .result
+            .as_ref()
+            .and_then(|r| r.get("tx"))
+            .and_then(|tx| tx.get("vout"))
+            .and_then(|vout| vout.get(0))
+            .and_then(|vout0| vout0.get("scriptPubKey"))
+            .and_then(|spk| spk.get("hex"))
+            .and_then(|hex| hex.as_str())
+            .expect("decoded PSBT should include output scriptPubKey hex");
+
+        let expected_script = derive_script_pub_key_hex(address, "bc");
+        assert!(!expected_script.is_empty(), "expected script should be non-empty");
+        assert_eq!(
+            decoded_script, expected_script,
+            "createpsbt output script should match derived scriptPubKey"
+        );
     }
 }
