@@ -10981,7 +10981,8 @@ mod tests {
     use super::{
         derive_script_pub_key_hex, encode_bitcoin_varint, extract_unsigned_tx_hex,
         handle_analyzepsbt, handle_combinepsbt, handle_createpsbt, handle_createrawtransaction,
-        handle_decodepsbt, handle_finalizepsbt, handle_joinpsbts, handle_utxoupdatepsbt,
+        handle_decodepsbt, handle_finalizepsbt, handle_joinpsbts, handle_removequantumkey,
+        handle_utxoupdatepsbt, RpcState,
         parse_patoshi_record_bytes, verify_bitcoin_message_signature, write_compact_size,
         JsonRpcRequest,
     };
@@ -12108,6 +12109,62 @@ mod tests {
                 .map(|h| !h.is_empty())
                 .unwrap_or(false),
             "finalized PSBT should include tx hex"
+        );
+    }
+
+    #[test]
+    fn test_removequantumkey_rejects_invalid_keytype() {
+        let rt = tokio::runtime::Runtime::new().expect("tokio runtime should initialize");
+        let state = RpcState::new(
+            "bitinfinity-testnet".to_string(),
+            "test".to_string(),
+            "http://127.0.0.1:3030".to_string(),
+        );
+        let request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(5001),
+            method: "removequantumkey".to_string(),
+            params: json!([
+                "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
+                "not-a-type",
+                "11".repeat(32)
+            ]),
+        };
+
+        let response = rt.block_on(handle_removequantumkey(&state, &request));
+        assert!(response.result.is_none(), "invalid keytype should not produce result");
+        assert_eq!(
+            response.error.as_ref().map(|e| e.code),
+            Some(-32602),
+            "invalid keytype should return invalid-params"
+        );
+    }
+
+    #[test]
+    fn test_removequantumkey_rejects_invalid_pubkey_hex() {
+        let rt = tokio::runtime::Runtime::new().expect("tokio runtime should initialize");
+        let state = RpcState::new(
+            "bitinfinity-testnet".to_string(),
+            "test".to_string(),
+            "http://127.0.0.1:3030".to_string(),
+        );
+        let request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(5002),
+            method: "removequantumkey".to_string(),
+            params: json!([
+                "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
+                "falcon512",
+                "not-hex"
+            ]),
+        };
+
+        let response = rt.block_on(handle_removequantumkey(&state, &request));
+        assert!(response.result.is_none(), "invalid pubkey hex should not produce result");
+        assert_eq!(
+            response.error.as_ref().map(|e| e.code),
+            Some(-32602),
+            "invalid pubkey hex should return invalid-params"
         );
     }
 }
