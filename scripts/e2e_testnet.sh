@@ -1234,6 +1234,14 @@ if [[ "$JOIN_INVALID_ERROR_CODE" != "-22" ]]; then
   exit 1
 fi
 
+COMBINE_INVALID_PSBT_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"combinepsbt-invalid","method":"combinepsbt","params":[["***not-base64***",""]]}' \
+  | tee "$ARTIFACT_DIR/btc_combinepsbt_invalid_response.json")"
+COMBINE_INVALID_ERROR_CODE="$(echo "$COMBINE_INVALID_PSBT_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$COMBINE_INVALID_ERROR_CODE" != "-22" ]]; then
+  echo "combinepsbt invalid-candidate path did not return -22 (got: $COMBINE_INVALID_ERROR_CODE)" >&2
+  exit 1
+fi
+
 FINALIZE_PSBT_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"finalizepsbt-funded\",\"method\":\"finalizepsbt\",\"params\":[\"$COMBINED_PSBT\"]}" \
   | tee "$ARTIFACT_DIR/btc_finalizepsbt_funded_response.json")"
 FINALIZED_PSBT_HEX="$(echo "$FINALIZE_PSBT_RESPONSE" | jq -r '.result.hex // empty')"
@@ -1551,6 +1559,7 @@ psbt_analyze_next_signed=$ANALYZE_SIGNED_NEXT
 psbt_analyze_signed_input0_final=$ANALYZE_SIGNED_IS_FINAL
 psbt_join_len=${#JOINED_PSBT}
 psbt_combine_mismatch_error_code=$COMBINE_MISMATCH_ERROR_CODE
+psbt_combine_invalid_error_code=$COMBINE_INVALID_ERROR_CODE
 psbt_join_mismatch_error_code=$JOIN_MISMATCH_ERROR_CODE
 psbt_join_invalid_error_code=$JOIN_INVALID_ERROR_CODE
 psbt_finalize_complete=$FINALIZED_PSBT_COMPLETE
