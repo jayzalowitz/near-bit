@@ -144,6 +144,25 @@ Verification reruns (this continuation):
 
 All passed.
 
+## Incremental Update (2026-02-21, continued once more)
+
+Additional logical commits pushed after the previous continuation:
+
+- `1fb3b04d7`
+  - Added Tier-2 PSBT invalid-path coverage in E2E:
+    - `combinepsbt` malformed/non-base64 candidate set now explicitly asserted to return `-22`.
+  - Added `psbt_combine_invalid_error_code` to E2E summary output.
+- `f8623b2ea`
+  - Extended quantum-key restart validation in E2E:
+    - after btcrpc restart, `listquantumkeys` is now checked for both canonical and lowercase alias forms, and counts must match.
+  - Added `quantum_after_restart_alias_count` to E2E summary output.
+
+Verification reruns (this continuation):
+
+- `./scripts/e2e_testnet.sh`
+
+Passed.
+
 ## What was implemented in this change set
 
 ### 1) Canonical Bitcoin address support (Issue #1 critical)
