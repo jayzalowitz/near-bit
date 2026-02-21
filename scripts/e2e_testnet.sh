@@ -750,6 +750,14 @@ if [[ "$FINALIZED_PSBT_COMPLETE" != "true" ]]; then
   exit 1
 fi
 
+CREATE_RAW_INVALID_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"create-raw-invalid-output\",\"method\":\"createrawtransaction\",\"params\":[[],{\"$SATOSHI_ADDR\":\"bad-amount\"}]}" \
+  | tee "$ARTIFACT_DIR/btc_createrawtransaction_invalid_output_response.json")"
+CREATE_RAW_INVALID_ERROR_CODE="$(echo "$CREATE_RAW_INVALID_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$CREATE_RAW_INVALID_ERROR_CODE" != "-32602" ]]; then
+  echo "createrawtransaction invalid-output path did not return -32602 (got: $CREATE_RAW_INVALID_ERROR_CODE)" >&2
+  exit 1
+fi
+
 CREATE_RAW_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"create-raw\",\"method\":\"createrawtransaction\",\"params\":[[],{\"$SATOSHI_ADDR\":$SEND_AMOUNT_RAW}]}" \
   | tee "$ARTIFACT_DIR/btc_createrawtransaction_response.json")"
 RAW_INTENT_HEX="$(echo "$CREATE_RAW_RESPONSE" | jq -r '.result // empty')"
@@ -772,6 +780,15 @@ if [[ "$(echo "$SIGN_RAW_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
 fi
 if [[ -z "$SIGNED_RAW_HEX" || "$SIGNED_RAW_COMPLETE" != "true" ]]; then
   echo "signrawtransactionwithwallet did not return a complete signed payload" >&2
+  exit 1
+fi
+
+INVALID_INTENT_HEX="$(jq -nc --arg addr "$SATOSHI_ADDR" '{outputs:[{address:$addr,amount:"not-a-number"}]}' | xxd -p -c 9999)"
+SIGN_RAW_INVALID_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"sign-raw-invalid-intent\",\"method\":\"signrawtransactionwithwallet\",\"params\":[\"$INVALID_INTENT_HEX\"]}" \
+  | tee "$ARTIFACT_DIR/btc_signrawtransactionwithwallet_invalid_intent_response.json")"
+SIGN_RAW_INVALID_ERROR_CODE="$(echo "$SIGN_RAW_INVALID_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$SIGN_RAW_INVALID_ERROR_CODE" != "-22" ]]; then
+  echo "signrawtransactionwithwallet invalid-intent path did not return -22 (got: $SIGN_RAW_INVALID_ERROR_CODE)" >&2
   exit 1
 fi
 
@@ -1010,6 +1027,8 @@ psbt_join_mismatch_error_code=$JOIN_MISMATCH_ERROR_CODE
 psbt_join_invalid_error_code=$JOIN_INVALID_ERROR_CODE
 psbt_finalize_complete=$FINALIZED_PSBT_COMPLETE
 psbt_final_hex_len=${#FINALIZED_PSBT_HEX}
+createrawtransaction_invalid_output_error_code=$CREATE_RAW_INVALID_ERROR_CODE
+signrawtransaction_invalid_intent_error_code=$SIGN_RAW_INVALID_ERROR_CODE
 lock_txid=$LOCK_TXID
 lock_vout=$LOCK_VOUT
 lock_numeric_result=$LOCK_NUMERIC_RESULT

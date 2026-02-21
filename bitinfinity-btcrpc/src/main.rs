@@ -3106,18 +3106,34 @@ async fn handle_signrawtransactionwithwallet(
         let outputs = intent_json.get("outputs").and_then(|o| o.as_array());
         match outputs {
             Some(outs) if !outs.is_empty() => {
-                let parsed_outputs: Vec<OutputInfo> = outs
-                    .iter()
-                    .map(|out| OutputInfo {
-                        address: out
-                            .get("address")
-                            .and_then(|v| v.as_str())
-                            .unwrap_or("")
-                            .to_string(),
-                        amount_satoshis: (out.get("amount").and_then(|v| v.as_f64()).unwrap_or(0.0)
-                            * 100_000_000.0) as u64,
-                    })
-                    .collect();
+                let mut parsed_outputs = Vec::with_capacity(outs.len());
+                for out in outs {
+                    let address = match out.get("address").and_then(|v| v.as_str()) {
+                        Some(addr) if !addr.is_empty() => addr.to_string(),
+                        _ => {
+                            return err_response(
+                                &request.id,
+                                -22,
+                                "Invalid intent format: missing output address".to_string(),
+                            )
+                        }
+                    };
+                    let amount_btc = match out.get("amount").and_then(|v| v.as_f64()) {
+                        Some(amount) if amount.is_finite() && amount > 0.0 => amount,
+                        _ => {
+                            return err_response(
+                                &request.id,
+                                -22,
+                                "Invalid intent format: output amount must be a positive number"
+                                    .to_string(),
+                            )
+                        }
+                    };
+                    parsed_outputs.push(OutputInfo {
+                        address,
+                        amount_satoshis: (amount_btc * 100_000_000.0) as u64,
+                    });
+                }
 
                 let total_sat: u64 = parsed_outputs.iter().map(|o| o.amount_satoshis).sum();
 
@@ -3613,22 +3629,67 @@ fn handle_createrawtransaction(request: &JsonRpcRequest) -> JsonRpcResponse {
     };
 
     // Parse outputs: object {"addr": amount} or array of such objects
-    let output_pairs: Vec<(String, f64)> = if let Some(obj) = outputs.as_object() {
-        obj.iter()
-            .filter(|(k, _)| k.as_str() != "data")
-            .filter_map(|(k, v)| v.as_f64().map(|amt| (k.clone(), amt)))
-            .collect()
+    let mut output_pairs: Vec<(String, f64)> = Vec::new();
+    if let Some(obj) = outputs.as_object() {
+        for (addr, value) in obj {
+            if addr == "data" {
+                continue;
+            }
+            let amount = match value.as_f64() {
+                Some(amount) if amount.is_finite() && amount > 0.0 => amount,
+                _ => {
+                    return err_response(
+                        &request.id,
+                        -32602,
+                        "Output amounts must be positive numbers".to_string(),
+                    )
+                }
+            };
+            output_pairs.push((addr.clone(), amount));
+        }
     } else if let Some(arr) = outputs.as_array() {
-        arr.iter()
-            .filter_map(|o| o.as_object())
-            .flat_map(|obj| {
-                obj.iter()
-                    .filter(|(k, _)| k.as_str() != "data")
-                    .filter_map(|(k, v)| v.as_f64().map(|amt| (k.clone(), amt)))
-            })
-            .collect()
+        for entry in arr {
+            let obj = match entry.as_object() {
+                Some(obj) => obj,
+                None => {
+                    return err_response(
+                        &request.id,
+                        -32602,
+                        "Each output entry must be an object".to_string(),
+                    )
+                }
+            };
+            for (addr, value) in obj {
+                if addr == "data" {
+                    continue;
+                }
+                let amount = match value.as_f64() {
+                    Some(amount) if amount.is_finite() && amount > 0.0 => amount,
+                    _ => {
+                        return err_response(
+                            &request.id,
+                            -32602,
+                            "Output amounts must be positive numbers".to_string(),
+                        )
+                    }
+                };
+                output_pairs.push((addr.clone(), amount));
+            }
+        }
     } else {
-        return err_response(&request.id, -32602, "Invalid outputs format".to_string());
+        return err_response(
+            &request.id,
+            -32602,
+            "Invalid outputs format".to_string(),
+        );
+    }
+
+    if output_pairs.is_empty() {
+        return err_response(
+            &request.id,
+            -32602,
+            "At least one destination output is required".to_string(),
+        );
     };
 
     let num_inputs = inputs.map(|i| i.len()).unwrap_or(0);
