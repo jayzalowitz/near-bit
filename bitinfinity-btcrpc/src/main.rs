@@ -11075,6 +11075,60 @@ mod tests {
     }
 
     #[test]
+    fn test_createpsbt_rejects_non_numeric_output_amount() {
+        let dummy_txid = "de".repeat(32);
+        let create_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(401),
+            method: "createpsbt".to_string(),
+            params: json!([
+                [{"txid": dummy_txid, "vout": 0}],
+                {"1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa": "bad-amount"},
+                0,
+                true
+            ]),
+        };
+
+        let create_response = handle_createpsbt(&create_request);
+        assert!(
+            create_response.result.is_none(),
+            "invalid output amount should not produce PSBT"
+        );
+        assert_eq!(
+            create_response.error.as_ref().map(|e| e.code),
+            Some(-32602),
+            "non-numeric output amount should return invalid-params"
+        );
+    }
+
+    #[test]
+    fn test_createpsbt_rejects_outputs_without_destination_amounts() {
+        let dummy_txid = "ef".repeat(32);
+        let create_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(402),
+            method: "createpsbt".to_string(),
+            params: json!([
+                [{"txid": dummy_txid, "vout": 0}],
+                {"data": "deadbeef"},
+                0,
+                true
+            ]),
+        };
+
+        let create_response = handle_createpsbt(&create_request);
+        assert!(
+            create_response.result.is_none(),
+            "data-only outputs should not produce PSBT"
+        );
+        assert_eq!(
+            create_response.error.as_ref().map(|e| e.code),
+            Some(-32602),
+            "missing destination outputs should return invalid-params"
+        );
+    }
+
+    #[test]
     fn test_createpsbt_handles_large_output_count_with_varint() {
         let dummy_txid = "cd".repeat(32);
         let address = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
