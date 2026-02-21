@@ -1545,6 +1545,25 @@ if [[ -z "$AUTH_PSBT_OK_RESULT" ]]; then
   exit 1
 fi
 
+AUTH_SENDRAW_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-sendraw\",\"method\":\"sendrawtransaction\",\"params\":[\"$SIGNED_RAW_HEX\"]}"
+AUTH_SENDRAW_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_SENDRAW_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_SENDRAW_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for sendrawtransaction without auth, got: $AUTH_SENDRAW_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_SENDRAW_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_SENDRAW_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_SENDRAW_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for sendrawtransaction with wrong auth, got: $AUTH_SENDRAW_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_SENDRAW_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_sendrawtransaction_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_SENDRAW_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_SENDRAW_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated sendrawtransaction, got: $AUTH_SENDRAW_OK_CODE" >&2
+  exit 1
+fi
+
 cat >"$ARTIFACT_DIR/summary.txt" <<TXT
 chain_id=$CHAIN_ID
 near_rpc_url=$NEAR_RPC_URL
@@ -1662,6 +1681,9 @@ auth_ok_result=$AUTH_OK_RESULT
 auth_psbt_noauth_http_code=$AUTH_PSBT_NOAUTH_CODE
 auth_psbt_wrong_http_code=$AUTH_PSBT_WRONG_CODE
 auth_psbt_ok_result_len=${#AUTH_PSBT_OK_RESULT}
+auth_sendraw_noauth_http_code=$AUTH_SENDRAW_NOAUTH_CODE
+auth_sendraw_wrong_http_code=$AUTH_SENDRAW_WRONG_CODE
+auth_sendraw_ok_http_code=$AUTH_SENDRAW_OK_CODE
 node_log=$ARTIFACT_DIR/node.log
 btcrpc_log=$ARTIFACT_DIR/btcrpc.log
 btcrpc_auth_log=$ARTIFACT_DIR/btcrpc_auth.log
