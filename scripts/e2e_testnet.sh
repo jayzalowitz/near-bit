@@ -609,6 +609,18 @@ if [[ "$(echo "$GETBLOCK_V0_RESPONSE" | jq -r '.error // empty')" != "" || -z "$
   exit 1
 fi
 
+GETBLOCK_BOOL_FALSE_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"getblock-bool-false\",\"method\":\"getblock\",\"params\":[\"$BEST_BLOCK_HASH\",false]}" \
+  | tee "$ARTIFACT_DIR/btc_getblock_bool_false_response.json")"
+GETBLOCK_BOOL_FALSE_TYPE="$(echo "$GETBLOCK_BOOL_FALSE_RESPONSE" | jq -r '.result | type // empty')"
+if [[ "$(echo "$GETBLOCK_BOOL_FALSE_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "getblock verbosity=false failed" >&2
+  exit 1
+fi
+if [[ "$GETBLOCK_BOOL_FALSE_TYPE" != "string" ]]; then
+  echo "getblock verbosity=false expected string result (got: $GETBLOCK_BOOL_FALSE_TYPE)" >&2
+  exit 1
+fi
+
 GETBLOCK_V1_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"getblock-v1\",\"method\":\"getblock\",\"params\":[\"$BEST_BLOCK_HASH\",1]}" \
   | tee "$ARTIFACT_DIR/btc_getblock_v1_response.json")"
 if [[ "$(echo "$GETBLOCK_V1_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
@@ -617,6 +629,18 @@ if [[ "$(echo "$GETBLOCK_V1_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
 fi
 if [[ "$(echo "$GETBLOCK_V1_RESPONSE" | jq -r '.result.hash // empty')" != "$BEST_BLOCK_HASH" ]]; then
   echo "getblock verbosity=1 returned unexpected hash" >&2
+  exit 1
+fi
+
+GETBLOCK_BOOL_TRUE_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"getblock-bool-true\",\"method\":\"getblock\",\"params\":[\"$BEST_BLOCK_HASH\",true]}" \
+  | tee "$ARTIFACT_DIR/btc_getblock_bool_true_response.json")"
+GETBLOCK_BOOL_TRUE_HASH="$(echo "$GETBLOCK_BOOL_TRUE_RESPONSE" | jq -r '.result.hash // empty')"
+if [[ "$(echo "$GETBLOCK_BOOL_TRUE_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "getblock verbosity=true failed" >&2
+  exit 1
+fi
+if [[ "$GETBLOCK_BOOL_TRUE_HASH" != "$BEST_BLOCK_HASH" ]]; then
+  echo "getblock verbosity=true returned unexpected hash" >&2
   exit 1
 fi
 
@@ -1565,6 +1589,8 @@ addnode_error_code=$ADDNODE_ERROR_CODE
 disconnectnode_error_code=$DISCONNECTNODE_ERROR_CODE
 onetry_error_code=$ONETRY_ERROR_CODE
 getblock_v0_hex_len=${#GETBLOCK_V0_HEX}
+getblock_bool_false_type=$GETBLOCK_BOOL_FALSE_TYPE
+getblock_bool_true_hash=$GETBLOCK_BOOL_TRUE_HASH
 getblock_v2_tx_type=$GETBLOCK_V2_TX_TYPE
 getblockstats_height=$GETBLOCKSTATS_HEIGHT
 getblockstats_invalid_error_code=$GETBLOCKSTATS_INVALID_ERROR_CODE
