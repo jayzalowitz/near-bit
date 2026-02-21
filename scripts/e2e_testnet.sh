@@ -329,6 +329,14 @@ if [[ "$SCANTXOUTSET_INVALID_ERROR_CODE" != "-8" ]]; then
   exit 1
 fi
 
+SCANTXOUTSET_EMPTY_START_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"scan-empty-start","method":"scantxoutset","params":["start",[]]}' \
+  | tee "$ARTIFACT_DIR/btc_scantxoutset_empty_start_response.json")"
+SCANTXOUTSET_EMPTY_START_ERROR_CODE="$(echo "$SCANTXOUTSET_EMPTY_START_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$SCANTXOUTSET_EMPTY_START_ERROR_CODE" != "-8" ]]; then
+  echo "scantxoutset empty-start path did not return -8 (got: $SCANTXOUTSET_EMPTY_START_ERROR_CODE)" >&2
+  exit 1
+fi
+
 LISTUNSPENT_INVALID_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"listunspent-invalid-range\",\"method\":\"listunspent\",\"params\":[10,1,[\"$FUNDED_ADDR\"]]}" \
   | tee "$ARTIFACT_DIR/btc_listunspent_invalid_range_response.json")"
 LISTUNSPENT_INVALID_ERROR_CODE="$(echo "$LISTUNSPENT_INVALID_RESPONSE" | jq -r '.error.code // empty')"
@@ -985,6 +993,7 @@ gettransaction_unknown_error_code=$GETTX_UNKNOWN_ERROR_CODE
 getrawtransaction_unknown_error_code=$GETRAW_UNKNOWN_ERROR_CODE
 getblockheader_unknown_error_code=$BLOCKHEADER_UNKNOWN_ERROR_CODE
 scantxoutset_invalid_error_code=$SCANTXOUTSET_INVALID_ERROR_CODE
+scantxoutset_empty_start_error_code=$SCANTXOUTSET_EMPTY_START_ERROR_CODE
 scantxoutset_txid=$SCANTXOUTSET_TXID
 listunspent_invalid_range_error_code=$LISTUNSPENT_INVALID_ERROR_CODE
 lockunspent_missing_txos_error_code=$LOCK_MISSING_TXOS_ERROR_CODE
