@@ -11,6 +11,7 @@ FUNDED_BALANCE_YOCTO="5000000000000000000000000" # 5 BIT
 SEND_AMOUNT_RAW="0.1"
 SEND_AMOUNT_1="1.0"
 SEND_AMOUNT_2="0.25"
+SEND_AMOUNT_PSBT="0.05"
 SEND_AMOUNT_TOO_HIGH="999999.0"
 MIN_EXPECTED_TOTAL_SENT="1.35"
 MAX_EXPECTED_TOTAL_DEBIT="1.40"
@@ -366,7 +367,111 @@ if [[ "$UNLOCKED_VISIBLE_COUNT" -lt 1 ]]; then
   exit 1
 fi
 
-echo "[10/12] Sending transactions via raw+wallet and sendtoaddress..."
+echo "[10/12] Verifying PSBT flow, then sending via raw+wallet and sendtoaddress..."
+CREATE_PSBT_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"create-psbt\",\"method\":\"createpsbt\",\"params\":[[{\"txid\":\"$LOCK_TXID\",\"vout\":$LOCK_VOUT}],[{\"$SATOSHI_ADDR\":0.01}],0,true]}" \
+  | tee "$ARTIFACT_DIR/btc_createpsbt_response.json")"
+CREATED_PSBT="$(echo "$CREATE_PSBT_RESPONSE" | jq -r '.result // empty')"
+if [[ -z "$CREATED_PSBT" ]]; then
+  echo "createpsbt returned empty result" >&2
+  exit 1
+fi
+if [[ "$(echo "$CREATE_PSBT_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "createpsbt failed" >&2
+  exit 1
+fi
+
+WCF_PSBT_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"walletcreatefundedpsbt\",\"method\":\"walletcreatefundedpsbt\",\"params\":[[],[{\"$SATOSHI_ADDR\":$SEND_AMOUNT_PSBT}],0,{}]}" \
+  | tee "$ARTIFACT_DIR/btc_walletcreatefundedpsbt_response.json")"
+FUNDED_PSBT="$(echo "$WCF_PSBT_RESPONSE" | jq -r '.result.psbt // empty')"
+if [[ -z "$FUNDED_PSBT" ]]; then
+  echo "walletcreatefundedpsbt returned empty psbt" >&2
+  exit 1
+fi
+if [[ "$(echo "$WCF_PSBT_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "walletcreatefundedpsbt failed" >&2
+  exit 1
+fi
+
+DECODE_PSBT_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"decodepsbt-funded\",\"method\":\"decodepsbt\",\"params\":[\"$FUNDED_PSBT\"]}" \
+  | tee "$ARTIFACT_DIR/btc_decodepsbt_funded_response.json")"
+if [[ "$(echo "$DECODE_PSBT_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "decodepsbt failed for walletcreatefundedpsbt output" >&2
+  exit 1
+fi
+if [[ "$(echo "$DECODE_PSBT_RESPONSE" | jq -r '.result.tx.vout | length')" -lt 1 ]]; then
+  echo "decodepsbt reported no outputs for funded psbt" >&2
+  exit 1
+fi
+
+ANALYZE_PSBT_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"analyzepsbt-funded\",\"method\":\"analyzepsbt\",\"params\":[\"$FUNDED_PSBT\"]}" \
+  | tee "$ARTIFACT_DIR/btc_analyzepsbt_funded_response.json")"
+if [[ "$(echo "$ANALYZE_PSBT_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "analyzepsbt failed for funded psbt" >&2
+  exit 1
+fi
+if [[ -z "$(echo "$ANALYZE_PSBT_RESPONSE" | jq -r '.result.next // empty')" ]]; then
+  echo "analyzepsbt returned empty next step for funded psbt" >&2
+  exit 1
+fi
+
+UTXOUPDATE_PSBT_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"utxoupdatepsbt-funded\",\"method\":\"utxoupdatepsbt\",\"params\":[\"$FUNDED_PSBT\"]}" \
+  | tee "$ARTIFACT_DIR/btc_utxoupdatepsbt_funded_response.json")"
+UPDATED_PSBT="$(echo "$UTXOUPDATE_PSBT_RESPONSE" | jq -r '.result // empty')"
+if [[ -z "$UPDATED_PSBT" ]]; then
+  echo "utxoupdatepsbt returned empty psbt" >&2
+  exit 1
+fi
+if [[ "$(echo "$UTXOUPDATE_PSBT_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "utxoupdatepsbt failed" >&2
+  exit 1
+fi
+
+WALLETPROCESS_PSBT_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"walletprocesspsbt-funded\",\"method\":\"walletprocesspsbt\",\"params\":[\"$UPDATED_PSBT\"]}" \
+  | tee "$ARTIFACT_DIR/btc_walletprocesspsbt_funded_response.json")"
+SIGNED_PSBT="$(echo "$WALLETPROCESS_PSBT_RESPONSE" | jq -r '.result.psbt // empty')"
+SIGNED_PSBT_COMPLETE="$(echo "$WALLETPROCESS_PSBT_RESPONSE" | jq -r '.result.complete // false')"
+if [[ -z "$SIGNED_PSBT" ]]; then
+  echo "walletprocesspsbt returned empty psbt" >&2
+  exit 1
+fi
+if [[ "$(echo "$WALLETPROCESS_PSBT_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "walletprocesspsbt failed" >&2
+  exit 1
+fi
+if [[ "$SIGNED_PSBT_COMPLETE" != "true" && "$SIGNED_PSBT_COMPLETE" != "false" ]]; then
+  echo "walletprocesspsbt returned invalid complete flag: $SIGNED_PSBT_COMPLETE" >&2
+  exit 1
+fi
+
+COMBINE_PSBT_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"combinepsbt-funded\",\"method\":\"combinepsbt\",\"params\":[[\"$FUNDED_PSBT\",\"$SIGNED_PSBT\"]]}" \
+  | tee "$ARTIFACT_DIR/btc_combinepsbt_funded_response.json")"
+COMBINED_PSBT="$(echo "$COMBINE_PSBT_RESPONSE" | jq -r '.result // empty')"
+if [[ -z "$COMBINED_PSBT" ]]; then
+  echo "combinepsbt returned empty result" >&2
+  exit 1
+fi
+if [[ "$(echo "$COMBINE_PSBT_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "combinepsbt failed" >&2
+  exit 1
+fi
+
+FINALIZE_PSBT_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"finalizepsbt-funded\",\"method\":\"finalizepsbt\",\"params\":[\"$COMBINED_PSBT\"]}" \
+  | tee "$ARTIFACT_DIR/btc_finalizepsbt_funded_response.json")"
+FINALIZED_PSBT_HEX="$(echo "$FINALIZE_PSBT_RESPONSE" | jq -r '.result.hex // empty')"
+FINALIZED_PSBT_COMPLETE="$(echo "$FINALIZE_PSBT_RESPONSE" | jq -r '.result.complete // false')"
+if [[ -z "$FINALIZED_PSBT_HEX" ]]; then
+  echo "finalizepsbt returned empty hex for funded psbt" >&2
+  exit 1
+fi
+if [[ "$(echo "$FINALIZE_PSBT_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "finalizepsbt failed" >&2
+  exit 1
+fi
+if [[ "$FINALIZED_PSBT_COMPLETE" != "true" ]]; then
+  echo "finalizepsbt did not return complete=true" >&2
+  exit 1
+fi
+
 CREATE_RAW_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"create-raw\",\"method\":\"createrawtransaction\",\"params\":[[],{\"$SATOSHI_ADDR\":$SEND_AMOUNT_RAW}]}" \
   | tee "$ARTIFACT_DIR/btc_createrawtransaction_response.json")"
 RAW_INTENT_HEX="$(echo "$CREATE_RAW_RESPONSE" | jq -r '.result // empty')"
@@ -558,6 +663,11 @@ txid1=$TXID1
 txid2=$TXID2
 raw_replay_mode=$RAW_REPLAY_MODE
 raw_replay_error=$RAW_REPLAY_ERROR
+psbt_create_len=${#CREATED_PSBT}
+psbt_funded_len=${#FUNDED_PSBT}
+psbt_signed_complete=$SIGNED_PSBT_COMPLETE
+psbt_finalize_complete=$FINALIZED_PSBT_COMPLETE
+psbt_final_hex_len=${#FINALIZED_PSBT_HEX}
 lock_txid=$LOCK_TXID
 lock_vout=$LOCK_VOUT
 near_amount_yoctobit=$NEAR_AMOUNT
