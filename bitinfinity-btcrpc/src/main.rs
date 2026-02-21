@@ -1513,18 +1513,34 @@ async fn handle_listunspent(state: &RpcState, request: &JsonRpcRequest) -> JsonR
         );
     }
 
-    let explicit_addresses: Vec<String> = request
-        .params
-        .as_array()
-        .and_then(|arr| arr.get(2))
-        .and_then(|v| v.as_array())
-        .map(|addrs| {
-            addrs
-                .iter()
-                .filter_map(|v| v.as_str().map(|s| s.to_string()))
-                .collect()
-        })
-        .unwrap_or_default();
+    let explicit_addresses = if let Some(addresses_param) = request.params.as_array().and_then(|arr| arr.get(2)) {
+        let addrs = match addresses_param.as_array() {
+            Some(addrs) => addrs,
+            None => {
+                return err_response(
+                    &request.id,
+                    -32602,
+                    "addresses parameter must be an array".to_string(),
+                )
+            }
+        };
+        let mut parsed = Vec::with_capacity(addrs.len());
+        for entry in addrs {
+            match entry.as_str() {
+                Some(addr) => parsed.push(addr.to_string()),
+                None => {
+                    return err_response(
+                        &request.id,
+                        -32602,
+                        "addresses array entries must be strings".to_string(),
+                    )
+                }
+            }
+        }
+        parsed
+    } else {
+        Vec::new()
+    };
 
     // If no addresses specified, use all keystore addresses including watch-only
     let keystore = state.keystore.read().await;

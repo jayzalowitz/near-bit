@@ -345,6 +345,14 @@ if [[ "$LISTUNSPENT_INVALID_ERROR_CODE" != "-8" ]]; then
   exit 1
 fi
 
+LISTUNSPENT_INVALID_ADDRS_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"listunspent-invalid-addresses","method":"listunspent","params":[1,9999999,[123]]}' \
+  | tee "$ARTIFACT_DIR/btc_listunspent_invalid_addresses_response.json")"
+LISTUNSPENT_INVALID_ADDRS_ERROR_CODE="$(echo "$LISTUNSPENT_INVALID_ADDRS_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$LISTUNSPENT_INVALID_ADDRS_ERROR_CODE" != "-32602" ]]; then
+  echo "listunspent invalid-addresses path did not return -32602 (got: $LISTUNSPENT_INVALID_ADDRS_ERROR_CODE)" >&2
+  exit 1
+fi
+
 LISTUNSPENT_BEFORE_LOCK="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"listunspent-before-lock\",\"method\":\"listunspent\",\"params\":[1,9999999,[\"$FUNDED_ADDR\"]]}" \
   | tee "$ARTIFACT_DIR/btc_listunspent_before_lock_response.json")"
 LOCK_TXID="$(echo "$LISTUNSPENT_BEFORE_LOCK" | jq -r '.result[0].txid // empty')"
@@ -1022,6 +1030,7 @@ scantxoutset_invalid_error_code=$SCANTXOUTSET_INVALID_ERROR_CODE
 scantxoutset_empty_start_error_code=$SCANTXOUTSET_EMPTY_START_ERROR_CODE
 scantxoutset_txid=$SCANTXOUTSET_TXID
 listunspent_invalid_range_error_code=$LISTUNSPENT_INVALID_ERROR_CODE
+listunspent_invalid_addresses_error_code=$LISTUNSPENT_INVALID_ADDRS_ERROR_CODE
 lockunspent_missing_txos_error_code=$LOCK_MISSING_TXOS_ERROR_CODE
 lockunspent_invalid_txid_error_code=$LOCK_INVALID_TXID_ERROR_CODE
 auth_noauth_http_code=$AUTH_NOAUTH_CODE
