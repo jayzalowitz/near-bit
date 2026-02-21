@@ -457,6 +457,14 @@ if [[ "$(echo "$UTXOUPDATE_PSBT_RESPONSE" | jq -r '.error // empty')" != "" ]]; 
   exit 1
 fi
 
+UTXOUPDATE_INVALID_PSBT_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"utxoupdatepsbt-invalid","method":"utxoupdatepsbt","params":["***not-base64***"]}' \
+  | tee "$ARTIFACT_DIR/btc_utxoupdatepsbt_invalid_response.json")"
+UTXOUPDATE_INVALID_ERROR_CODE="$(echo "$UTXOUPDATE_INVALID_PSBT_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$UTXOUPDATE_INVALID_ERROR_CODE" != "-22" ]]; then
+  echo "utxoupdatepsbt invalid path did not return -22 (got: $UTXOUPDATE_INVALID_ERROR_CODE)" >&2
+  exit 1
+fi
+
 WALLETPROCESS_PSBT_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"walletprocesspsbt-funded\",\"method\":\"walletprocesspsbt\",\"params\":[\"$UPDATED_PSBT\"]}" \
   | tee "$ARTIFACT_DIR/btc_walletprocesspsbt_funded_response.json")"
 SIGNED_PSBT="$(echo "$WALLETPROCESS_PSBT_RESPONSE" | jq -r '.result.psbt // empty')"
@@ -770,6 +778,7 @@ psbt_walletcreate_insufficient_error_code=$WCF_PSBT_INSUFFICIENT_ERROR_CODE
 psbt_analyze_next_unsigned=$ANALYZE_PSBT_NEXT
 psbt_finalize_unsigned_complete=$FINALIZE_UNSIGNED_COMPLETE
 psbt_finalize_unsigned_hex_len=${#FINALIZE_UNSIGNED_HEX}
+psbt_utxoupdate_invalid_error_code=$UTXOUPDATE_INVALID_ERROR_CODE
 psbt_signed_complete=$SIGNED_PSBT_COMPLETE
 psbt_signed_sig_count=$SIGNED_PSBT_SIG_COUNT
 psbt_analyze_next_signed=$ANALYZE_SIGNED_NEXT
