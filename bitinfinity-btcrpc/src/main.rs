@@ -9904,7 +9904,7 @@ async fn handle_getchaintxstats(state: &RpcState, request: &JsonRpcRequest) -> J
 fn handle_generatetodescriptor(request: &JsonRpcRequest) -> JsonRpcResponse {
     err_response(
         &request.id,
-        -1,
+        -32601,
         "Block generation is not supported. This chain uses NEAR's Proof-of-Stake consensus."
             .to_string(),
     )
