@@ -387,6 +387,30 @@ if [[ -z "$BEST_BLOCK_HASH" ]]; then
   exit 1
 fi
 
+GETBLOCKHASH_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"getblockhash-initial\",\"method\":\"getblockhash\",\"params\":[$INITIAL_HEIGHT]}" \
+  | tee "$ARTIFACT_DIR/btc_getblockhash_initial_response.json")"
+BLOCK_HASH_INITIAL="$(echo "$GETBLOCKHASH_RESPONSE" | jq -r '.result // empty')"
+if [[ "$(echo "$GETBLOCKHASH_RESPONSE" | jq -r '.error // empty')" != "" || -z "$BLOCK_HASH_INITIAL" ]]; then
+  echo "getblockhash failed for initial height $INITIAL_HEIGHT" >&2
+  exit 1
+fi
+
+GETBLOCKHASH_INVALID_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"getblockhash-invalid","method":"getblockhash","params":[999999999]}' \
+  | tee "$ARTIFACT_DIR/btc_getblockhash_invalid_response.json")"
+GETBLOCKHASH_INVALID_ERROR_CODE="$(echo "$GETBLOCKHASH_INVALID_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$GETBLOCKHASH_INVALID_ERROR_CODE" != "-8" ]]; then
+  echo "getblockhash out-of-range path did not return -8 (got: $GETBLOCKHASH_INVALID_ERROR_CODE)" >&2
+  exit 1
+fi
+
+GETBLOCK_UNKNOWN_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"getblock-unknown","method":"getblock","params":["0000000000000000000000000000000000000000000000000000000000000000",1]}' \
+  | tee "$ARTIFACT_DIR/btc_getblock_unknown_response.json")"
+GETBLOCK_UNKNOWN_ERROR_CODE="$(echo "$GETBLOCK_UNKNOWN_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$GETBLOCK_UNKNOWN_ERROR_CODE" != "-5" ]]; then
+  echo "getblock unknown-hash path did not return -5 (got: $GETBLOCK_UNKNOWN_ERROR_CODE)" >&2
+  exit 1
+fi
+
 BLOCKHEADER_HEX_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"blockheader-hex\",\"method\":\"getblockheader\",\"params\":[\"$BEST_BLOCK_HASH\",false]}" \
   | tee "$ARTIFACT_DIR/btc_getblockheader_hex_response.json")"
 HEADER_HEX="$(echo "$BLOCKHEADER_HEX_RESPONSE" | jq -r '.result // empty')"
@@ -1428,6 +1452,9 @@ quantum_max_keys_error_code=$QKEY_MAX_ERROR_CODE
 quantum_remove_missing_error_code=$QKEY_REMOVE_MISSING_ERROR_CODE
 gettransaction_unknown_error_code=$GETTX_UNKNOWN_ERROR_CODE
 getrawtransaction_unknown_error_code=$GETRAW_UNKNOWN_ERROR_CODE
+getblockhash_initial_len=${#BLOCK_HASH_INITIAL}
+getblockhash_invalid_error_code=$GETBLOCKHASH_INVALID_ERROR_CODE
+getblock_unknown_error_code=$GETBLOCK_UNKNOWN_ERROR_CODE
 getblockheader_unknown_error_code=$BLOCKHEADER_UNKNOWN_ERROR_CODE
 getmininginfo_consensus=$MININGINFO_CONSENSUS
 getmininginfo_networkhashps=$MININGINFO_HASHPS
