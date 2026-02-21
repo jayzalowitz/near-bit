@@ -443,6 +443,18 @@ if [[ "$SIGNED_PSBT_COMPLETE" != "true" ]]; then
   exit 1
 fi
 
+DECODE_SIGNED_PSBT_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"decodepsbt-signed\",\"method\":\"decodepsbt\",\"params\":[\"$SIGNED_PSBT\"]}" \
+  | tee "$ARTIFACT_DIR/btc_decodepsbt_signed_response.json")"
+if [[ "$(echo "$DECODE_SIGNED_PSBT_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "decodepsbt failed for signed psbt" >&2
+  exit 1
+fi
+SIGNED_PSBT_SIG_COUNT="$(echo "$DECODE_SIGNED_PSBT_RESPONSE" | jq '[.result.inputs[]? | (.partial_signatures // {}) | length] | add // 0')"
+if [[ "$SIGNED_PSBT_SIG_COUNT" -lt 1 ]]; then
+  echo "signed psbt decode showed no partial_signatures" >&2
+  exit 1
+fi
+
 COMBINE_PSBT_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"combinepsbt-funded\",\"method\":\"combinepsbt\",\"params\":[[\"$FUNDED_PSBT\",\"$SIGNED_PSBT\"]]}" \
   | tee "$ARTIFACT_DIR/btc_combinepsbt_funded_response.json")"
 COMBINED_PSBT="$(echo "$COMBINE_PSBT_RESPONSE" | jq -r '.result // empty')"
@@ -666,6 +678,7 @@ raw_replay_error=$RAW_REPLAY_ERROR
 psbt_create_len=${#CREATED_PSBT}
 psbt_funded_len=${#FUNDED_PSBT}
 psbt_signed_complete=$SIGNED_PSBT_COMPLETE
+psbt_signed_sig_count=$SIGNED_PSBT_SIG_COUNT
 psbt_finalize_complete=$FINALIZED_PSBT_COMPLETE
 psbt_final_hex_len=${#FINALIZED_PSBT_HEX}
 lock_txid=$LOCK_TXID
