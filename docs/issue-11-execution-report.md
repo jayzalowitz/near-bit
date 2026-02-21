@@ -4,6 +4,59 @@ This report documents what was executed in this workspace toward:
 - Issue #11: Launch plan hardening tasks
 - Issue #1: Core architecture/UX goals
 
+## Incremental Update (2026-02-21)
+
+Additional logical commits were pushed on `infinitoshi/btc-near-fork-plan` for RPC compatibility hardening and validation depth:
+
+- `e9abbf283`
+  - `listunspent` address-filter parameter validation tightened (array type + string entry checks).
+  - E2E invalid-address filter check added (`-32602`).
+- `5a486709d`
+  - `createrawtransaction` now rejects malformed/non-positive output amounts and empty destination sets.
+  - `signrawtransactionwithwallet` intent parser now rejects missing address and non-positive/non-numeric amounts.
+  - E2E invalid-path checks added for both handlers.
+- `209c08a29`
+  - Shared PSBT output parsing (`createpsbt` + `walletcreatefundedpsbt`) hardened:
+    - rejects missing outputs, invalid format, non-object array entries, non-positive/non-numeric amounts, and empty destination sets.
+  - E2E invalid-output checks added for both methods (`-32602`).
+- `86e5bd5e0`
+  - E2E invalid-path checks added for `decodepsbt`, `analyzepsbt`, `finalizepsbt`, and `walletprocesspsbt` invalid-base64 paths (`-22`).
+- `044df1c45`
+  - Unit tests added for `createpsbt` invalid output payload handling.
+- `92974de55`
+  - Unit tests added for `createrawtransaction` invalid output payload handling.
+- `4dd56ace2`
+  - `generatetodescriptor` standardized to `-32601` not-supported code for consistency with related PoS mining stubs.
+  - E2E now asserts intentional-stub behavior for:
+    - `getmininginfo` PoS fields
+    - `getblocktemplate`, `generate`, `generatetoaddress`, `generatetodescriptor`
+    - `addnode`, `disconnectnode`, `onetry`
+- `4c1640a71`
+  - Tier-3 E2E coverage added for:
+    - `getblock` (verbosity `0/1/2`)
+    - `getblockstats` (valid + invalid path)
+    - `getchaintips`
+    - `getrawmempool` (verbose/non-verbose)
+    - `getmempoolentry` unknown tx path
+    - `getmempoolancestors` / `getmempooldescendants`
+- `2236cd54e`
+  - Auth-depth E2E expanded to include Tier-2 `createpsbt` method:
+    - no-auth -> HTTP 401
+    - wrong auth -> HTTP 401
+    - correct auth -> success
+
+Verification reruns for this incremental set:
+
+- `cargo test -q -p bitinfinity-tools`
+- `cargo test -q -p bitinfinity-neard`
+- `cargo test -q -p bitinfinity-btcrpc`
+- `cargo test -q -p node-runtime --manifest-path nearcore/Cargo.toml patoshi`
+- `cargo test -q -p node-runtime --manifest-path nearcore/Cargo.toml test_maybe_auto_register_bitcoin_access_key_non_bitcoin_signer_noop`
+- `cargo test -q -p node-runtime --manifest-path nearcore/Cargo.toml test_maybe_auto_register_bitcoin_access_key_rejects_invalid_signature`
+- `./scripts/e2e_testnet.sh`
+
+All passed.
+
 ## What was implemented in this change set
 
 ### 1) Canonical Bitcoin address support (Issue #1 critical)
