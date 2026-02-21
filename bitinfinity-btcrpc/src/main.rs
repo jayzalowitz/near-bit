@@ -6792,11 +6792,7 @@ fn handle_bumpfee(request: &JsonRpcRequest) -> JsonRpcResponse {
 /// lockunspent / listlockunspent
 async fn handle_lockunspent(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     // lockunspent(unlock, [{"txid":..., "vout":...}, ...])
-    let unlock = request
-        .params
-        .get(0)
-        .and_then(|v| v.as_bool())
-        .unwrap_or(true);
+    let unlock = get_bool_param(&request.params, 0).unwrap_or(true);
 
     let transactions = request.params.get(1).and_then(|v| v.as_array());
 
@@ -6817,16 +6813,56 @@ async fn handle_lockunspent(state: &RpcState, request: &JsonRpcRequest) -> JsonR
 
     if let Some(txs) = transactions {
         for tx in txs {
-            let txid = tx
-                .get("txid")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_string();
-            let vout = tx.get("vout").and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+            let tx_obj = match tx.as_object() {
+                Some(obj) => obj,
+                None => {
+                    return err_response(
+                        &request.id,
+                        -32602,
+                        "Invalid txo entry: expected object".to_string(),
+                    )
+                }
+            };
+            let txid = match tx_obj.get("txid").and_then(|v| v.as_str()) {
+                Some(txid) => txid,
+                None => {
+                    return err_response(
+                        &request.id,
+                        -32602,
+                        "Invalid txo entry: missing txid".to_string(),
+                    )
+                }
+            };
+            let vout_u64 = match tx_obj.get("vout").and_then(|v| v.as_u64()) {
+                Some(vout) => vout,
+                None => {
+                    return err_response(
+                        &request.id,
+                        -32602,
+                        "Invalid txo entry: missing vout".to_string(),
+                    )
+                }
+            };
+            if txid.len() != 64 || !txid.as_bytes().iter().all(|b| b.is_ascii_hexdigit()) {
+                return err_response(
+                    &request.id,
+                    -8,
+                    "Invalid parameter: txid must be 64 hex characters".to_string(),
+                );
+            }
+            if vout_u64 > u32::MAX as u64 {
+                return err_response(
+                    &request.id,
+                    -8,
+                    "Invalid parameter: vout out of range".to_string(),
+                );
+            }
+            let vout = vout_u64 as u32;
+
             if unlock {
-                locked.retain(|(t, v)| !(t == &txid && *v == vout));
-            } else if !locked.iter().any(|(t, v)| t == &txid && *v == vout) {
-                locked.push((txid, vout));
+                locked.retain(|(t, v)| !(t == txid && *v == vout));
+            } else if !locked.iter().any(|(t, v)| t == txid && *v == vout) {
+                locked.push((txid.to_string(), vout));
             }
         }
     }

@@ -397,6 +397,14 @@ if [[ "$LOCK_MISSING_TXOS_ERROR_CODE" != "-32602" ]]; then
   exit 1
 fi
 
+LOCK_INVALID_TXID_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"lockunspent-invalid-txid","method":"lockunspent","params":[false,[{"txid":"abcd","vout":0}]]}' \
+  | tee "$ARTIFACT_DIR/btc_lockunspent_invalid_txid_response.json")"
+LOCK_INVALID_TXID_ERROR_CODE="$(echo "$LOCK_INVALID_TXID_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$LOCK_INVALID_TXID_ERROR_CODE" != "-8" ]]; then
+  echo "lockunspent invalid-txid path did not return -8 (got: $LOCK_INVALID_TXID_ERROR_CODE)" >&2
+  exit 1
+fi
+
 LOCK_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"lockunspent-lock\",\"method\":\"lockunspent\",\"params\":[false,[{\"txid\":\"$LOCK_TXID\",\"vout\":$LOCK_VOUT}]]}" \
   | tee "$ARTIFACT_DIR/btc_lockunspent_lock_response.json")"
 if [[ "$(echo "$LOCK_RESPONSE" | jq -r '.result // false')" != "true" ]]; then
@@ -980,6 +988,7 @@ scantxoutset_invalid_error_code=$SCANTXOUTSET_INVALID_ERROR_CODE
 scantxoutset_txid=$SCANTXOUTSET_TXID
 listunspent_invalid_range_error_code=$LISTUNSPENT_INVALID_ERROR_CODE
 lockunspent_missing_txos_error_code=$LOCK_MISSING_TXOS_ERROR_CODE
+lockunspent_invalid_txid_error_code=$LOCK_INVALID_TXID_ERROR_CODE
 auth_noauth_http_code=$AUTH_NOAUTH_CODE
 auth_wrong_http_code=$AUTH_WRONG_CODE
 auth_ok_result=$AUTH_OK_RESULT
