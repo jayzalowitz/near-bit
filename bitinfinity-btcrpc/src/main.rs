@@ -12394,6 +12394,55 @@ mod tests {
     }
 
     #[test]
+    fn test_listquantumkeys_deduplicates_alias_storage_entries() {
+        let rt = tokio::runtime::Runtime::new().expect("tokio runtime should initialize");
+        let state = RpcState::new(
+            "bitinfinity-testnet".to_string(),
+            "test".to_string(),
+            "http://127.0.0.1:3030".to_string(),
+        );
+        let canonical_address = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
+        let legacy_lowercase = canonical_address.to_lowercase();
+
+        rt.block_on(async {
+            let mut keys = state.quantum_keys.write().await;
+            keys.insert(
+                canonical_address.to_string(),
+                vec![
+                    ("dilithium3".to_string(), "11".repeat(32)),
+                    ("falcon512".to_string(), "22".repeat(32)),
+                ],
+            );
+            keys.insert(
+                legacy_lowercase.clone(),
+                vec![
+                    ("dilithium3".to_string(), "11".repeat(32)),
+                    ("sphincsplus".to_string(), "33".repeat(32)),
+                ],
+            );
+        });
+
+        let request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(5009),
+            method: "listquantumkeys".to_string(),
+            params: json!([canonical_address]),
+        };
+        let response = rt.block_on(handle_listquantumkeys(&state, &request));
+        assert!(response.error.is_none(), "listquantumkeys should not fail");
+        assert_eq!(
+            response
+                .result
+                .as_ref()
+                .and_then(|r| r.get("quantum_keys"))
+                .and_then(|v| v.as_array())
+                .map(|keys| keys.len()),
+            Some(3),
+            "overlapping alias entries should be de-duplicated"
+        );
+    }
+
+    #[test]
     fn test_removequantumkey_rejects_invalid_keytype() {
         let rt = tokio::runtime::Runtime::new().expect("tokio runtime should initialize");
         let state = RpcState::new(
