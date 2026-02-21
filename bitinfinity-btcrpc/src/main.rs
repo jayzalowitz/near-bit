@@ -331,6 +331,42 @@ impl TxCache {
     }
 }
 
+type QuantumKeyMap = HashMap<String, Vec<(String, String)>>;
+
+fn quantum_keys_path() -> std::path::PathBuf {
+    let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
+    std::path::PathBuf::from(home)
+        .join(".bitinfinity")
+        .join("quantum_keys.json")
+}
+
+fn load_quantum_keys_from_disk() -> QuantumKeyMap {
+    let path = quantum_keys_path();
+    match std::fs::read_to_string(&path) {
+        Ok(contents) => match serde_json::from_str::<QuantumKeyMap>(&contents) {
+            Ok(keys) => keys,
+            Err(e) => {
+                log::warn!(
+                    "Failed to parse quantum key registry at {} ({}), using empty registry",
+                    path.display(),
+                    e
+                );
+                HashMap::new()
+            }
+        },
+        Err(_) => HashMap::new(),
+    }
+}
+
+fn save_quantum_keys_to_disk(keys: &QuantumKeyMap) -> Result<(), String> {
+    let path = quantum_keys_path();
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    let json = serde_json::to_string(keys).map_err(|e| e.to_string())?;
+    std::fs::write(&path, json).map_err(|e| e.to_string())
+}
+
 /// A signed intent produced by signrawtransactionwithwallet.
 /// Hex prefix "626974696e66696e6974793a" = hex("bitinfinity:")
 const SIGNED_INTENT_PREFIX: &str = "bitinfinity:";
@@ -363,7 +399,7 @@ pub struct RpcState {
     /// Quantum keys registered per address: address -> Vec<(keytype, pubkey_hex)>
     /// Enforcement is governance-gated via validator supermajority (see issue #2).
     /// Supported key types: "dilithium3", "falcon512", "sphincsplus"
-    quantum_keys: RwLock<HashMap<String, Vec<(String, String)>>>,
+    quantum_keys: RwLock<QuantumKeyMap>,
 }
 
 impl RpcState {
@@ -371,6 +407,15 @@ impl RpcState {
         let keystore = Keystore::load();
         log::info!("Loaded keystore with {} keys", keystore.addresses().len());
         let tx_cache = TxCache::load();
+        let quantum_keys = load_quantum_keys_from_disk();
+        let quantum_key_count: usize = quantum_keys.values().map(|v| v.len()).sum();
+        if quantum_key_count > 0 {
+            log::info!(
+                "Loaded {} quantum keys across {} addresses",
+                quantum_key_count,
+                quantum_keys.len()
+            );
+        }
         let encrypted = keystore.encrypted;
         RpcState {
             chain_id,
@@ -389,7 +434,7 @@ impl RpcState {
             locked_utxos: RwLock::new(Vec::new()),
             last_indexed_height: RwLock::new(0),
             balance_snapshot: RwLock::new(HashMap::new()),
-            quantum_keys: RwLock::new(HashMap::new()),
+            quantum_keys: RwLock::new(quantum_keys),
         }
     }
 
@@ -10322,6 +10367,9 @@ async fn handle_addquantumkey(state: &RpcState, request: &JsonRpcRequest) -> Jso
     }
 
     entry.push((keytype.clone(), pubkey_hex.clone()));
+    if let Err(e) = save_quantum_keys_to_disk(&keys) {
+        log::error!("Failed to persist quantum keys after addquantumkey: {}", e);
+    }
 
     ok_response(
         &request.id,
@@ -10389,19 +10437,31 @@ async fn handle_removequantumkey(state: &RpcState, request: &JsonRpcRequest) -> 
     };
 
     let mut keys = state.quantum_keys.write().await;
+    let mut removed = false;
+    let mut remove_address_entry = false;
     if let Some(entry) = keys.get_mut(&address) {
         let before = entry.len();
         entry.retain(|(kt, pk)| !(kt == &keytype && pk == &pubkey_hex));
         if entry.len() < before {
-            return ok_response(
-                &request.id,
-                json!({
-                    "address": address,
-                    "keytype": keytype,
-                    "removed": true
-                }),
-            );
+            removed = true;
+            remove_address_entry = entry.is_empty();
         }
+    }
+    if removed {
+        if remove_address_entry {
+            keys.remove(&address);
+        }
+        if let Err(e) = save_quantum_keys_to_disk(&keys) {
+            log::error!("Failed to persist quantum keys after removequantumkey: {}", e);
+        }
+        return ok_response(
+            &request.id,
+            json!({
+                "address": address,
+                "keytype": keytype,
+                "removed": true
+            }),
+        );
     }
 
     err_response(
