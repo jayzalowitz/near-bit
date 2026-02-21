@@ -409,8 +409,21 @@ if [[ "$(echo "$ANALYZE_PSBT_RESPONSE" | jq -r '.error // empty')" != "" ]]; the
   echo "analyzepsbt failed for funded psbt" >&2
   exit 1
 fi
-if [[ -z "$(echo "$ANALYZE_PSBT_RESPONSE" | jq -r '.result.next // empty')" ]]; then
-  echo "analyzepsbt returned empty next step for funded psbt" >&2
+ANALYZE_PSBT_NEXT="$(echo "$ANALYZE_PSBT_RESPONSE" | jq -r '.result.next // empty')"
+if [[ "$ANALYZE_PSBT_NEXT" != "signer" ]]; then
+  echo "analyzepsbt expected next=signer before signing, got: $ANALYZE_PSBT_NEXT" >&2
+  exit 1
+fi
+
+FINALIZE_UNSIGNED_PSBT_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"finalizepsbt-unsigned\",\"method\":\"finalizepsbt\",\"params\":[\"$FUNDED_PSBT\"]}" \
+  | tee "$ARTIFACT_DIR/btc_finalizepsbt_unsigned_response.json")"
+FINALIZE_UNSIGNED_COMPLETE="$(echo "$FINALIZE_UNSIGNED_PSBT_RESPONSE" | jq -r '.result.complete')"
+if [[ "$(echo "$FINALIZE_UNSIGNED_PSBT_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "finalizepsbt failed for unsigned funded psbt" >&2
+  exit 1
+fi
+if [[ "$FINALIZE_UNSIGNED_COMPLETE" != "false" ]]; then
+  echo "finalizepsbt expected complete=false for unsigned funded psbt" >&2
   exit 1
 fi
 
@@ -677,6 +690,8 @@ raw_replay_mode=$RAW_REPLAY_MODE
 raw_replay_error=$RAW_REPLAY_ERROR
 psbt_create_len=${#CREATED_PSBT}
 psbt_funded_len=${#FUNDED_PSBT}
+psbt_analyze_next_unsigned=$ANALYZE_PSBT_NEXT
+psbt_finalize_unsigned_complete=$FINALIZE_UNSIGNED_COMPLETE
 psbt_signed_complete=$SIGNED_PSBT_COMPLETE
 psbt_signed_sig_count=$SIGNED_PSBT_SIG_COUNT
 psbt_finalize_complete=$FINALIZED_PSBT_COMPLETE
