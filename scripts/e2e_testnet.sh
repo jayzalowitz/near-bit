@@ -305,6 +305,79 @@ if [[ "$(echo "$BLOCKHEADER_JSON_RESPONSE" | jq -r '.result.hash // empty')" != 
   exit 1
 fi
 
+MININGINFO_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"mininginfo","method":"getmininginfo","params":[]}' \
+  | tee "$ARTIFACT_DIR/btc_getmininginfo_response.json")"
+if [[ "$(echo "$MININGINFO_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
+  echo "getmininginfo failed" >&2
+  exit 1
+fi
+MININGINFO_CONSENSUS="$(echo "$MININGINFO_RESPONSE" | jq -r '.result.consensus // empty')"
+MININGINFO_HASHPS="$(echo "$MININGINFO_RESPONSE" | jq -r '.result.networkhashps // empty')"
+if [[ "$MININGINFO_CONSENSUS" != "proof-of-stake" ]]; then
+  echo "getmininginfo consensus mismatch (got: $MININGINFO_CONSENSUS)" >&2
+  exit 1
+fi
+if [[ "$MININGINFO_HASHPS" != "0" ]]; then
+  echo "getmininginfo networkhashps expected 0 for PoS (got: $MININGINFO_HASHPS)" >&2
+  exit 1
+fi
+
+GETBLOCKTEMPLATE_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"getblocktemplate-stub","method":"getblocktemplate","params":[]}' \
+  | tee "$ARTIFACT_DIR/btc_getblocktemplate_stub_response.json")"
+GETBLOCKTEMPLATE_ERROR_CODE="$(echo "$GETBLOCKTEMPLATE_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$GETBLOCKTEMPLATE_ERROR_CODE" != "-32601" ]]; then
+  echo "getblocktemplate stub path did not return -32601 (got: $GETBLOCKTEMPLATE_ERROR_CODE)" >&2
+  exit 1
+fi
+
+GENERATE_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"generate-stub","method":"generate","params":[1]}' \
+  | tee "$ARTIFACT_DIR/btc_generate_stub_response.json")"
+GENERATE_ERROR_CODE="$(echo "$GENERATE_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$GENERATE_ERROR_CODE" != "-32601" ]]; then
+  echo "generate stub path did not return -32601 (got: $GENERATE_ERROR_CODE)" >&2
+  exit 1
+fi
+
+GENERATETOADDRESS_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"generatetoaddress-stub\",\"method\":\"generatetoaddress\",\"params\":[1,\"$FUNDED_ADDR\"]}" \
+  | tee "$ARTIFACT_DIR/btc_generatetoaddress_stub_response.json")"
+GENERATETOADDRESS_ERROR_CODE="$(echo "$GENERATETOADDRESS_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$GENERATETOADDRESS_ERROR_CODE" != "-32601" ]]; then
+  echo "generatetoaddress stub path did not return -32601 (got: $GENERATETOADDRESS_ERROR_CODE)" >&2
+  exit 1
+fi
+
+GENERATETODESCRIPTOR_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"generatetodescriptor-stub\",\"method\":\"generatetodescriptor\",\"params\":[1,\"addr($FUNDED_ADDR)\"]}" \
+  | tee "$ARTIFACT_DIR/btc_generatetodescriptor_stub_response.json")"
+GENERATETODESCRIPTOR_ERROR_CODE="$(echo "$GENERATETODESCRIPTOR_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$GENERATETODESCRIPTOR_ERROR_CODE" != "-32601" ]]; then
+  echo "generatetodescriptor stub path did not return -32601 (got: $GENERATETODESCRIPTOR_ERROR_CODE)" >&2
+  exit 1
+fi
+
+ADDNODE_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"addnode-stub","method":"addnode","params":["127.0.0.1:8333","onetry"]}' \
+  | tee "$ARTIFACT_DIR/btc_addnode_stub_response.json")"
+ADDNODE_ERROR_CODE="$(echo "$ADDNODE_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$ADDNODE_ERROR_CODE" != "-32601" ]]; then
+  echo "addnode stub path did not return -32601 (got: $ADDNODE_ERROR_CODE)" >&2
+  exit 1
+fi
+
+DISCONNECTNODE_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"disconnectnode-stub","method":"disconnectnode","params":["127.0.0.1:8333"]}' \
+  | tee "$ARTIFACT_DIR/btc_disconnectnode_stub_response.json")"
+DISCONNECTNODE_ERROR_CODE="$(echo "$DISCONNECTNODE_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$DISCONNECTNODE_ERROR_CODE" != "-32601" ]]; then
+  echo "disconnectnode stub path did not return -32601 (got: $DISCONNECTNODE_ERROR_CODE)" >&2
+  exit 1
+fi
+
+ONETRY_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"onetry-stub","method":"onetry","params":["127.0.0.1:8333"]}' \
+  | tee "$ARTIFACT_DIR/btc_onetry_stub_response.json")"
+ONETRY_ERROR_CODE="$(echo "$ONETRY_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$ONETRY_ERROR_CODE" != "-32601" ]]; then
+  echo "onetry stub path did not return -32601 (got: $ONETRY_ERROR_CODE)" >&2
+  exit 1
+fi
+
 SCANTXOUTSET_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"scan-fund\",\"method\":\"scantxoutset\",\"params\":[\"start\",[{\"desc\":\"addr($FUNDED_ADDR)\"}]]}" \
   | tee "$ARTIFACT_DIR/btc_scantxoutset_response.json")"
 if [[ "$(echo "$SCANTXOUTSET_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
@@ -1099,6 +1172,15 @@ getaddressinfo_invalid_error_code=$ADDRESSINFO_INVALID_ERROR_CODE
 gettransaction_unknown_error_code=$GETTX_UNKNOWN_ERROR_CODE
 getrawtransaction_unknown_error_code=$GETRAW_UNKNOWN_ERROR_CODE
 getblockheader_unknown_error_code=$BLOCKHEADER_UNKNOWN_ERROR_CODE
+getmininginfo_consensus=$MININGINFO_CONSENSUS
+getmininginfo_networkhashps=$MININGINFO_HASHPS
+getblocktemplate_error_code=$GETBLOCKTEMPLATE_ERROR_CODE
+generate_error_code=$GENERATE_ERROR_CODE
+generatetoaddress_error_code=$GENERATETOADDRESS_ERROR_CODE
+generatetodescriptor_error_code=$GENERATETODESCRIPTOR_ERROR_CODE
+addnode_error_code=$ADDNODE_ERROR_CODE
+disconnectnode_error_code=$DISCONNECTNODE_ERROR_CODE
+onetry_error_code=$ONETRY_ERROR_CODE
 scantxoutset_invalid_error_code=$SCANTXOUTSET_INVALID_ERROR_CODE
 scantxoutset_empty_start_error_code=$SCANTXOUTSET_EMPTY_START_ERROR_CODE
 scantxoutset_txid=$SCANTXOUTSET_TXID
