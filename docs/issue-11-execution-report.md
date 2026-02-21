@@ -687,6 +687,22 @@ Verification rerun:
 - `./scripts/e2e_testnet.sh` (one initial run hit transient `AddrInUse` on `3030/24567`; clean rerun passed)
 - `HOME="$(mktemp -d)" RUSTUP_HOME="/Users/infinitoshi/.rustup" CARGO_HOME="/Users/infinitoshi/.cargo" cargo test -q -p bitinfinity-btcrpc`
 
+## Continuation (2026-02-21): stabilize quantum-key unit test isolation
+
+Implemented:
+- Hardened `bitinfinity-btcrpc` quantum-key unit tests against shared file-state interference:
+  - added a test helper that acquires a process-local lock for quantum registry tests,
+  - removes the on-disk quantum registry file before and after each covered test,
+  - runs all alias/duplicate/removal quantum tests through this isolated helper.
+- This removes nondeterministic failures caused by concurrent tests sharing the same persisted registry.
+
+Primary file:
+- `bitinfinity-btcrpc/src/main.rs`
+
+Verification rerun:
+- `cargo test -q -p bitinfinity-btcrpc`
+- `cargo test -q -p bitinfinity-btcrpc` (second consecutive pass to confirm flake mitigation)
+
 ## Issue #1 goal check
 
 Status:
