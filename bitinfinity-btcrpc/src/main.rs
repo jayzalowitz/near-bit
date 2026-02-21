@@ -5820,7 +5820,7 @@ async fn handle_walletcreatefundedpsbt(
     // Build unsigned transaction (same structure as createpsbt)
     let mut unsigned_tx: Vec<u8> = Vec::new();
     unsigned_tx.extend_from_slice(&2u32.to_le_bytes()); // version
-    unsigned_tx.push(num_inputs as u8);
+    write_compact_size(&mut unsigned_tx, num_inputs as u64);
     for (txid_hex, vout) in &use_inputs {
         if let Ok(mut txid_bytes) = hex::decode(txid_hex) {
             txid_bytes.reverse();
@@ -5832,7 +5832,7 @@ async fn handle_walletcreatefundedpsbt(
         unsigned_tx.push(0x00); // empty scriptSig
         unsigned_tx.extend_from_slice(&0xFFFFFFFDu32.to_le_bytes()); // sequence
     }
-    unsigned_tx.push(num_outputs as u8);
+    write_compact_size(&mut unsigned_tx, num_outputs as u64);
     let hrp = state.bech32_hrp();
     for (addr, btc_amount) in &output_pairs {
         let satoshis = (*btc_amount * 100_000_000.0) as u64;
@@ -8843,7 +8843,7 @@ fn handle_createpsbt(request: &JsonRpcRequest) -> JsonRpcResponse {
     // version (2 for segwit signaling)
     unsigned_tx.extend_from_slice(&2u32.to_le_bytes());
     // input count (varint)
-    unsigned_tx.push(num_inputs as u8);
+    write_compact_size(&mut unsigned_tx, num_inputs as u64);
     // For each input: prevout (32-byte txid + 4-byte vout) + scriptSig (empty) + sequence
     if let Some(ins) = inputs {
         for inp in ins {
@@ -8866,7 +8866,7 @@ fn handle_createpsbt(request: &JsonRpcRequest) -> JsonRpcResponse {
         }
     }
     // output count (varint)
-    unsigned_tx.push(num_outputs as u8);
+    write_compact_size(&mut unsigned_tx, num_outputs as u64);
     for (addr, btc_amount) in &output_pairs {
         let satoshis = (*btc_amount * 100_000_000.0) as u64;
         unsigned_tx.extend_from_slice(&satoshis.to_le_bytes());
@@ -10855,6 +10855,58 @@ mod tests {
                 .map(|v| v.len()),
             Some(2),
             "createpsbt should preserve all object-form outputs"
+        );
+    }
+
+    #[test]
+    fn test_createpsbt_handles_large_output_count_with_varint() {
+        let dummy_txid = "cd".repeat(32);
+        let address = "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa";
+        let mut outputs = Vec::new();
+        for _ in 0..260 {
+            let mut out_obj = serde_json::Map::new();
+            out_obj.insert(address.to_string(), json!(0.0001));
+            outputs.push(serde_json::Value::Object(out_obj));
+        }
+
+        let create_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(5),
+            method: "createpsbt".to_string(),
+            params: json!([
+                [{"txid": dummy_txid, "vout": 0}],
+                outputs,
+                0,
+                true
+            ]),
+        };
+
+        let create_response = handle_createpsbt(&create_request);
+        assert!(create_response.error.is_none(), "createpsbt should not fail");
+        let psbt_b64 = create_response
+            .result
+            .as_ref()
+            .and_then(|v| v.as_str())
+            .expect("createpsbt should return PSBT base64");
+
+        let decode_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(6),
+            method: "decodepsbt".to_string(),
+            params: json!([psbt_b64]),
+        };
+        let decode_response = handle_decodepsbt(&decode_request);
+        assert!(decode_response.error.is_none(), "decodepsbt should not fail");
+        assert_eq!(
+            decode_response
+                .result
+                .as_ref()
+                .and_then(|r| r.get("tx"))
+                .and_then(|tx| tx.get("vout"))
+                .and_then(|vout| vout.as_array())
+                .map(|v| v.len()),
+            Some(260),
+            "createpsbt should preserve output counts larger than 255"
         );
     }
 
