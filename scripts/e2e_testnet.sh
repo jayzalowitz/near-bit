@@ -12,6 +12,8 @@ SEND_AMOUNT_RAW="0.1"
 SEND_AMOUNT_1="1.0"
 SEND_AMOUNT_2="0.25"
 SEND_AMOUNT_TOO_HIGH="999999.0"
+MIN_EXPECTED_TOTAL_SENT="1.35"
+MAX_EXPECTED_TOTAL_DEBIT="1.40"
 NEAR_RPC_URL="${NEAR_RPC_URL:-http://127.0.0.1:3030}"
 BTC_RPC_ADDR="${BTC_RPC_ADDR:-127.0.0.1:18332}"
 
@@ -521,6 +523,16 @@ if ! float_gt "$SATOSHI_BALANCE_AFTER" "$SATOSHI_BALANCE_BEFORE"; then
   exit 1
 fi
 
+FUNDED_DEBIT="$(awk -v before="$FUNDED_BALANCE_BEFORE" -v after="$FUNDED_BALANCE_AFTER" 'BEGIN { printf "%.8f", before - after }')"
+if ! awk -v debit="$FUNDED_DEBIT" -v min="$MIN_EXPECTED_TOTAL_SENT" 'BEGIN { exit !(debit >= min) }'; then
+  echo "Funded debit was below expected send total ($FUNDED_DEBIT < $MIN_EXPECTED_TOTAL_SENT)" >&2
+  exit 1
+fi
+if ! awk -v debit="$FUNDED_DEBIT" -v max="$MAX_EXPECTED_TOTAL_DEBIT" 'BEGIN { exit !(debit <= max) }'; then
+  echo "Funded debit exceeded expected max ($FUNDED_DEBIT > $MAX_EXPECTED_TOTAL_DEBIT); possible replay/double execution" >&2
+  exit 1
+fi
+
 cat >"$ARTIFACT_DIR/near_access_key_list_request.json" <<JSON
 {"jsonrpc":"2.0","id":"e2e","method":"query","params":{"request_type":"view_access_key_list","finality":"final","account_id":"$FUNDED_ADDR"}}
 JSON
@@ -553,6 +565,7 @@ satoshi_balance_before=$SATOSHI_BALANCE_BEFORE
 satoshi_balance_after=$SATOSHI_BALANCE_AFTER
 funded_balance_before=$FUNDED_BALANCE_BEFORE
 funded_balance_after=$FUNDED_BALANCE_AFTER
+funded_debit=$FUNDED_DEBIT
 access_key_count=$ACCESS_KEY_COUNT
 node_log=$ARTIFACT_DIR/node.log
 btcrpc_log=$ARTIFACT_DIR/btcrpc.log
