@@ -1617,6 +1617,30 @@ if [[ "$AUTH_SENDTOADDR_OK_ID" != "auth-sendtoaddress" ]]; then
   exit 1
 fi
 
+AUTH_LOCKUNSPENT_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-lockunspent\",\"method\":\"lockunspent\",\"params\":[false,[{\"txid\":\"$LOCK_TXID\",\"vout\":$LOCK_VOUT}]]}"
+AUTH_LOCKUNSPENT_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_LOCKUNSPENT_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_LOCKUNSPENT_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for lockunspent without auth, got: $AUTH_LOCKUNSPENT_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_LOCKUNSPENT_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_LOCKUNSPENT_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_LOCKUNSPENT_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for lockunspent with wrong auth, got: $AUTH_LOCKUNSPENT_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_LOCKUNSPENT_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_lockunspent_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_LOCKUNSPENT_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_LOCKUNSPENT_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated lockunspent, got: $AUTH_LOCKUNSPENT_OK_CODE" >&2
+  exit 1
+fi
+AUTH_LOCKUNSPENT_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_lockunspent_success_response.json")"
+if [[ "$AUTH_LOCKUNSPENT_OK_ID" != "auth-lockunspent" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated lockunspent" >&2
+  exit 1
+fi
+
 AUTH_WALLETPROCESS_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-walletprocesspsbt\",\"method\":\"walletprocesspsbt\",\"params\":[\"$FUNDED_PSBT\"]}"
 AUTH_WALLETPROCESS_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_WALLETPROCESS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
 if [[ "$AUTH_WALLETPROCESS_NOAUTH_CODE" != "401" ]]; then
@@ -1840,6 +1864,9 @@ auth_sendraw_ok_http_code=$AUTH_SENDRAW_OK_CODE
 auth_sendtoaddress_noauth_http_code=$AUTH_SENDTOADDR_NOAUTH_CODE
 auth_sendtoaddress_wrong_http_code=$AUTH_SENDTOADDR_WRONG_CODE
 auth_sendtoaddress_ok_http_code=$AUTH_SENDTOADDR_OK_CODE
+auth_lockunspent_noauth_http_code=$AUTH_LOCKUNSPENT_NOAUTH_CODE
+auth_lockunspent_wrong_http_code=$AUTH_LOCKUNSPENT_WRONG_CODE
+auth_lockunspent_ok_http_code=$AUTH_LOCKUNSPENT_OK_CODE
 auth_walletprocesspsbt_noauth_http_code=$AUTH_WALLETPROCESS_NOAUTH_CODE
 auth_walletprocesspsbt_wrong_http_code=$AUTH_WALLETPROCESS_WRONG_CODE
 auth_walletprocesspsbt_ok_http_code=$AUTH_WALLETPROCESS_OK_CODE
