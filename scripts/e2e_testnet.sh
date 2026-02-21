@@ -392,6 +392,14 @@ if [[ "$(echo "$WCF_PSBT_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
   exit 1
 fi
 
+WCF_PSBT_INSUFFICIENT_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"walletcreatefundedpsbt-insufficient\",\"method\":\"walletcreatefundedpsbt\",\"params\":[[],[{\"$SATOSHI_ADDR\":999999.0}],0,{}]}" \
+  | tee "$ARTIFACT_DIR/btc_walletcreatefundedpsbt_insufficient_response.json")"
+WCF_PSBT_INSUFFICIENT_ERROR_CODE="$(echo "$WCF_PSBT_INSUFFICIENT_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$WCF_PSBT_INSUFFICIENT_ERROR_CODE" != "-4" ]]; then
+  echo "walletcreatefundedpsbt insufficient-funds path did not return -4 (got: $WCF_PSBT_INSUFFICIENT_ERROR_CODE)" >&2
+  exit 1
+fi
+
 DECODE_PSBT_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"decodepsbt-funded\",\"method\":\"decodepsbt\",\"params\":[\"$FUNDED_PSBT\"]}" \
   | tee "$ARTIFACT_DIR/btc_decodepsbt_funded_response.json")"
 if [[ "$(echo "$DECODE_PSBT_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
@@ -742,6 +750,7 @@ raw_replay_error=$RAW_REPLAY_ERROR
 psbt_create_len=${#CREATED_PSBT}
 psbt_funded_len=${#FUNDED_PSBT}
 psbt_funded_input_txid=$FUNDED_PSBT_INPUT_TXID
+psbt_walletcreate_insufficient_error_code=$WCF_PSBT_INSUFFICIENT_ERROR_CODE
 psbt_analyze_next_unsigned=$ANALYZE_PSBT_NEXT
 psbt_finalize_unsigned_complete=$FINALIZE_UNSIGNED_COMPLETE
 psbt_finalize_unsigned_hex_len=${#FINALIZE_UNSIGNED_HEX}

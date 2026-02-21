@@ -5796,6 +5796,10 @@ async fn handle_walletcreatefundedpsbt(
             .collect()
     };
 
+    if use_inputs.is_empty() {
+        return err_response(&request.id, -4, "Insufficient funds".to_string());
+    }
+
     let num_inputs = use_inputs.len();
     let num_outputs = output_pairs.len();
 
