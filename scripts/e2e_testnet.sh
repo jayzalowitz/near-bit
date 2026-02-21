@@ -342,6 +342,14 @@ if [[ "$QKEY_INVALID_TYPE_ERROR_CODE" != "-32602" ]]; then
   exit 1
 fi
 
+QKEY_INVALID_HEX_RESPONSE="$(btc_rpc_call '{"jsonrpc":"2.0","id":"quantum-invalid-hex","method":"addquantumkey","params":["'"$FUNDED_ADDR"'","falcon512","not-hex"]}' \
+  | tee "$ARTIFACT_DIR/btc_quantum_invalid_hex_response.json")"
+QKEY_INVALID_HEX_ERROR_CODE="$(echo "$QKEY_INVALID_HEX_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$QKEY_INVALID_HEX_ERROR_CODE" != "-32602" ]]; then
+  echo "addquantumkey invalid-pubkey-hex path did not return -32602 (got: $QKEY_INVALID_HEX_ERROR_CODE)" >&2
+  exit 1
+fi
+
 QKEY_ADD2_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"quantum-add-2\",\"method\":\"addquantumkey\",\"params\":[\"$FUNDED_ADDR\",\"falcon512\",\"$QKEY2_HEX\"]}" \
   | tee "$ARTIFACT_DIR/btc_quantum_add2_response.json")"
 if [[ "$(echo "$QKEY_ADD2_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
@@ -1472,6 +1480,7 @@ quantum_after_add_count=$QKEY_ADDED_COUNT
 quantum_after_remove_count=$QKEY_REMOVED_COUNT
 quantum_duplicate_error_code=$QKEY_DUPLICATE_ERROR_CODE
 quantum_invalid_type_error_code=$QKEY_INVALID_TYPE_ERROR_CODE
+quantum_invalid_hex_error_code=$QKEY_INVALID_HEX_ERROR_CODE
 quantum_invalid_address_add_error_code=$QKEY_INVALID_ADDR_ADD_ERROR_CODE
 quantum_invalid_address_list_error_code=$QKEY_INVALID_ADDR_LIST_ERROR_CODE
 quantum_invalid_address_remove_error_code=$QKEY_INVALID_ADDR_REMOVE_ERROR_CODE
