@@ -1303,7 +1303,7 @@ async fn handle_getblock(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcR
                                     for txn in txns {
                                         let tx_hash =
                                             txn.get("hash").and_then(|v| v.as_str()).unwrap_or("");
-                                        let signer = txn
+                                        let _signer = txn
                                             .get("signer_id")
                                             .and_then(|v| v.as_str())
                                             .unwrap_or("");
@@ -9562,7 +9562,6 @@ fn handle_createmultisig(request: &JsonRpcRequest) -> JsonRpcResponse {
 
 fn handle_decodescript(request: &JsonRpcRequest) -> JsonRpcResponse {
     let hex_str = get_str_param(&request.params, 0).unwrap_or("");
-    let script_bytes = hex::decode(hex_str).unwrap_or_default();
     let (script_type, asm) = classify_script_pub_key_hex(hex_str);
     ok_response(
         &request.id,
