@@ -10848,8 +10848,8 @@ async fn main() {
 mod tests {
     use super::{
         derive_script_pub_key_hex, encode_bitcoin_varint, extract_unsigned_tx_hex,
-        handle_analyzepsbt, handle_combinepsbt, handle_createpsbt, handle_decodepsbt,
-        handle_finalizepsbt, handle_joinpsbts, handle_utxoupdatepsbt,
+        handle_analyzepsbt, handle_combinepsbt, handle_createpsbt, handle_createrawtransaction,
+        handle_decodepsbt, handle_finalizepsbt, handle_joinpsbts, handle_utxoupdatepsbt,
         parse_patoshi_record_bytes, verify_bitcoin_message_signature, write_compact_size,
         JsonRpcRequest,
     };
@@ -11123,6 +11123,55 @@ mod tests {
         );
         assert_eq!(
             create_response.error.as_ref().map(|e| e.code),
+            Some(-32602),
+            "missing destination outputs should return invalid-params"
+        );
+    }
+
+    #[test]
+    fn test_createrawtransaction_rejects_non_numeric_output_amount() {
+        let request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(410),
+            method: "createrawtransaction".to_string(),
+            params: json!([
+                [],
+                {"1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa": "bad-amount"},
+                0,
+                true
+            ]),
+        };
+
+        let response = handle_createrawtransaction(&request);
+        assert!(response.result.is_none(), "invalid output amount should fail");
+        assert_eq!(
+            response.error.as_ref().map(|e| e.code),
+            Some(-32602),
+            "non-numeric output amount should return invalid-params"
+        );
+    }
+
+    #[test]
+    fn test_createrawtransaction_rejects_outputs_without_destination_amounts() {
+        let request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(411),
+            method: "createrawtransaction".to_string(),
+            params: json!([
+                [],
+                {"data": "deadbeef"},
+                0,
+                true
+            ]),
+        };
+
+        let response = handle_createrawtransaction(&request);
+        assert!(
+            response.result.is_none(),
+            "data-only outputs should not produce raw transaction intent"
+        );
+        assert_eq!(
+            response.error.as_ref().map(|e| e.code),
             Some(-32602),
             "missing destination outputs should return invalid-params"
         );
