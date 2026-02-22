@@ -22,3 +22,16 @@ pub(crate) fn btc_to_satoshis_checked(amount_btc: f64) -> Option<u64> {
 
     Some(satoshis_rounded as u64)
 }
+
+/// Convert a BTC-denominated decimal amount to satoshis with bounds/precision checks.
+/// Accepts zero and returns `Some(0)` for exact zero.
+/// Returns `None` for non-finite, negative, overflow, or sub-satoshi-precision values.
+pub(crate) fn btc_to_satoshis_non_negative_checked(amount_btc: f64) -> Option<u64> {
+    if !amount_btc.is_finite() || amount_btc < 0.0 {
+        return None;
+    }
+    if amount_btc == 0.0 {
+        return Some(0);
+    }
+    btc_to_satoshis_checked(amount_btc)
+}
