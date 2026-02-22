@@ -1989,6 +1989,26 @@ Verification reruns:
 - `rg -n "rpc-error-codes.md|RPC error code reference|-32700|-32602|-18|-3" docs/index.html docs/rpc-error-codes.md -S`
   - confirms navigation link + core code table entries are present.
 
+## Continuation (2026-02-22): nonce-floor normalization consistency across send/sign flows
+
+Implemented:
+- Added reusable nonce normalization helper in btcrpc state:
+  - `RpcState::normalize_nonce_for_first_bitcoin_tx(nonce, latest_block_height)`.
+- Applied normalization consistently to first-transaction-sensitive paths:
+  - `sendrawtransaction`
+  - `sendtoaddress`
+  - `sendmany`
+  - `signrawtransactionwithwallet` (base nonce for per-output signing)
+  - shared `get_block_and_nonce` helper (used by NEAR-native tx builders).
+- This removes inconsistent behavior where some flows used raw `next_nonce` while others enforced the Bitcoin first-tx nonce floor.
+- Added regression coverage:
+  - `test_nonce_floor_normalization_for_first_bitcoin_tx`.
+
+Verification reruns:
+- `cargo test -p bitinfinity-btcrpc -- --nocapture`
+  - result: `60 passed`, `0 failed`.
+  - includes new nonce normalization test plus all prior wallet/mempool/PSBT/fuzz-hardening coverage.
+
 ## Issue #11 remaining high-priority gaps (not completed here)
 
 Still open and required for full #11 closure:
