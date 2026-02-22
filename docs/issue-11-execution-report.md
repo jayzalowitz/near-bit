@@ -1789,6 +1789,22 @@ Verification reruns:
 - `cargo test -p bitinfinity-btcrpc test_getmempool -- --nocapture`
   - confirms mempool relation/entry coverage remains green after the walletprocesspsbt change.
 
+## Continuation (2026-02-22): fuzz CI soak cadence expansion
+
+Implemented:
+- Hardened `.github/workflows/nightly-fuzz.yml` toward Phase 0.2 runtime expectations:
+  - schedule increased from once daily to every 6 hours (`0 */6 * * *`),
+  - per-target default fuzz duration increased from `1800s` (30m) to `21600s` (6h),
+  - job timeout increased from `90` to `360` minutes to match the new soak duration.
+- Resulting coverage intent: ~24 hours cumulative fuzz runtime per target per day (4 runs/day * 6h).
+
+Primary file:
+- `.github/workflows/nightly-fuzz.yml`
+
+Verification reruns:
+- `ruby -e 'require "yaml"; YAML.load_file(".github/workflows/nightly-fuzz.yml")'`
+  - confirms workflow YAML remains valid after schedule/duration updates.
+
 ## Issue #1 goal check
 
 Status:
