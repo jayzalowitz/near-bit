@@ -915,6 +915,33 @@ Verification rerun:
 - `./scripts/e2e_testnet.sh`
 - `cargo test -q -p bitinfinity-btcrpc`
 
+## Continuation (2026-02-21): importaddress/backupwallet auth-gating coverage
+
+Implemented:
+- Extended auth-depth E2E checks to include wallet watch/backup management RPC methods:
+  - `importaddress`
+  - `backupwallet`
+- For each method, added explicit auth triad assertions:
+  - unauthenticated request returns HTTP `401`,
+  - wrong-credential request returns HTTP `401`,
+  - authenticated request returns HTTP `200` with matching JSON-RPC `id`.
+- Used empty-params authenticated probes so these checks remain side-effect free while still validating auth middleware behavior.
+- Added summary exports:
+  - `auth_importaddress_noauth_http_code`
+  - `auth_importaddress_wrong_http_code`
+  - `auth_importaddress_ok_http_code`
+  - `auth_backupwallet_noauth_http_code`
+  - `auth_backupwallet_wrong_http_code`
+  - `auth_backupwallet_ok_http_code`
+
+Primary file:
+- `scripts/e2e_testnet.sh`
+
+Verification rerun:
+- `bash -n scripts/e2e_testnet.sh`
+- `./scripts/e2e_testnet.sh`
+- `cargo test -q -p bitinfinity-btcrpc`
+
 ## Issue #1 goal check
 
 Status:
