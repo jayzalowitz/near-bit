@@ -7,13 +7,13 @@
 use std::collections::{BTreeMap, HashSet};
 use std::path::Path;
 
-/// Load Patoshi addresses from a CSV file.
+/// Parse Patoshi addresses from a CSV reader.
 /// The CSV should have at least one column with Bitcoin addresses.
-pub fn load_patoshi_addresses(
-    csv_path: &Path,
+pub fn load_patoshi_addresses_from_reader<R: std::io::Read>(
+    reader: R,
 ) -> Result<HashSet<String>, Box<dyn std::error::Error>> {
     let mut addresses = HashSet::new();
-    let mut reader = csv::Reader::from_path(csv_path)?;
+    let mut reader = csv::Reader::from_reader(reader);
 
     for result in reader.records() {
         let record = result?;
@@ -24,6 +24,17 @@ pub fn load_patoshi_addresses(
             }
         }
     }
+
+    Ok(addresses)
+}
+
+/// Load Patoshi addresses from a CSV file.
+/// The CSV should have at least one column with Bitcoin addresses.
+pub fn load_patoshi_addresses(
+    csv_path: &Path,
+) -> Result<HashSet<String>, Box<dyn std::error::Error>> {
+    let file = std::fs::File::open(csv_path)?;
+    let addresses = load_patoshi_addresses_from_reader(file)?;
 
     println!(
         "✓ Loaded {} Patoshi addresses from {}",
@@ -76,6 +87,16 @@ pub struct PatoshiReassignment {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_load_patoshi_addresses_from_reader_trims_and_deduplicates() {
+        let csv_data = b"address\n 1PatoshiAddr1 \n1PatoshiAddr2\n1PatoshiAddr1\n\n";
+        let parsed = load_patoshi_addresses_from_reader(&csv_data[..]).expect("csv should parse");
+
+        assert_eq!(parsed.len(), 2);
+        assert!(parsed.contains("1PatoshiAddr1"));
+        assert!(parsed.contains("1PatoshiAddr2"));
+    }
 
     #[test]
     fn test_reassign_patoshi() {
