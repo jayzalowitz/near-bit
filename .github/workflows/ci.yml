@@ -184,6 +184,11 @@ jobs:
           cd bitinfinity-btcrpc
           cargo fuzz run fuzz_tx_translator -- -max_total_time=30 -timeout=5
 
+      - name: Fuzz amount arithmetic (30s)
+        run: |
+          cd bitinfinity-btcrpc
+          cargo fuzz run fuzz_amount_math -- -max_total_time=30 -timeout=5
+
       - name: Fuzz Patoshi CSV parser (30s)
         run: |
           cd bitinfinity-tools
