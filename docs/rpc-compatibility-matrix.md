@@ -69,6 +69,7 @@ Status legend:
 ## Current caveats
 
 - Mempool methods are backed by pending tx cache semantics, not a native Bitcoin mempool.
+- Wallet-scoped RPCs consistently return `-18` when no wallet is loaded.
 - Wallet aliases are virtual and map to a single underlying keystore backend.
 - Several wallet/UTXO responses are synthetic adapters over account-based state.
 - Compatibility is continuously enforced through auth-coverage checks, targeted unit tests, and CI/nightly fuzz pipelines.

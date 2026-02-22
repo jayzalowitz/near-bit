@@ -1866,6 +1866,23 @@ Status:
 - User keys secp256k1 / validator keys ed25519 split: **Achieved** (already present; unchanged)
 - Patoshi reassignment tooling: **Achieved** (dedicated auto-generated Bitcoin keypair output + reassignment path)
 
+## Continuation (2026-02-22): expanded unloaded-wallet guard coverage across wallet RPC surface
+
+Implemented:
+- Extended `-18` loaded-wallet enforcement beyond the initial lifecycle set to additional wallet-scoped handlers, including:
+  - balance/transaction surfaces (`getbalance`, `gettransaction`, `listtransactions`, `listsinceblock`, `getunconfirmedbalance`);
+  - UTXO/funding/coin-control flows (`listunspent`, `fundrawtransaction`, `walletcreatefundedpsbt`, `lockunspent`, `listlockunspent`);
+  - wallet maintenance/import flows (`keypoolrefill`, `backupwallet`, `importaddress`, `importpubkey`, `setlabel`, `walletpassphrasechange`, `encryptwallet`, `listreceivedbylabel`, `getreceivedbylabel`, `listlabels`);
+  - address/balance views (`getaddressinfo`, `getbalances`, `listreceivedbyaddress`, `listaddressgroupings`, `getaddressesbylabel`, `getaccount`).
+- Added regression coverage:
+  - `test_extended_wallet_methods_reject_unloaded_wallet`
+    - verifies representative wallet methods now consistently return `-18` after `unloadwallet`.
+
+Verification reruns:
+- `cargo test -p bitinfinity-btcrpc -- --nocapture`
+  - result: `56 passed`, `0 failed`.
+  - confirms newly added unloaded-wallet guard test alongside all prior mempool/PSBT/lifecycle coverage.
+
 ## Issue #11 remaining high-priority gaps (not completed here)
 
 Still open and required for full #11 closure:
