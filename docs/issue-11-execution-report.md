@@ -2141,6 +2141,27 @@ Validated:
     - result: `22 passed`, `0 failed`, `1 ignored`.
     - confirms Patoshi reassignment, signature recovery/address derivation, and genesis registry paths remain green.
 
+## Continuation (2026-02-22): checked satoshi-sum and nonce-overflow hardening in signing/funding flows
+
+Implemented:
+- Added shared arithmetic helper:
+  - `checked_sum_satoshis(...) -> Option<u64>` in `bitinfinity-btcrpc/src/amounts.rs`.
+- Replaced remaining unchecked satoshi total sums in high-impact transaction paths:
+  - `sendrawtransaction` payment-output total.
+  - `signrawtransactionwithwallet` intent-output totals.
+  - `walletcreatefundedpsbt` output total.
+- Added explicit overflow error handling:
+  - overflowed totals now return deterministic errors (`-22` or `-32602` depending on context) instead of relying on unchecked `sum()`.
+- Hardened per-output nonce derivation in `signrawtransactionwithwallet`:
+  - replaced `base_nonce + i as u64` with checked addition and explicit error on overflow.
+- Added regression coverage:
+  - `test_checked_sum_satoshis_overflow_protection`
+
+Verification reruns:
+- `cargo test -p bitinfinity-btcrpc -- --nocapture`
+  - result: `73 passed`, `0 failed`.
+  - includes the new checked-sum overflow test plus all prior amount-validation/fail-fast hardening coverage.
+
 ## Issue #11 remaining high-priority gaps (not completed here)
 
 Still open and required for full #11 closure:
