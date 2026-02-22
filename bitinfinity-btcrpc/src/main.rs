@@ -7959,21 +7959,6 @@ async fn handle_addnearkey(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
         }
     };
 
-    let (key_entry, secret_key, near_pubkey_str) = match get_sender_key(state, addr).await {
-        Ok(v) => v,
-        Err(resp) => return resp,
-    };
-    let (block_hash, nonce) =
-        match get_block_and_nonce(state, addr, &near_pubkey_str, &request.id).await {
-            Ok(v) => v,
-            Err(resp) => return resp,
-        };
-
-    let pk_uncompressed = match key_entry.public_key_uncompressed_bytes() {
-        Ok(b) => b,
-        Err(e) => return err_response(&request.id, -32000, format!("Key error: {}", e)),
-    };
-
     let action = if permission == "function_call" {
         let receiver_id = get_str_param(&request.params, 3).unwrap_or("");
         let methods_str = get_str_param(&request.params, 4).unwrap_or("");
@@ -8003,6 +7988,21 @@ async fn handle_addnearkey(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
         NearAction::add_function_call_key(&new_pk_bytes, allowance, receiver_id, &methods)
     } else {
         NearAction::add_full_access_key(&new_pk_bytes)
+    };
+
+    let (key_entry, secret_key, near_pubkey_str) = match get_sender_key(state, addr).await {
+        Ok(v) => v,
+        Err(resp) => return resp,
+    };
+    let (block_hash, nonce) =
+        match get_block_and_nonce(state, addr, &near_pubkey_str, &request.id).await {
+            Ok(v) => v,
+            Err(resp) => return resp,
+        };
+
+    let pk_uncompressed = match key_entry.public_key_uncompressed_bytes() {
+        Ok(b) => b,
+        Err(e) => return err_response(&request.id, -32000, format!("Key error: {}", e)),
     };
 
     let mut builder = NearTxBuilder::new(
@@ -11799,10 +11799,10 @@ async fn main() {
 mod tests {
     use super::{
         btc_to_satoshis_checked, btc_to_satoshis_non_negative_checked, derive_script_pub_key_hex,
-        encode_bitcoin_varint, extract_unsigned_tx_hex, handle_addquantumkey, handle_analyzepsbt,
-        handle_backupwallet, handle_combinepsbt, handle_createnearaccount, handle_createpsbt,
-        handle_createrawtransaction, handle_decodepsbt, handle_encryptwallet, handle_finalizepsbt,
-        handle_fundgaskey, handle_fundrawtransaction, handle_getbalance,
+        encode_bitcoin_varint, extract_unsigned_tx_hex, handle_addnearkey, handle_addquantumkey,
+        handle_analyzepsbt, handle_backupwallet, handle_combinepsbt, handle_createnearaccount,
+        handle_createpsbt, handle_createrawtransaction, handle_decodepsbt, handle_encryptwallet,
+        handle_finalizepsbt, handle_fundgaskey, handle_fundrawtransaction, handle_getbalance,
         handle_getmempoolancestors, handle_getmempooldescendants, handle_getmempoolentry,
         handle_getunconfirmedbalance, handle_getwalletinfo, handle_importaddress, handle_joinpsbts,
         handle_keypoolrefill, handle_listquantumkeys, handle_listreceivedbylabel,
@@ -12061,6 +12061,41 @@ mod tests {
                 response.error.as_ref().map(|e| e.code),
                 Some(-3),
                 "sendneartx should validate transfer amount before key/network lookups"
+            );
+        });
+    }
+
+    #[test]
+    fn test_addnearkey_rejects_negative_allowance_before_key_lookup() {
+        let runtime = tokio::runtime::Runtime::new().expect("tokio runtime should initialize");
+        let state = RpcState::new(
+            "bitinfinity-testnet".to_string(),
+            "test".to_string(),
+            "http://127.0.0.1:3030".to_string(),
+        );
+        let new_key_hex = "33".repeat(64);
+
+        runtime.block_on(async {
+            let request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(71008),
+                method: "addnearkey".to_string(),
+                params: json!([
+                    "sender.near",
+                    new_key_hex,
+                    "function_call",
+                    "receiver.near",
+                    "method_a,method_b",
+                    -0.1
+                ]),
+            };
+            let response = handle_addnearkey(&state, &request).await;
+
+            assert!(response.result.is_none());
+            assert_eq!(
+                response.error.as_ref().map(|e| e.code),
+                Some(-3),
+                "addnearkey should validate allowance before key/network lookups"
             );
         });
     }
