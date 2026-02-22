@@ -9001,6 +9001,14 @@ async fn handle_getneartxfull(state: &RpcState, request: &JsonRpcRequest) -> Jso
 // ============================================================================
 
 async fn handle_walletprocesspsbt(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    if !state.is_wallet_unlocked().await {
+        return err_response(
+            &request.id,
+            -13,
+            "Error: Please enter the wallet passphrase with walletpassphrase first.".to_string(),
+        );
+    }
+
     let psbt_b64 = match get_str_param(&request.params, 0) {
         Some(s) => s,
         None => return err_response(&request.id, -32602, "Missing PSBT parameter".to_string()),
@@ -11280,7 +11288,7 @@ mod tests {
         handle_addquantumkey, handle_analyzepsbt, handle_combinepsbt, handle_createpsbt,
         handle_createrawtransaction, handle_decodepsbt, handle_finalizepsbt,
         handle_getmempoolancestors, handle_getmempooldescendants, handle_getmempoolentry,
-        handle_joinpsbts,
+        handle_joinpsbts, handle_walletprocesspsbt,
         handle_listquantumkeys, handle_removequantumkey, handle_utxoupdatepsbt, TxCacheEntry,
         parse_patoshi_record_bytes, verify_bitcoin_message_signature, write_compact_size,
         JsonRpcRequest, RpcState,
@@ -12735,6 +12743,28 @@ mod tests {
         hex::encode(raw)
     }
 
+    fn build_test_psbt() -> String {
+        let request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(7010),
+            method: "createpsbt".to_string(),
+            params: json!([
+                [{"txid": "00".repeat(32), "vout": 0}],
+                [{"1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa": 0.001}],
+                0,
+                true
+            ]),
+        };
+        let response = handle_createpsbt(&request);
+        assert!(response.error.is_none(), "createpsbt should succeed for test");
+        response
+            .result
+            .as_ref()
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+            .expect("createpsbt should return PSBT")
+    }
+
     #[test]
     fn test_getmempool_relations_track_transitive_pending_graph() {
         let runtime = tokio::runtime::Runtime::new().expect("tokio runtime should initialize");
@@ -13009,6 +13039,79 @@ mod tests {
                     .and_then(|v| v.as_u64()),
                 Some(1),
                 "single pending entry should report ancestorcount=1"
+            );
+        });
+    }
+
+    #[test]
+    fn test_walletprocesspsbt_requires_unlocked_wallet() {
+        let runtime = tokio::runtime::Runtime::new().expect("tokio runtime should initialize");
+        let state = RpcState::new(
+            "bitinfinity-testnet".to_string(),
+            "test".to_string(),
+            "http://127.0.0.1:3030".to_string(),
+        );
+
+        runtime.block_on(async {
+            *state.wallet_unlock_until.write().await = None;
+
+            let request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(7011),
+                method: "walletprocesspsbt".to_string(),
+                params: json!([build_test_psbt()]),
+            };
+            let response = handle_walletprocesspsbt(&state, &request).await;
+            assert!(response.result.is_none());
+            assert_eq!(
+                response.error.as_ref().map(|e| e.code),
+                Some(-13),
+                "walletprocesspsbt should require an unlocked wallet"
+            );
+        });
+    }
+
+    #[test]
+    fn test_walletprocesspsbt_allows_unlocked_wallet() {
+        let runtime = tokio::runtime::Runtime::new().expect("tokio runtime should initialize");
+        let state = RpcState::new(
+            "bitinfinity-testnet".to_string(),
+            "test".to_string(),
+            "http://127.0.0.1:3030".to_string(),
+        );
+
+        runtime.block_on(async {
+            *state.wallet_unlock_until.write().await =
+                Some(std::time::Instant::now() + std::time::Duration::from_secs(60));
+
+            let request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(7012),
+                method: "walletprocesspsbt".to_string(),
+                params: json!([build_test_psbt()]),
+            };
+            let response = handle_walletprocesspsbt(&state, &request).await;
+            assert!(
+                response.error.is_none(),
+                "walletprocesspsbt should proceed when wallet is unlocked"
+            );
+            assert!(
+                response
+                    .result
+                    .as_ref()
+                    .and_then(|v| v.get("psbt"))
+                    .and_then(|v| v.as_str())
+                    .is_some(),
+                "walletprocesspsbt should return a PSBT payload"
+            );
+            assert!(
+                response
+                    .result
+                    .as_ref()
+                    .and_then(|v| v.get("complete"))
+                    .and_then(|v| v.as_bool())
+                    .is_some(),
+                "walletprocesspsbt should include completion status"
             );
         });
     }
