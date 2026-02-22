@@ -1769,6 +1769,26 @@ Verification reruns:
   - `test_getmempool_relations_track_transitive_pending_graph` passed.
   - `test_getmempool_relations_reject_non_pending_txid` passed.
 
+## Continuation (2026-02-22): walletprocesspsbt unlock-state enforcement
+
+Implemented:
+- Hardened `walletprocesspsbt` in `bitinfinity-btcrpc/src/main.rs` to enforce wallet lock state before signing:
+  - returns Bitcoin Core-compatible `-13` when wallet is locked,
+  - continues normal PSBT processing/signing path when wallet is unlocked.
+- Added focused unit coverage for both locked and unlocked paths.
+
+Primary file:
+- `bitinfinity-btcrpc/src/main.rs`
+
+Verification reruns:
+- `cargo test -p bitinfinity-btcrpc test_walletprocesspsbt -- --nocapture`
+  - `test_walletprocesspsbt_requires_unlocked_wallet` passed:
+    - confirms locked wallet returns `-13`.
+  - `test_walletprocesspsbt_allows_unlocked_wallet` passed:
+    - confirms unlocked wallet returns PSBT payload with completion status.
+- `cargo test -p bitinfinity-btcrpc test_getmempool -- --nocapture`
+  - confirms mempool relation/entry coverage remains green after the walletprocesspsbt change.
+
 ## Issue #1 goal check
 
 Status:
