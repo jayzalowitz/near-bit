@@ -1809,6 +1809,78 @@ if [[ "$AUTH_GENERATETODESCRIPTOR_OK_ID" != "auth-generatetodescriptor" ]]; then
   exit 1
 fi
 
+AUTH_ADDNODE_PAYLOAD='{"jsonrpc":"2.0","id":"auth-addnode","method":"addnode","params":["127.0.0.1:8333","onetry"]}'
+AUTH_ADDNODE_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_ADDNODE_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_ADDNODE_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for addnode without auth, got: $AUTH_ADDNODE_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_ADDNODE_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_ADDNODE_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_ADDNODE_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for addnode with wrong auth, got: $AUTH_ADDNODE_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_ADDNODE_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_addnode_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_ADDNODE_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_ADDNODE_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated addnode, got: $AUTH_ADDNODE_OK_CODE" >&2
+  exit 1
+fi
+AUTH_ADDNODE_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_addnode_success_response.json")"
+if [[ "$AUTH_ADDNODE_OK_ID" != "auth-addnode" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated addnode" >&2
+  exit 1
+fi
+
+AUTH_DISCONNECTNODE_PAYLOAD='{"jsonrpc":"2.0","id":"auth-disconnectnode","method":"disconnectnode","params":["127.0.0.1:8333"]}'
+AUTH_DISCONNECTNODE_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_DISCONNECTNODE_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_DISCONNECTNODE_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for disconnectnode without auth, got: $AUTH_DISCONNECTNODE_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_DISCONNECTNODE_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_DISCONNECTNODE_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_DISCONNECTNODE_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for disconnectnode with wrong auth, got: $AUTH_DISCONNECTNODE_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_DISCONNECTNODE_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_disconnectnode_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_DISCONNECTNODE_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_DISCONNECTNODE_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated disconnectnode, got: $AUTH_DISCONNECTNODE_OK_CODE" >&2
+  exit 1
+fi
+AUTH_DISCONNECTNODE_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_disconnectnode_success_response.json")"
+if [[ "$AUTH_DISCONNECTNODE_OK_ID" != "auth-disconnectnode" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated disconnectnode" >&2
+  exit 1
+fi
+
+AUTH_ONETRY_PAYLOAD='{"jsonrpc":"2.0","id":"auth-onetry","method":"onetry","params":["127.0.0.1:8333"]}'
+AUTH_ONETRY_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_ONETRY_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_ONETRY_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for onetry without auth, got: $AUTH_ONETRY_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_ONETRY_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_ONETRY_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_ONETRY_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for onetry with wrong auth, got: $AUTH_ONETRY_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_ONETRY_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_onetry_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_ONETRY_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_ONETRY_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated onetry, got: $AUTH_ONETRY_OK_CODE" >&2
+  exit 1
+fi
+AUTH_ONETRY_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_onetry_success_response.json")"
+if [[ "$AUTH_ONETRY_OK_ID" != "auth-onetry" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated onetry" >&2
+  exit 1
+fi
+
 AUTH_GETBLOCK_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-getblock\",\"method\":\"getblock\",\"params\":[\"$BEST_BLOCK_HASH\",1]}"
 AUTH_GETBLOCK_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_GETBLOCK_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
 if [[ "$AUTH_GETBLOCK_NOAUTH_CODE" != "401" ]]; then
@@ -3313,6 +3385,15 @@ auth_generatetoaddress_ok_http_code=$AUTH_GENERATETOADDRESS_OK_CODE
 auth_generatetodescriptor_noauth_http_code=$AUTH_GENERATETODESCRIPTOR_NOAUTH_CODE
 auth_generatetodescriptor_wrong_http_code=$AUTH_GENERATETODESCRIPTOR_WRONG_CODE
 auth_generatetodescriptor_ok_http_code=$AUTH_GENERATETODESCRIPTOR_OK_CODE
+auth_addnode_noauth_http_code=$AUTH_ADDNODE_NOAUTH_CODE
+auth_addnode_wrong_http_code=$AUTH_ADDNODE_WRONG_CODE
+auth_addnode_ok_http_code=$AUTH_ADDNODE_OK_CODE
+auth_disconnectnode_noauth_http_code=$AUTH_DISCONNECTNODE_NOAUTH_CODE
+auth_disconnectnode_wrong_http_code=$AUTH_DISCONNECTNODE_WRONG_CODE
+auth_disconnectnode_ok_http_code=$AUTH_DISCONNECTNODE_OK_CODE
+auth_onetry_noauth_http_code=$AUTH_ONETRY_NOAUTH_CODE
+auth_onetry_wrong_http_code=$AUTH_ONETRY_WRONG_CODE
+auth_onetry_ok_http_code=$AUTH_ONETRY_OK_CODE
 auth_getblock_noauth_http_code=$AUTH_GETBLOCK_NOAUTH_CODE
 auth_getblock_wrong_http_code=$AUTH_GETBLOCK_WRONG_CODE
 auth_getblock_ok_http_code=$AUTH_GETBLOCK_OK_CODE
