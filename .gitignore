@@ -6,6 +6,13 @@
 **/target/
 /artifacts/benchmarks/
 
+# Fuzzing runtime outputs
+**/fuzz/artifacts/
+**/fuzz/Cargo.lock
+bitinfinity-tools/fuzz/corpus/
+nearcore/core/crypto/fuzz/corpus/
+**/fuzz/corpus/**/[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]*
+
 # Node data (keep genesis config, ignore runtime data)
 genesis-testnet/data/
 genesis-testnet/node_key.json
