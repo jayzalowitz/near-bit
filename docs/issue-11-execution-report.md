@@ -2117,6 +2117,19 @@ Verification reruns:
   - result: `70 passed`, `0 failed`.
   - confirms no regression after fee conversion cleanup.
 
+## Continuation (2026-02-22): expanded sendneartx fail-fast regression coverage
+
+Implemented:
+- Added additional fail-fast tests to lock amount validation ordering for advanced `sendneartx` action types:
+  - `test_sendneartx_rejects_negative_function_call_deposit_before_key_lookup`
+  - `test_sendneartx_rejects_negative_function_call_key_allowance_before_key_lookup`
+- These complement existing transfer and addnearkey fail-fast tests and ensure malformed deposits/allowances are rejected before wallet-key/network lookups.
+
+Verification reruns:
+- `cargo test -p bitinfinity-btcrpc -- --nocapture`
+  - result: `72 passed`, `0 failed`.
+  - confirms expanded fail-fast coverage without regressions.
+
 ## Issue #11 remaining high-priority gaps (not completed here)
 
 Still open and required for full #11 closure:
