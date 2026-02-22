@@ -1908,6 +1908,31 @@ Verification reruns:
 - `ruby -e 'require "yaml"; YAML.load_file(".github/workflows/ci.yml"); YAML.load_file(".github/workflows/nightly-fuzz.yml")'`
   - result: workflow YAML remains valid.
 
+## Continuation (2026-02-22): Patoshi CSV parsing fuzz coverage expansion
+
+Implemented:
+- Refactored Patoshi CSV loading to support reader-based parsing:
+  - added `load_patoshi_addresses_from_reader` in `bitinfinity-tools/src/patoshi.rs`;
+  - kept `load_patoshi_addresses(Path)` as thin file-wrapper over reader parser.
+- Added parser correctness test:
+  - `test_load_patoshi_addresses_from_reader_trims_and_deduplicates`.
+- Added dedicated fuzz target for Patoshi ingestion/reassignment edge cases:
+  - `bitinfinity-tools/fuzz/Cargo.toml`
+  - `bitinfinity-tools/fuzz/fuzz_targets/fuzz_patoshi_csv.rs`
+  - fuzzes arbitrary CSV bytes through Patoshi parsing + `reassign_patoshi` map updates.
+- Wired the new Patoshi fuzz target into CI pipelines:
+  - `.github/workflows/ci.yml` adds 30s smoke run;
+  - `.github/workflows/nightly-fuzz.yml` matrix now includes `bitinfinity-tools` `fuzz_patoshi_csv`.
+
+Verification reruns:
+- `cargo test -p bitinfinity-tools`
+  - result: `22 passed`, `0 failed`, `1 ignored`.
+  - includes the new reader-based Patoshi parser unit test.
+- `cargo check --manifest-path bitinfinity-tools/fuzz/Cargo.toml`
+  - result: fuzz crate/target compiles successfully.
+- `ruby -e 'require "yaml"; YAML.load_file(".github/workflows/ci.yml"); YAML.load_file(".github/workflows/nightly-fuzz.yml")'`
+  - result: workflow YAML remains valid after matrix expansion.
+
 ## Issue #11 remaining high-priority gaps (not completed here)
 
 Still open and required for full #11 closure:
