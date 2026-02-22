@@ -39,4 +39,11 @@ test = false
 doc = false
 bench = false
 
+[[bin]]
+name = "fuzz_amount_math"
+path = "fuzz_targets/fuzz_amount_math.rs"
+test = false
+doc = false
+bench = false
+
 [workspace]
