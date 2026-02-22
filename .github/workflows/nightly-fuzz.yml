@@ -16,6 +16,10 @@ env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
 
+concurrency:
+  group: nightly-fuzz-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   fuzz:
     name: "Fuzz: ${{ matrix.target }}"
