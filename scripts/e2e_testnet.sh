@@ -1641,6 +1641,54 @@ if [[ "$AUTH_GETADDRESSINFO_OK_ID" != "auth-getaddressinfo" ]]; then
   exit 1
 fi
 
+AUTH_SCANTXOUTSET_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-scantxoutset\",\"method\":\"scantxoutset\",\"params\":[\"start\",[{\"desc\":\"addr($FUNDED_ADDR)\"}]]}"
+AUTH_SCANTXOUTSET_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_SCANTXOUTSET_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_SCANTXOUTSET_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for scantxoutset without auth, got: $AUTH_SCANTXOUTSET_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_SCANTXOUTSET_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_SCANTXOUTSET_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_SCANTXOUTSET_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for scantxoutset with wrong auth, got: $AUTH_SCANTXOUTSET_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_SCANTXOUTSET_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_scantxoutset_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_SCANTXOUTSET_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_SCANTXOUTSET_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated scantxoutset, got: $AUTH_SCANTXOUTSET_OK_CODE" >&2
+  exit 1
+fi
+AUTH_SCANTXOUTSET_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_scantxoutset_success_response.json")"
+if [[ "$AUTH_SCANTXOUTSET_OK_ID" != "auth-scantxoutset" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated scantxoutset" >&2
+  exit 1
+fi
+
+AUTH_CREATERAWTX_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-createrawtransaction\",\"method\":\"createrawtransaction\",\"params\":[[],{\"$SATOSHI_ADDR\":0.0001}]}"
+AUTH_CREATERAWTX_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_CREATERAWTX_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_CREATERAWTX_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for createrawtransaction without auth, got: $AUTH_CREATERAWTX_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_CREATERAWTX_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_CREATERAWTX_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_CREATERAWTX_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for createrawtransaction with wrong auth, got: $AUTH_CREATERAWTX_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_CREATERAWTX_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_createrawtransaction_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_CREATERAWTX_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_CREATERAWTX_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated createrawtransaction, got: $AUTH_CREATERAWTX_OK_CODE" >&2
+  exit 1
+fi
+AUTH_CREATERAWTX_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_createrawtransaction_success_response.json")"
+if [[ "$AUTH_CREATERAWTX_OK_ID" != "auth-createrawtransaction" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated createrawtransaction" >&2
+  exit 1
+fi
+
 AUTH_GETBALANCE_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-getbalance\",\"method\":\"getbalance\",\"params\":[\"$FUNDED_ADDR\"]}"
 AUTH_GETBALANCE_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_GETBALANCE_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
 if [[ "$AUTH_GETBALANCE_NOAUTH_CODE" != "401" ]]; then
@@ -2884,6 +2932,12 @@ auth_getblockheader_ok_http_code=$AUTH_GETBLOCKHEADER_OK_CODE
 auth_getaddressinfo_noauth_http_code=$AUTH_GETADDRESSINFO_NOAUTH_CODE
 auth_getaddressinfo_wrong_http_code=$AUTH_GETADDRESSINFO_WRONG_CODE
 auth_getaddressinfo_ok_http_code=$AUTH_GETADDRESSINFO_OK_CODE
+auth_scantxoutset_noauth_http_code=$AUTH_SCANTXOUTSET_NOAUTH_CODE
+auth_scantxoutset_wrong_http_code=$AUTH_SCANTXOUTSET_WRONG_CODE
+auth_scantxoutset_ok_http_code=$AUTH_SCANTXOUTSET_OK_CODE
+auth_createrawtransaction_noauth_http_code=$AUTH_CREATERAWTX_NOAUTH_CODE
+auth_createrawtransaction_wrong_http_code=$AUTH_CREATERAWTX_WRONG_CODE
+auth_createrawtransaction_ok_http_code=$AUTH_CREATERAWTX_OK_CODE
 auth_getbalance_noauth_http_code=$AUTH_GETBALANCE_NOAUTH_CODE
 auth_getbalance_wrong_http_code=$AUTH_GETBALANCE_WRONG_CODE
 auth_getbalance_ok_http_code=$AUTH_GETBALANCE_OK_CODE
