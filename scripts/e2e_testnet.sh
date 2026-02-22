@@ -1593,6 +1593,54 @@ if [[ -z "$AUTH_OK_RESULT" ]]; then
   exit 1
 fi
 
+AUTH_GETBALANCE_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-getbalance\",\"method\":\"getbalance\",\"params\":[\"$FUNDED_ADDR\"]}"
+AUTH_GETBALANCE_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_GETBALANCE_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETBALANCE_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for getbalance without auth, got: $AUTH_GETBALANCE_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_GETBALANCE_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_GETBALANCE_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETBALANCE_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for getbalance with wrong auth, got: $AUTH_GETBALANCE_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_GETBALANCE_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_getbalance_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_GETBALANCE_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETBALANCE_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated getbalance, got: $AUTH_GETBALANCE_OK_CODE" >&2
+  exit 1
+fi
+AUTH_GETBALANCE_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_getbalance_success_response.json")"
+if [[ "$AUTH_GETBALANCE_OK_ID" != "auth-getbalance" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated getbalance" >&2
+  exit 1
+fi
+
+AUTH_GETBALANCES_PAYLOAD='{"jsonrpc":"2.0","id":"auth-getbalances","method":"getbalances","params":[]}'
+AUTH_GETBALANCES_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_GETBALANCES_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETBALANCES_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for getbalances without auth, got: $AUTH_GETBALANCES_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_GETBALANCES_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_GETBALANCES_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETBALANCES_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for getbalances with wrong auth, got: $AUTH_GETBALANCES_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_GETBALANCES_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_getbalances_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_GETBALANCES_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETBALANCES_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated getbalances, got: $AUTH_GETBALANCES_OK_CODE" >&2
+  exit 1
+fi
+AUTH_GETBALANCES_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_getbalances_success_response.json")"
+if [[ "$AUTH_GETBALANCES_OK_ID" != "auth-getbalances" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated getbalances" >&2
+  exit 1
+fi
+
 AUTH_PSBT_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-psbt\",\"method\":\"createpsbt\",\"params\":[[{\"txid\":\"$LOCK_TXID\",\"vout\":$LOCK_VOUT}],[{\"$SATOSHI_ADDR\":0.0001}],0,true]}"
 AUTH_PSBT_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_PSBT_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
 if [[ "$AUTH_PSBT_NOAUTH_CODE" != "401" ]]; then
@@ -2566,6 +2614,12 @@ lockunspent_invalid_txid_error_code=$LOCK_INVALID_TXID_ERROR_CODE
 auth_noauth_http_code=$AUTH_NOAUTH_CODE
 auth_wrong_http_code=$AUTH_WRONG_CODE
 auth_ok_result=$AUTH_OK_RESULT
+auth_getbalance_noauth_http_code=$AUTH_GETBALANCE_NOAUTH_CODE
+auth_getbalance_wrong_http_code=$AUTH_GETBALANCE_WRONG_CODE
+auth_getbalance_ok_http_code=$AUTH_GETBALANCE_OK_CODE
+auth_getbalances_noauth_http_code=$AUTH_GETBALANCES_NOAUTH_CODE
+auth_getbalances_wrong_http_code=$AUTH_GETBALANCES_WRONG_CODE
+auth_getbalances_ok_http_code=$AUTH_GETBALANCES_OK_CODE
 auth_psbt_noauth_http_code=$AUTH_PSBT_NOAUTH_CODE
 auth_psbt_wrong_http_code=$AUTH_PSBT_WRONG_CODE
 auth_psbt_ok_result_len=${#AUTH_PSBT_OK_RESULT}
