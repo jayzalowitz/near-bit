@@ -1800,6 +1800,30 @@ if [[ "$AUTH_WALLETPASSPHRASECHANGE_OK_ID" != "auth-walletpassphrasechange" ]]; 
   exit 1
 fi
 
+AUTH_ENCRYPTWALLET_PAYLOAD='{"jsonrpc":"2.0","id":"auth-encryptwallet","method":"encryptwallet","params":[]}'
+AUTH_ENCRYPTWALLET_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_ENCRYPTWALLET_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_ENCRYPTWALLET_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for encryptwallet without auth, got: $AUTH_ENCRYPTWALLET_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_ENCRYPTWALLET_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_ENCRYPTWALLET_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_ENCRYPTWALLET_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for encryptwallet with wrong auth, got: $AUTH_ENCRYPTWALLET_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_ENCRYPTWALLET_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_encryptwallet_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_ENCRYPTWALLET_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_ENCRYPTWALLET_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated encryptwallet, got: $AUTH_ENCRYPTWALLET_OK_CODE" >&2
+  exit 1
+fi
+AUTH_ENCRYPTWALLET_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_encryptwallet_success_response.json")"
+if [[ "$AUTH_ENCRYPTWALLET_OK_ID" != "auth-encryptwallet" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated encryptwallet" >&2
+  exit 1
+fi
+
 AUTH_WALLETPROCESS_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-walletprocesspsbt\",\"method\":\"walletprocesspsbt\",\"params\":[\"$FUNDED_PSBT\"]}"
 AUTH_WALLETPROCESS_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_WALLETPROCESS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
 if [[ "$AUTH_WALLETPROCESS_NOAUTH_CODE" != "401" ]]; then
@@ -2065,6 +2089,9 @@ auth_walletpassphrase_ok_http_code=$AUTH_WALLETPASSPHRASE_OK_CODE
 auth_walletpassphrasechange_noauth_http_code=$AUTH_WALLETPASSPHRASECHANGE_NOAUTH_CODE
 auth_walletpassphrasechange_wrong_http_code=$AUTH_WALLETPASSPHRASECHANGE_WRONG_CODE
 auth_walletpassphrasechange_ok_http_code=$AUTH_WALLETPASSPHRASECHANGE_OK_CODE
+auth_encryptwallet_noauth_http_code=$AUTH_ENCRYPTWALLET_NOAUTH_CODE
+auth_encryptwallet_wrong_http_code=$AUTH_ENCRYPTWALLET_WRONG_CODE
+auth_encryptwallet_ok_http_code=$AUTH_ENCRYPTWALLET_OK_CODE
 auth_walletprocesspsbt_noauth_http_code=$AUTH_WALLETPROCESS_NOAUTH_CODE
 auth_walletprocesspsbt_wrong_http_code=$AUTH_WALLETPROCESS_WRONG_CODE
 auth_walletprocesspsbt_ok_http_code=$AUTH_WALLETPROCESS_OK_CODE
