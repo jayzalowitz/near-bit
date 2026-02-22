@@ -390,6 +390,10 @@ pub struct RpcState {
     wallet_unlock_until: RwLock<Option<std::time::Instant>>,
     /// Cached passphrase for re-encryption on save (cleared on lock)
     wallet_passphrase: RwLock<Option<String>>,
+    /// Active wallet alias (single-keystore model)
+    wallet_name: RwLock<String>,
+    /// Whether the wallet is currently considered loaded
+    wallet_loaded: RwLock<bool>,
     /// Locked UTXOs (txid:vout pairs that should not be spent)
     locked_utxos: RwLock<Vec<(String, u32)>>,
     /// Last block height processed by the incoming tx indexer
@@ -431,6 +435,8 @@ impl RpcState {
                 Some(std::time::Instant::now() + std::time::Duration::from_secs(999_999_999))
             }),
             wallet_passphrase: RwLock::new(None),
+            wallet_name: RwLock::new("bitinfinity".to_string()),
+            wallet_loaded: RwLock::new(true),
             locked_utxos: RwLock::new(Vec::new()),
             last_indexed_height: RwLock::new(0),
             balance_snapshot: RwLock::new(HashMap::new()),
@@ -462,6 +468,14 @@ impl RpcState {
             Some(until) => std::time::Instant::now() < until,
             None => false,
         }
+    }
+
+    async fn wallet_name(&self) -> String {
+        self.wallet_name.read().await.clone()
+    }
+
+    async fn is_wallet_loaded(&self) -> bool {
+        *self.wallet_loaded.read().await
     }
 
     /// Save the keystore, respecting encryption state.
@@ -623,13 +637,31 @@ fn get_u64_param(params: &serde_json::Value, index: usize) -> Option<u64> {
 /// Helper to extract a bool param from positional params.
 /// Accepts JSON bools and 0/1 numeric flags.
 fn get_bool_param(params: &serde_json::Value, index: usize) -> Option<bool> {
-    params.as_array().and_then(|arr| arr.get(index)).and_then(|v| {
-        if let Some(b) = v.as_bool() {
-            Some(b)
-        } else {
-            v.as_u64().map(|n| n != 0)
-        }
-    })
+    params
+        .as_array()
+        .and_then(|arr| arr.get(index))
+        .and_then(|v| {
+            if let Some(b) = v.as_bool() {
+                Some(b)
+            } else {
+                v.as_u64().map(|n| n != 0)
+            }
+        })
+}
+
+async fn ensure_wallet_loaded(
+    state: &RpcState,
+    request: &JsonRpcRequest,
+) -> Option<JsonRpcResponse> {
+    if state.is_wallet_loaded().await {
+        None
+    } else {
+        Some(err_response(
+            &request.id,
+            -18,
+            "Requested wallet does not exist or is not loaded".to_string(),
+        ))
+    }
 }
 
 /// Encode a Bitcoin-style variable-length integer (CompactSize)
@@ -946,10 +978,10 @@ async fn rpc_handler(
         "getaccount" => handle_getaccount(&state, &request).await,
         "getaddressinfo" => handle_getaddressinfo(&state, &request).await,
         "getwalletinfo" => handle_getwalletinfo(&state, &request).await,
-        "listwallets" => handle_listwallets(&request),
-        "loadwallet" => handle_loadwallet(&request),
-        "unloadwallet" => handle_unloadwallet(&request),
-        "createwallet" => handle_createwallet(&request),
+        "listwallets" => handle_listwallets(&state, &request).await,
+        "loadwallet" => handle_loadwallet(&state, &request).await,
+        "unloadwallet" => handle_unloadwallet(&state, &request).await,
+        "createwallet" => handle_createwallet(&state, &request).await,
         // Wallet - UTXOs & addresses
         "listunspent" => handle_listunspent(&state, &request).await,
         "getnewaddress" => handle_getnewaddress(&state, &request).await,
@@ -1126,7 +1158,7 @@ async fn rpc_handler(
         "joinpsbts" => handle_joinpsbts(&request),
         "listbanned" => handle_listbanned(&request),
         "listreceivedbylabel" => handle_listreceivedbylabel(&state, &request).await,
-        "listwalletdir" => handle_listwalletdir(&request),
+        "listwalletdir" => handle_listwalletdir(&state, &request).await,
         "preciousblock" => handle_preciousblock(&request),
         "pruneblockchain" => handle_pruneblockchain(&request),
         "psbtbumpfee" => handle_psbtbumpfee(&request),
@@ -1234,7 +1266,11 @@ async fn handle_getblock(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcR
             if let Some(n) = v.as_u64() {
                 n
             } else if let Some(b) = v.as_bool() {
-                if b { 1 } else { 0 }
+                if b {
+                    1
+                } else {
+                    0
+                }
             } else {
                 1
             }
@@ -1569,34 +1605,35 @@ async fn handle_listunspent(state: &RpcState, request: &JsonRpcRequest) -> JsonR
         );
     }
 
-    let explicit_addresses = if let Some(addresses_param) = request.params.as_array().and_then(|arr| arr.get(2)) {
-        let addrs = match addresses_param.as_array() {
-            Some(addrs) => addrs,
-            None => {
-                return err_response(
-                    &request.id,
-                    -32602,
-                    "addresses parameter must be an array".to_string(),
-                )
-            }
-        };
-        let mut parsed = Vec::with_capacity(addrs.len());
-        for entry in addrs {
-            match entry.as_str() {
-                Some(addr) => parsed.push(addr.to_string()),
+    let explicit_addresses =
+        if let Some(addresses_param) = request.params.as_array().and_then(|arr| arr.get(2)) {
+            let addrs = match addresses_param.as_array() {
+                Some(addrs) => addrs,
                 None => {
                     return err_response(
                         &request.id,
                         -32602,
-                        "addresses array entries must be strings".to_string(),
+                        "addresses parameter must be an array".to_string(),
                     )
                 }
+            };
+            let mut parsed = Vec::with_capacity(addrs.len());
+            for entry in addrs {
+                match entry.as_str() {
+                    Some(addr) => parsed.push(addr.to_string()),
+                    None => {
+                        return err_response(
+                            &request.id,
+                            -32602,
+                            "addresses array entries must be strings".to_string(),
+                        )
+                    }
+                }
             }
-        }
-        parsed
-    } else {
-        Vec::new()
-    };
+            parsed
+        } else {
+            Vec::new()
+        };
 
     // If no addresses specified, use all keystore addresses including watch-only
     let keystore = state.keystore.read().await;
@@ -1695,6 +1732,9 @@ async fn resolve_synthetic_wallet_tx(state: &RpcState, txid: &str) -> Option<Syn
 }
 
 async fn handle_getnewaddress(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
     if !state.is_wallet_unlocked().await {
         return err_response(
             &request.id,
@@ -1855,6 +1895,9 @@ async fn handle_validateaddress(state: &RpcState, request: &JsonRpcRequest) -> J
 }
 
 async fn handle_dumpprivkey(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
     if !state.is_wallet_unlocked().await {
         return err_response(
             &request.id,
@@ -1933,6 +1976,9 @@ fn wif_to_privkey_hex(wif: &str) -> Result<(String, bool), String> {
 }
 
 async fn handle_importprivkey(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
     if !state.is_wallet_unlocked().await {
         return err_response(
             &request.id,
@@ -3243,6 +3289,9 @@ async fn handle_signrawtransactionwithwallet(
     state: &RpcState,
     request: &JsonRpcRequest,
 ) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
     if !state.is_wallet_unlocked().await {
         return err_response(
             &request.id,
@@ -3270,99 +3319,96 @@ async fn handle_signrawtransactionwithwallet(
         address: String,
         amount_satoshis: u64,
     }
-    let (sender_addr, all_outputs) = if let Ok(intent_json) =
-        serde_json::from_str::<serde_json::Value>(&intent_str)
-    {
-        let outputs = intent_json.get("outputs").and_then(|o| o.as_array());
-        match outputs {
-            Some(outs) if !outs.is_empty() => {
-                let mut parsed_outputs = Vec::with_capacity(outs.len());
-                for out in outs {
-                    let address = match out.get("address").and_then(|v| v.as_str()) {
-                        Some(addr) if !addr.is_empty() => addr.to_string(),
-                        _ => {
-                            return err_response(
-                                &request.id,
-                                -22,
-                                "Invalid intent format: missing output address".to_string(),
-                            )
-                        }
-                    };
-                    let amount_btc = match out.get("amount").and_then(|v| v.as_f64()) {
-                        Some(amount) if amount.is_finite() && amount > 0.0 => amount,
-                        _ => {
-                            return err_response(
+    let (sender_addr, all_outputs) =
+        if let Ok(intent_json) = serde_json::from_str::<serde_json::Value>(&intent_str) {
+            let outputs = intent_json.get("outputs").and_then(|o| o.as_array());
+            match outputs {
+                Some(outs) if !outs.is_empty() => {
+                    let mut parsed_outputs = Vec::with_capacity(outs.len());
+                    for out in outs {
+                        let address = match out.get("address").and_then(|v| v.as_str()) {
+                            Some(addr) if !addr.is_empty() => addr.to_string(),
+                            _ => {
+                                return err_response(
+                                    &request.id,
+                                    -22,
+                                    "Invalid intent format: missing output address".to_string(),
+                                )
+                            }
+                        };
+                        let amount_btc = match out.get("amount").and_then(|v| v.as_f64()) {
+                            Some(amount) if amount.is_finite() && amount > 0.0 => amount,
+                            _ => return err_response(
                                 &request.id,
                                 -22,
                                 "Invalid intent format: output amount must be a positive number"
                                     .to_string(),
+                            ),
+                        };
+                        parsed_outputs.push(OutputInfo {
+                            address,
+                            amount_satoshis: (amount_btc * 100_000_000.0) as u64,
+                        });
+                    }
+
+                    let total_sat: u64 = parsed_outputs.iter().map(|o| o.amount_satoshis).sum();
+
+                    // Find a funded sender from keystore
+                    let keystore = state.keystore.read().await;
+                    let addresses: Vec<String> =
+                        keystore.addresses().iter().map(|a| a.to_string()).collect();
+                    drop(keystore);
+
+                    let mut found_sender = None;
+                    for a in &addresses {
+                        if let Ok(account) = state.near_client.view_account(a).await {
+                            if account.balance_as_satoshis() >= total_sat {
+                                found_sender = Some(a.clone());
+                                break;
+                            }
+                        }
+                    }
+
+                    match found_sender {
+                        Some(s) => (s, parsed_outputs),
+                        None => {
+                            return ok_response(
+                                &request.id,
+                                json!({
+                                    "hex": raw_hex,
+                                    "complete": false,
+                                    "errors": [{"error": "Insufficient funds or no wallet keys"}]
+                                }),
                             )
                         }
-                    };
-                    parsed_outputs.push(OutputInfo {
-                        address,
-                        amount_satoshis: (amount_btc * 100_000_000.0) as u64,
-                    });
-                }
-
-                let total_sat: u64 = parsed_outputs.iter().map(|o| o.amount_satoshis).sum();
-
-                // Find a funded sender from keystore
-                let keystore = state.keystore.read().await;
-                let addresses: Vec<String> =
-                    keystore.addresses().iter().map(|a| a.to_string()).collect();
-                drop(keystore);
-
-                let mut found_sender = None;
-                for a in &addresses {
-                    if let Ok(account) = state.near_client.view_account(a).await {
-                        if account.balance_as_satoshis() >= total_sat {
-                            found_sender = Some(a.clone());
-                            break;
-                        }
                     }
                 }
-
-                match found_sender {
-                    Some(s) => (s, parsed_outputs),
-                    None => {
-                        return ok_response(
-                            &request.id,
-                            json!({
-                                "hex": raw_hex,
-                                "complete": false,
-                                "errors": [{"error": "Insufficient funds or no wallet keys"}]
-                            }),
-                        )
-                    }
-                }
+                _ => return err_response(&request.id, -22, "Invalid intent format".to_string()),
             }
-            _ => return err_response(&request.id, -22, "Invalid intent format".to_string()),
-        }
-    } else if let Ok(parsed) = ParsedBitcoinTx::from_hex_with_hrp(raw_hex, state.bech32_hrp()) {
-        // Real Bitcoin transaction — collect all non-change, non-OP_RETURN outputs
-        let payment_outputs: Vec<OutputInfo> = parsed
-            .outputs
-            .iter()
-            .filter(|o| {
-                !o.is_op_return && o.address != parsed.sender_address && !o.address.is_empty()
-            })
-            .map(|o| OutputInfo {
-                address: o.address.clone(),
-                amount_satoshis: o.amount_satoshis,
-            })
-            .collect();
-        if payment_outputs.is_empty() {
-            return err_response(&request.id, -25, "No payment outputs found".to_string());
-        }
-        (parsed.sender_address.clone(), payment_outputs)
-    } else {
-        return err_response(
-            &request.id,
-            -22,
-            format!("TX decode failed: not a valid Bitcoin tx or bitinfinity intent"),
-        );
-    };
+        } else if let Ok(parsed) = ParsedBitcoinTx::from_hex_with_hrp(raw_hex, state.bech32_hrp()) {
+            // Real Bitcoin transaction — collect all non-change, non-OP_RETURN outputs
+            let payment_outputs: Vec<OutputInfo> = parsed
+                .outputs
+                .iter()
+                .filter(|o| {
+                    !o.is_op_return && o.address != parsed.sender_address && !o.address.is_empty()
+                })
+                .map(|o| OutputInfo {
+                    address: o.address.clone(),
+                    amount_satoshis: o.amount_satoshis,
+                })
+                .collect();
+            if payment_outputs.is_empty() {
+                return err_response(&request.id, -25, "No payment outputs found".to_string());
+            }
+            (parsed.sender_address.clone(), payment_outputs)
+        } else {
+            return err_response(
+                &request.id,
+                -22,
+                format!("TX decode failed: not a valid Bitcoin tx or bitinfinity intent"),
+            );
+        };
 
     // Look up sender's key
     let key_entry = {
@@ -3490,6 +3536,9 @@ async fn handle_signrawtransactionwithwallet(
 
 /// sendtoaddress - high-level send that constructs, signs, and submits a NEAR transfer
 async fn handle_sendtoaddress(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
     if !state.is_wallet_unlocked().await {
         return err_response(
             &request.id,
@@ -3698,6 +3747,10 @@ async fn handle_getpeerinfo(state: &RpcState, request: &JsonRpcRequest) -> JsonR
 }
 
 async fn handle_getwalletinfo(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
+
     let keystore = state.keystore.read().await;
     let key_count = keystore.addresses().len();
     let addresses: Vec<String> = keystore.addresses().iter().map(|a| a.to_string()).collect();
@@ -3727,6 +3780,7 @@ async fn handle_getwalletinfo(state: &RpcState, request: &JsonRpcRequest) -> Jso
     let keystore = state.keystore.read().await;
     let is_encrypted = keystore.encrypted;
     drop(keystore);
+    let wallet_name = state.wallet_name().await;
 
     let unlocked_until = if !is_encrypted {
         // Not encrypted — always unlocked, return 0 (Bitcoin Core convention)
@@ -3751,7 +3805,7 @@ async fn handle_getwalletinfo(state: &RpcState, request: &JsonRpcRequest) -> Jso
     ok_response(
         &request.id,
         json!({
-            "walletname": "bitinfinity",
+            "walletname": wallet_name,
             "walletversion": 160300,
             "format": "bitinfinity",
             "balance": total_balance,
@@ -3772,8 +3826,12 @@ async fn handle_getwalletinfo(state: &RpcState, request: &JsonRpcRequest) -> Jso
     )
 }
 
-fn handle_listwallets(request: &JsonRpcRequest) -> JsonRpcResponse {
-    ok_response(&request.id, json!(["bitinfinity"]))
+async fn handle_listwallets(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    if state.is_wallet_loaded().await {
+        ok_response(&request.id, json!([state.wallet_name().await]))
+    } else {
+        ok_response(&request.id, json!([]))
+    }
 }
 
 /// createrawtransaction - create an unsigned raw transaction (hex)
@@ -3847,11 +3905,7 @@ fn handle_createrawtransaction(request: &JsonRpcRequest) -> JsonRpcResponse {
             }
         }
     } else {
-        return err_response(
-            &request.id,
-            -32602,
-            "Invalid outputs format".to_string(),
-        );
+        return err_response(&request.id, -32602, "Invalid outputs format".to_string());
     }
 
     if output_pairs.is_empty() {
@@ -4319,7 +4373,10 @@ async fn handle_getaddressinfo(state: &RpcState, request: &JsonRpcRequest) -> Js
         Ok(account) => account,
         Err(_) => return err_response(&request.id, -5, format!("Invalid address: {}", addr)),
     };
-    if !matches!(parsed_account.get_account_type(), AccountType::BtcImplicitAccount) {
+    if !matches!(
+        parsed_account.get_account_type(),
+        AccountType::BtcImplicitAccount
+    ) {
         return err_response(
             &request.id,
             -5,
@@ -4549,6 +4606,9 @@ async fn handle_gettxout(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcR
 
 /// getrawchangeaddress - get a new address for receiving change
 async fn handle_getrawchangeaddress(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
     if !state.is_wallet_unlocked().await {
         return err_response(
             &request.id,
@@ -4653,6 +4713,9 @@ async fn handle_listreceivedbyaddress(
 
 /// signmessage - sign a message with a private key
 async fn handle_signmessage(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
     if !state.is_wallet_unlocked().await {
         return err_response(
             &request.id,
@@ -4862,40 +4925,96 @@ fn handle_verifymessage(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcRe
     )
 }
 
-/// loadwallet / unloadwallet - wallet management stubs
-fn handle_loadwallet(request: &JsonRpcRequest) -> JsonRpcResponse {
-    let name = get_str_param(&request.params, 0).unwrap_or("bitinfinity");
+/// loadwallet / unloadwallet - wallet lifecycle in single-keystore mode
+async fn handle_loadwallet(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    let requested = get_str_param(&request.params, 0)
+        .map(|s| s.to_string())
+        .filter(|s| !s.is_empty());
+    let current = state.wallet_name().await;
+    let name = requested.unwrap_or(current.clone());
+    {
+        let mut wallet_name = state.wallet_name.write().await;
+        *wallet_name = name.clone();
+    }
+    {
+        let mut wallet_loaded = state.wallet_loaded.write().await;
+        *wallet_loaded = true;
+    }
+    let warning = if name == current {
+        "".to_string()
+    } else {
+        "Wallet aliases are virtual in single-keystore mode.".to_string()
+    };
     ok_response(
         &request.id,
         json!({
             "name": name,
+            "warning": warning
+        }),
+    )
+}
+
+async fn handle_unloadwallet(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    let requested = get_str_param(&request.params, 0)
+        .map(|s| s.to_string())
+        .filter(|s| !s.is_empty());
+    let current = state.wallet_name().await;
+    if let Some(name) = requested {
+        if name != current {
+            return err_response(
+                &request.id,
+                -18,
+                format!("Requested wallet '{}' does not exist", name),
+            );
+        }
+    }
+    {
+        let mut wallet_loaded = state.wallet_loaded.write().await;
+        *wallet_loaded = false;
+    }
+    {
+        let mut unlock_until = state.wallet_unlock_until.write().await;
+        *unlock_until = None;
+    }
+    {
+        let mut passphrase = state.wallet_passphrase.write().await;
+        *passphrase = None;
+    }
+    ok_response(
+        &request.id,
+        json!({
             "warning": ""
         }),
     )
 }
 
-fn handle_unloadwallet(request: &JsonRpcRequest) -> JsonRpcResponse {
-    ok_response(
-        &request.id,
-        json!({
-            "warning": ""
-        }),
-    )
-}
-
-fn handle_createwallet(request: &JsonRpcRequest) -> JsonRpcResponse {
+async fn handle_createwallet(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
     let name = get_str_param(&request.params, 0).unwrap_or("bitinfinity");
+    if name.is_empty() {
+        return err_response(&request.id, -8, "Wallet name must not be empty".to_string());
+    }
+    {
+        let mut wallet_name = state.wallet_name.write().await;
+        *wallet_name = name.to_string();
+    }
+    {
+        let mut wallet_loaded = state.wallet_loaded.write().await;
+        *wallet_loaded = true;
+    }
     ok_response(
         &request.id,
         json!({
             "name": name,
-            "warning": ""
+            "warning": "Wallet aliases are virtual in single-keystore mode."
         }),
     )
 }
 
 /// walletpassphrase / walletlock - no-op (wallet not encrypted)
 async fn handle_walletpassphrase(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
     let passphrase = match get_str_param(&request.params, 0) {
         Some(p) => p.to_string(),
         None => {
@@ -4942,6 +5061,9 @@ async fn handle_walletpassphrase(state: &RpcState, request: &JsonRpcRequest) -> 
 }
 
 async fn handle_walletlock(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
     let keystore = state.keystore.read().await;
     if !keystore.encrypted {
         return err_response(
@@ -5287,6 +5409,9 @@ async fn handle_testmempoolaccept(state: &RpcState, request: &JsonRpcRequest) ->
 
 /// sendmany - send to multiple addresses in one go
 async fn handle_sendmany(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
     if !state.is_wallet_unlocked().await {
         return err_response(
             &request.id,
@@ -5498,11 +5623,7 @@ async fn handle_scantxoutset(state: &RpcState, request: &JsonRpcRequest) -> Json
     let action = get_str_param(&request.params, 0).unwrap_or("start");
 
     if action != "start" && action != "status" && action != "abort" {
-        return err_response(
-            &request.id,
-            -8,
-            format!("Unknown scan action: {}", action),
-        );
+        return err_response(&request.id, -8, format!("Unknown scan action: {}", action));
     }
 
     if action == "abort" || action == "status" {
@@ -6298,7 +6419,9 @@ fn handle_combinepsbt(request: &JsonRpcRequest) -> JsonRpcResponse {
 
         let input_maps = parse_psbt_input_maps(&bytes, expected_inputs);
         for (idx, input_map) in input_maps.iter().enumerate().take(expected_inputs) {
-            let Some(partial_sigs) = input_map.get("partial_signatures").and_then(|v| v.as_object())
+            let Some(partial_sigs) = input_map
+                .get("partial_signatures")
+                .and_then(|v| v.as_object())
             else {
                 continue;
             };
@@ -6749,6 +6872,9 @@ async fn handle_listsinceblock(state: &RpcState, request: &JsonRpcRequest) -> Js
 
 /// listdescriptors - list wallet descriptors
 async fn handle_listdescriptors(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
     let keystore = state.keystore.read().await;
     let descriptors: Vec<serde_json::Value> = keystore
         .addresses()
@@ -6772,10 +6898,11 @@ async fn handle_listdescriptors(state: &RpcState, request: &JsonRpcRequest) -> J
         })
         .collect();
 
+    let wallet_name = state.wallet_name().await;
     ok_response(
         &request.id,
         json!({
-            "wallet_name": "bitinfinity",
+            "wallet_name": wallet_name,
             "descriptors": descriptors
         }),
     )
@@ -7004,17 +7131,17 @@ fn handle_utxoupdatepsbt(request: &JsonRpcRequest) -> JsonRpcResponse {
         Some(p) => p,
         None => return err_response(&request.id, -32602, "Missing PSBT parameter".to_string()),
     };
-    let bytes = match base64::Engine::decode(&base64::engine::general_purpose::STANDARD, psbt_base64)
-    {
-        Ok(bytes) => bytes,
-        Err(_) => {
-            return err_response(
-                &request.id,
-                -22,
-                "TX decode failed (invalid PSBT)".to_string(),
-            )
-        }
-    };
+    let bytes =
+        match base64::Engine::decode(&base64::engine::general_purpose::STANDARD, psbt_base64) {
+            Ok(bytes) => bytes,
+            Err(_) => {
+                return err_response(
+                    &request.id,
+                    -22,
+                    "TX decode failed (invalid PSBT)".to_string(),
+                )
+            }
+        };
     if bytes.len() < 5 || &bytes[0..5] != b"psbt\xff" {
         return err_response(
             &request.id,
@@ -9001,6 +9128,9 @@ async fn handle_getneartxfull(state: &RpcState, request: &JsonRpcRequest) -> Jso
 // ============================================================================
 
 async fn handle_walletprocesspsbt(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
     if !state.is_wallet_unlocked().await {
         return err_response(
             &request.id,
@@ -9930,16 +10060,17 @@ fn handle_onetry(request: &JsonRpcRequest) -> JsonRpcResponse {
 
 fn handle_analyzepsbt(request: &JsonRpcRequest) -> JsonRpcResponse {
     let psbt_str = get_str_param(&request.params, 0).unwrap_or("");
-    let psbt_bytes = match base64::Engine::decode(&base64::engine::general_purpose::STANDARD, psbt_str) {
-        Ok(bytes) => bytes,
-        Err(_) => {
-            return err_response(
-                &request.id,
-                -22,
-                "Invalid PSBT: base64 decode failed".to_string(),
-            )
-        }
-    };
+    let psbt_bytes =
+        match base64::Engine::decode(&base64::engine::general_purpose::STANDARD, psbt_str) {
+            Ok(bytes) => bytes,
+            Err(_) => {
+                return err_response(
+                    &request.id,
+                    -22,
+                    "Invalid PSBT: base64 decode failed".to_string(),
+                )
+            }
+        };
     if psbt_bytes.len() < 5 || &psbt_bytes[..5] != b"psbt\xff" {
         return err_response(
             &request.id,
@@ -10307,11 +10438,12 @@ async fn handle_listreceivedbylabel(state: &RpcState, request: &JsonRpcRequest) 
     ok_response(&request.id, json!(results))
 }
 
-fn handle_listwalletdir(request: &JsonRpcRequest) -> JsonRpcResponse {
+async fn handle_listwalletdir(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    let wallet_name = state.wallet_name().await;
     ok_response(
         &request.id,
         json!({
-            "wallets": [{"name": "default"}]
+            "wallets": [{"name": wallet_name}]
         }),
     )
 }
@@ -10613,7 +10745,10 @@ async fn handle_addquantumkey(state: &RpcState, request: &JsonRpcRequest) -> Jso
             )
         }
     };
-    if !matches!(parsed_account.get_account_type(), AccountType::BtcImplicitAccount) {
+    if !matches!(
+        parsed_account.get_account_type(),
+        AccountType::BtcImplicitAccount
+    ) {
         return err_response(
             &request.id,
             -5,
@@ -10727,7 +10862,10 @@ async fn handle_removequantumkey(state: &RpcState, request: &JsonRpcRequest) -> 
             )
         }
     };
-    if !matches!(parsed_account.get_account_type(), AccountType::BtcImplicitAccount) {
+    if !matches!(
+        parsed_account.get_account_type(),
+        AccountType::BtcImplicitAccount
+    ) {
         return err_response(
             &request.id,
             -5,
@@ -10781,7 +10919,10 @@ async fn handle_removequantumkey(state: &RpcState, request: &JsonRpcRequest) -> 
     if entry.len() < before {
         sync_quantum_keys_for_address(&mut keys, &address, &entry);
         if let Err(e) = save_quantum_keys_to_disk(&keys) {
-            log::error!("Failed to persist quantum keys after removequantumkey: {}", e);
+            log::error!(
+                "Failed to persist quantum keys after removequantumkey: {}",
+                e
+            );
         }
         return ok_response(
             &request.id,
@@ -10818,7 +10959,10 @@ async fn handle_listquantumkeys(state: &RpcState, request: &JsonRpcRequest) -> J
             )
         }
     };
-    if !matches!(parsed_account.get_account_type(), AccountType::BtcImplicitAccount) {
+    if !matches!(
+        parsed_account.get_account_type(),
+        AccountType::BtcImplicitAccount
+    ) {
         return err_response(
             &request.id,
             -5,
@@ -11288,10 +11432,11 @@ mod tests {
         handle_addquantumkey, handle_analyzepsbt, handle_combinepsbt, handle_createpsbt,
         handle_createrawtransaction, handle_decodepsbt, handle_finalizepsbt,
         handle_getmempoolancestors, handle_getmempooldescendants, handle_getmempoolentry,
-        handle_joinpsbts, handle_walletprocesspsbt,
-        handle_listquantumkeys, handle_removequantumkey, handle_utxoupdatepsbt, TxCacheEntry,
-        parse_patoshi_record_bytes, verify_bitcoin_message_signature, write_compact_size,
-        JsonRpcRequest, RpcState,
+        handle_getwalletinfo, handle_joinpsbts, handle_listquantumkeys, handle_listwalletdir,
+        handle_listwallets, handle_loadwallet, handle_removequantumkey, handle_unloadwallet,
+        handle_utxoupdatepsbt, handle_walletprocesspsbt, parse_patoshi_record_bytes,
+        verify_bitcoin_message_signature, write_compact_size, JsonRpcRequest, RpcState,
+        TxCacheEntry,
     };
     use base64::Engine;
     use secp256k1::{Message, Secp256k1, SecretKey};
@@ -11457,7 +11602,10 @@ mod tests {
         };
 
         let create_response = handle_createpsbt(&create_request);
-        assert!(create_response.error.is_none(), "createpsbt should not fail");
+        assert!(
+            create_response.error.is_none(),
+            "createpsbt should not fail"
+        );
         let psbt_b64 = create_response
             .result
             .as_ref()
@@ -11471,7 +11619,10 @@ mod tests {
             params: json!([psbt_b64]),
         };
         let decode_response = handle_decodepsbt(&decode_request);
-        assert!(decode_response.error.is_none(), "decodepsbt should not fail");
+        assert!(
+            decode_response.error.is_none(),
+            "decodepsbt should not fail"
+        );
 
         let decoded_script = decode_response
             .result
@@ -11485,7 +11636,10 @@ mod tests {
             .expect("decoded PSBT should include output scriptPubKey hex");
 
         let expected_script = derive_script_pub_key_hex(address, "bc");
-        assert!(!expected_script.is_empty(), "expected script should be non-empty");
+        assert!(
+            !expected_script.is_empty(),
+            "expected script should be non-empty"
+        );
         assert_eq!(
             decoded_script, expected_script,
             "createpsbt output script should match derived scriptPubKey"
@@ -11511,7 +11665,10 @@ mod tests {
         };
 
         let create_response = handle_createpsbt(&create_request);
-        assert!(create_response.error.is_none(), "createpsbt should not fail");
+        assert!(
+            create_response.error.is_none(),
+            "createpsbt should not fail"
+        );
         let psbt_b64 = create_response
             .result
             .as_ref()
@@ -11525,7 +11682,10 @@ mod tests {
             params: json!([psbt_b64]),
         };
         let decode_response = handle_decodepsbt(&decode_request);
-        assert!(decode_response.error.is_none(), "decodepsbt should not fail");
+        assert!(
+            decode_response.error.is_none(),
+            "decodepsbt should not fail"
+        );
         assert_eq!(
             decode_response
                 .result
@@ -11608,7 +11768,10 @@ mod tests {
         };
 
         let response = handle_createrawtransaction(&request);
-        assert!(response.result.is_none(), "invalid output amount should fail");
+        assert!(
+            response.result.is_none(),
+            "invalid output amount should fail"
+        );
         assert_eq!(
             response.error.as_ref().map(|e| e.code),
             Some(-32602),
@@ -11666,7 +11829,10 @@ mod tests {
         };
 
         let create_response = handle_createpsbt(&create_request);
-        assert!(create_response.error.is_none(), "createpsbt should not fail");
+        assert!(
+            create_response.error.is_none(),
+            "createpsbt should not fail"
+        );
         let psbt_b64 = create_response
             .result
             .as_ref()
@@ -11680,7 +11846,10 @@ mod tests {
             params: json!([psbt_b64]),
         };
         let decode_response = handle_decodepsbt(&decode_request);
-        assert!(decode_response.error.is_none(), "decodepsbt should not fail");
+        assert!(
+            decode_response.error.is_none(),
+            "decodepsbt should not fail"
+        );
         assert_eq!(
             decode_response
                 .result
@@ -11732,7 +11901,10 @@ mod tests {
         build_signed_psbt_for_test_with_pubkey(unsigned_tx_hex, 0x02, 0x02)
     }
 
-    fn build_unsigned_psbt_with_unknown_input_field(unsigned_tx_hex: &str, extra_len: usize) -> String {
+    fn build_unsigned_psbt_with_unknown_input_field(
+        unsigned_tx_hex: &str,
+        extra_len: usize,
+    ) -> String {
         let tx_bytes = hex::decode(unsigned_tx_hex).expect("unsigned tx hex should decode");
         let mut psbt = Vec::new();
         psbt.extend_from_slice(b"psbt\xff");
@@ -11767,7 +11939,10 @@ mod tests {
             params: json!([psbt_b64]),
         };
         let decode_response = handle_decodepsbt(&decode_request);
-        assert!(decode_response.error.is_none(), "decodepsbt should not fail");
+        assert!(
+            decode_response.error.is_none(),
+            "decodepsbt should not fail"
+        );
         decode_response
             .result
             .as_ref()
@@ -11816,7 +11991,10 @@ mod tests {
             params: json!([unsigned_psbt]),
         };
         let finalize_response = handle_finalizepsbt(&finalize_request);
-        assert!(finalize_response.error.is_none(), "finalizepsbt should not error");
+        assert!(
+            finalize_response.error.is_none(),
+            "finalizepsbt should not error"
+        );
         assert_eq!(
             finalize_response
                 .result
@@ -11865,7 +12043,10 @@ mod tests {
             params: json!([unsigned_psbt]),
         };
         let analyze_response = handle_analyzepsbt(&analyze_request);
-        assert!(analyze_response.error.is_none(), "analyzepsbt should not error");
+        assert!(
+            analyze_response.error.is_none(),
+            "analyzepsbt should not error"
+        );
         assert_eq!(
             analyze_response
                 .result
@@ -11897,7 +12078,10 @@ mod tests {
             params: json!(["***not-base64***"]),
         };
         let analyze_response = handle_analyzepsbt(&analyze_request);
-        assert!(analyze_response.result.is_none(), "invalid psbt should not produce result");
+        assert!(
+            analyze_response.result.is_none(),
+            "invalid psbt should not produce result"
+        );
         assert_eq!(
             analyze_response.error.as_ref().map(|e| e.code),
             Some(-22),
@@ -11928,7 +12112,10 @@ mod tests {
             .decode(psbt_b64)
             .expect("PSBT should decode");
         let unsigned_tx_hex = extract_unsigned_tx_hex(&psbt_bytes);
-        assert!(!unsigned_tx_hex.is_empty(), "unsigned tx hex must be present");
+        assert!(
+            !unsigned_tx_hex.is_empty(),
+            "unsigned tx hex must be present"
+        );
 
         let signed_psbt = build_signed_psbt_for_test(&unsigned_tx_hex);
         let bloated_unsigned_psbt =
@@ -11945,7 +12132,10 @@ mod tests {
             params: json!([[bloated_unsigned_psbt, signed_psbt.clone()]]),
         };
         let combine_response = handle_combinepsbt(&combine_request);
-        assert!(combine_response.error.is_none(), "combinepsbt should not error");
+        assert!(
+            combine_response.error.is_none(),
+            "combinepsbt should not error"
+        );
         let combined_psbt = combine_response
             .result
             .as_ref()
@@ -11981,7 +12171,10 @@ mod tests {
             .decode(psbt_b64)
             .expect("PSBT should decode");
         let unsigned_tx_hex = extract_unsigned_tx_hex(&psbt_bytes);
-        assert!(!unsigned_tx_hex.is_empty(), "unsigned tx hex must be present");
+        assert!(
+            !unsigned_tx_hex.is_empty(),
+            "unsigned tx hex must be present"
+        );
 
         let signed_a = build_signed_psbt_for_test_with_pubkey(&unsigned_tx_hex, 0x02, 0x11);
         let signed_b = build_signed_psbt_for_test_with_pubkey(&unsigned_tx_hex, 0x03, 0x22);
@@ -11992,7 +12185,10 @@ mod tests {
             params: json!([[signed_a, signed_b]]),
         };
         let combine_response = handle_combinepsbt(&combine_request);
-        assert!(combine_response.error.is_none(), "combinepsbt should not error");
+        assert!(
+            combine_response.error.is_none(),
+            "combinepsbt should not error"
+        );
         let combined_psbt = combine_response
             .result
             .as_ref()
@@ -12015,7 +12211,10 @@ mod tests {
             params: json!([["***not-base64***", not_psbt_b64, ""]]),
         };
         let combine_response = handle_combinepsbt(&combine_request);
-        assert!(combine_response.result.is_none(), "invalid psbts should not produce result");
+        assert!(
+            combine_response.result.is_none(),
+            "invalid psbts should not produce result"
+        );
         assert_eq!(
             combine_response.error.as_ref().map(|e| e.code),
             Some(-22),
@@ -12083,7 +12282,10 @@ mod tests {
             params: json!([[signed_a, signed_b]]),
         };
         let combine_response = handle_combinepsbt(&combine_request);
-        assert!(combine_response.result.is_none(), "mismatch should not produce result");
+        assert!(
+            combine_response.result.is_none(),
+            "mismatch should not produce result"
+        );
         assert_eq!(
             combine_response.error.as_ref().map(|e| e.code),
             Some(-8),
@@ -12114,7 +12316,10 @@ mod tests {
             .decode(psbt_b64)
             .expect("PSBT should decode");
         let unsigned_tx_hex = extract_unsigned_tx_hex(&psbt_bytes);
-        assert!(!unsigned_tx_hex.is_empty(), "unsigned tx hex must be present");
+        assert!(
+            !unsigned_tx_hex.is_empty(),
+            "unsigned tx hex must be present"
+        );
 
         let signed_psbt = build_signed_psbt_for_test(&unsigned_tx_hex);
         let bloated_unsigned_psbt =
@@ -12154,7 +12359,10 @@ mod tests {
             params: json!([["***not-base64***", not_psbt_b64, ""]]),
         };
         let join_response = handle_joinpsbts(&join_request);
-        assert!(join_response.result.is_none(), "invalid psbts should not produce result");
+        assert!(
+            join_response.result.is_none(),
+            "invalid psbts should not produce result"
+        );
         assert_eq!(
             join_response.error.as_ref().map(|e| e.code),
             Some(-22),
@@ -12222,7 +12430,10 @@ mod tests {
             params: json!([[signed_a, signed_b]]),
         };
         let join_response = handle_joinpsbts(&join_request);
-        assert!(join_response.result.is_none(), "mismatch should not produce result");
+        assert!(
+            join_response.result.is_none(),
+            "mismatch should not produce result"
+        );
         assert_eq!(
             join_response.error.as_ref().map(|e| e.code),
             Some(-8),
@@ -12239,7 +12450,10 @@ mod tests {
             params: json!(["***not-base64***"]),
         };
         let finalize_response = handle_finalizepsbt(&finalize_request);
-        assert!(finalize_response.result.is_none(), "invalid psbt should not produce result");
+        assert!(
+            finalize_response.result.is_none(),
+            "invalid psbt should not produce result"
+        );
         assert_eq!(
             finalize_response.error.as_ref().map(|e| e.code),
             Some(-22),
@@ -12257,7 +12471,10 @@ mod tests {
             params: json!([bad_psbt]),
         };
         let finalize_response = handle_finalizepsbt(&finalize_request);
-        assert!(finalize_response.result.is_none(), "invalid psbt should not produce result");
+        assert!(
+            finalize_response.result.is_none(),
+            "invalid psbt should not produce result"
+        );
         assert_eq!(
             finalize_response.error.as_ref().map(|e| e.code),
             Some(-22),
@@ -12293,12 +12510,12 @@ mod tests {
             params: json!([psbt_b64.clone()]),
         };
         let update_response = handle_utxoupdatepsbt(&update_request);
-        assert!(update_response.error.is_none(), "utxoupdatepsbt should not error");
+        assert!(
+            update_response.error.is_none(),
+            "utxoupdatepsbt should not error"
+        );
         assert_eq!(
-            update_response
-                .result
-                .as_ref()
-                .and_then(|v| v.as_str()),
+            update_response.result.as_ref().and_then(|v| v.as_str()),
             Some(psbt_b64.as_str()),
             "utxoupdatepsbt should return PSBT unchanged in account model"
         );
@@ -12313,7 +12530,10 @@ mod tests {
             params: json!(["***not-base64***"]),
         };
         let update_response = handle_utxoupdatepsbt(&update_request);
-        assert!(update_response.result.is_none(), "invalid psbt should not produce result");
+        assert!(
+            update_response.result.is_none(),
+            "invalid psbt should not produce result"
+        );
         assert_eq!(
             update_response.error.as_ref().map(|e| e.code),
             Some(-22),
@@ -12331,7 +12551,10 @@ mod tests {
             params: json!([bad_psbt]),
         };
         let update_response = handle_utxoupdatepsbt(&update_request);
-        assert!(update_response.result.is_none(), "invalid psbt should not produce result");
+        assert!(
+            update_response.result.is_none(),
+            "invalid psbt should not produce result"
+        );
         assert_eq!(
             update_response.error.as_ref().map(|e| e.code),
             Some(-22),
@@ -12352,7 +12575,10 @@ mod tests {
             params: json!([malformed_b64]),
         };
         let update_response = handle_utxoupdatepsbt(&update_request);
-        assert!(update_response.result.is_none(), "invalid psbt should not produce result");
+        assert!(
+            update_response.result.is_none(),
+            "invalid psbt should not produce result"
+        );
         assert_eq!(
             update_response.error.as_ref().map(|e| e.code),
             Some(-22),
@@ -12383,7 +12609,10 @@ mod tests {
             .decode(psbt_b64)
             .expect("PSBT should decode");
         let unsigned_tx_hex = extract_unsigned_tx_hex(&psbt_bytes);
-        assert!(!unsigned_tx_hex.is_empty(), "unsigned tx hex must be present");
+        assert!(
+            !unsigned_tx_hex.is_empty(),
+            "unsigned tx hex must be present"
+        );
         let signed_psbt = build_signed_psbt_for_test(&unsigned_tx_hex);
 
         let analyze_request = JsonRpcRequest {
@@ -12393,7 +12622,10 @@ mod tests {
             params: json!([signed_psbt.clone()]),
         };
         let analyze_response = handle_analyzepsbt(&analyze_request);
-        assert!(analyze_response.error.is_none(), "analyzepsbt should not error");
+        assert!(
+            analyze_response.error.is_none(),
+            "analyzepsbt should not error"
+        );
         assert_eq!(
             analyze_response
                 .result
@@ -12422,7 +12654,10 @@ mod tests {
             params: json!([signed_psbt]),
         };
         let finalize_response = handle_finalizepsbt(&finalize_request);
-        assert!(finalize_response.error.is_none(), "finalizepsbt should not error");
+        assert!(
+            finalize_response.error.is_none(),
+            "finalizepsbt should not error"
+        );
         assert_eq!(
             finalize_response
                 .result
@@ -12691,7 +12926,10 @@ mod tests {
             };
 
             let response = rt.block_on(handle_removequantumkey(&state, &request));
-            assert!(response.result.is_none(), "invalid keytype should not produce result");
+            assert!(
+                response.result.is_none(),
+                "invalid keytype should not produce result"
+            );
             assert_eq!(
                 response.error.as_ref().map(|e| e.code),
                 Some(-32602),
@@ -12707,15 +12945,14 @@ mod tests {
                 jsonrpc: "2.0".to_string(),
                 id: json!(5002),
                 method: "removequantumkey".to_string(),
-                params: json!([
-                    "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
-                    "falcon512",
-                    "not-hex"
-                ]),
+                params: json!(["1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa", "falcon512", "not-hex"]),
             };
 
             let response = rt.block_on(handle_removequantumkey(&state, &request));
-            assert!(response.result.is_none(), "invalid pubkey hex should not produce result");
+            assert!(
+                response.result.is_none(),
+                "invalid pubkey hex should not produce result"
+            );
             assert_eq!(
                 response.error.as_ref().map(|e| e.code),
                 Some(-32602),
@@ -12756,7 +12993,10 @@ mod tests {
             ]),
         };
         let response = handle_createpsbt(&request);
-        assert!(response.error.is_none(), "createpsbt should succeed for test");
+        assert!(
+            response.error.is_none(),
+            "createpsbt should succeed for test"
+        );
         response
             .result
             .as_ref()
@@ -13112,6 +13352,171 @@ mod tests {
                     .and_then(|v| v.as_bool())
                     .is_some(),
                 "walletprocesspsbt should include completion status"
+            );
+        });
+    }
+
+    #[test]
+    fn test_wallet_lifecycle_load_unload_updates_listing_and_info() {
+        let runtime = tokio::runtime::Runtime::new().expect("tokio runtime should initialize");
+        let state = RpcState::new(
+            "bitinfinity-testnet".to_string(),
+            "test".to_string(),
+            "http://127.0.0.1:3030".to_string(),
+        );
+
+        runtime.block_on(async {
+            let list_initial = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(7101),
+                method: "listwallets".to_string(),
+                params: json!([]),
+            };
+            let list_initial_response = handle_listwallets(&state, &list_initial).await;
+            assert_eq!(
+                list_initial_response
+                    .result
+                    .as_ref()
+                    .and_then(|v| v.as_array())
+                    .cloned(),
+                Some(vec![json!("bitinfinity")]),
+                "wallet should be loaded by default"
+            );
+
+            let unload_request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(7102),
+                method: "unloadwallet".to_string(),
+                params: json!([]),
+            };
+            let unload_response = handle_unloadwallet(&state, &unload_request).await;
+            assert!(
+                unload_response.error.is_none(),
+                "unloadwallet should succeed for loaded wallet"
+            );
+
+            let list_after_unload = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(7103),
+                method: "listwallets".to_string(),
+                params: json!([]),
+            };
+            let list_after_unload_response = handle_listwallets(&state, &list_after_unload).await;
+            assert_eq!(
+                list_after_unload_response
+                    .result
+                    .as_ref()
+                    .and_then(|v| v.as_array())
+                    .cloned(),
+                Some(vec![]),
+                "listwallets should be empty after unload"
+            );
+
+            let walletinfo_request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(7104),
+                method: "getwalletinfo".to_string(),
+                params: json!([]),
+            };
+            let walletinfo_response = handle_getwalletinfo(&state, &walletinfo_request).await;
+            assert!(walletinfo_response.result.is_none());
+            assert_eq!(
+                walletinfo_response.error.as_ref().map(|e| e.code),
+                Some(-18),
+                "wallet RPCs should reject when wallet is unloaded"
+            );
+
+            let load_request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(7105),
+                method: "loadwallet".to_string(),
+                params: json!(["ops-wallet"]),
+            };
+            let load_response = handle_loadwallet(&state, &load_request).await;
+            assert!(load_response.error.is_none(), "loadwallet should succeed");
+            assert_eq!(
+                load_response
+                    .result
+                    .as_ref()
+                    .and_then(|v| v.get("name"))
+                    .and_then(|v| v.as_str()),
+                Some("ops-wallet"),
+                "loadwallet should switch active wallet alias"
+            );
+
+            let list_after_load = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(7106),
+                method: "listwallets".to_string(),
+                params: json!([]),
+            };
+            let list_after_load_response = handle_listwallets(&state, &list_after_load).await;
+            assert_eq!(
+                list_after_load_response
+                    .result
+                    .as_ref()
+                    .and_then(|v| v.as_array())
+                    .cloned(),
+                Some(vec![json!("ops-wallet")]),
+                "loaded wallet alias should be reflected in listwallets"
+            );
+
+            let list_dir_request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(7107),
+                method: "listwalletdir".to_string(),
+                params: json!([]),
+            };
+            let list_dir_response = handle_listwalletdir(&state, &list_dir_request).await;
+            assert_eq!(
+                list_dir_response
+                    .result
+                    .as_ref()
+                    .and_then(|v| v.get("wallets"))
+                    .and_then(|v| v.as_array())
+                    .and_then(|arr| arr.first())
+                    .and_then(|w| w.get("name"))
+                    .and_then(|v| v.as_str()),
+                Some("ops-wallet"),
+                "listwalletdir should reflect active wallet alias"
+            );
+        });
+    }
+
+    #[test]
+    fn test_walletprocesspsbt_rejects_unloaded_wallet() {
+        let runtime = tokio::runtime::Runtime::new().expect("tokio runtime should initialize");
+        let state = RpcState::new(
+            "bitinfinity-testnet".to_string(),
+            "test".to_string(),
+            "http://127.0.0.1:3030".to_string(),
+        );
+
+        runtime.block_on(async {
+            let unload_request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(7108),
+                method: "unloadwallet".to_string(),
+                params: json!([]),
+            };
+            let unload_response = handle_unloadwallet(&state, &unload_request).await;
+            assert!(
+                unload_response.error.is_none(),
+                "unloadwallet should succeed"
+            );
+
+            let request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(7109),
+                method: "walletprocesspsbt".to_string(),
+                params: json!([build_test_psbt()]),
+            };
+            let response = handle_walletprocesspsbt(&state, &request).await;
+            assert!(response.result.is_none());
+            assert_eq!(
+                response.error.as_ref().map(|e| e.code),
+                Some(-18),
+                "walletprocesspsbt should reject unloaded wallet"
             );
         });
     }
