@@ -1896,6 +1896,30 @@ if [[ "$AUTH_UNLOADWALLET_OK_ID" != "auth-unloadwallet" ]]; then
   exit 1
 fi
 
+AUTH_DUMPPRIVKEY_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-dumpprivkey\",\"method\":\"dumpprivkey\",\"params\":[\"$FUNDED_ADDR\"]}"
+AUTH_DUMPPRIVKEY_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_DUMPPRIVKEY_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_DUMPPRIVKEY_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for dumpprivkey without auth, got: $AUTH_DUMPPRIVKEY_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_DUMPPRIVKEY_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_DUMPPRIVKEY_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_DUMPPRIVKEY_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for dumpprivkey with wrong auth, got: $AUTH_DUMPPRIVKEY_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_DUMPPRIVKEY_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_dumpprivkey_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_DUMPPRIVKEY_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_DUMPPRIVKEY_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated dumpprivkey, got: $AUTH_DUMPPRIVKEY_OK_CODE" >&2
+  exit 1
+fi
+AUTH_DUMPPRIVKEY_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_dumpprivkey_success_response.json")"
+if [[ "$AUTH_DUMPPRIVKEY_OK_ID" != "auth-dumpprivkey" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated dumpprivkey" >&2
+  exit 1
+fi
+
 AUTH_WALLETPROCESS_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-walletprocesspsbt\",\"method\":\"walletprocesspsbt\",\"params\":[\"$FUNDED_PSBT\"]}"
 AUTH_WALLETPROCESS_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_WALLETPROCESS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
 if [[ "$AUTH_WALLETPROCESS_NOAUTH_CODE" != "401" ]]; then
@@ -2173,6 +2197,9 @@ auth_loadwallet_ok_http_code=$AUTH_LOADWALLET_OK_CODE
 auth_unloadwallet_noauth_http_code=$AUTH_UNLOADWALLET_NOAUTH_CODE
 auth_unloadwallet_wrong_http_code=$AUTH_UNLOADWALLET_WRONG_CODE
 auth_unloadwallet_ok_http_code=$AUTH_UNLOADWALLET_OK_CODE
+auth_dumpprivkey_noauth_http_code=$AUTH_DUMPPRIVKEY_NOAUTH_CODE
+auth_dumpprivkey_wrong_http_code=$AUTH_DUMPPRIVKEY_WRONG_CODE
+auth_dumpprivkey_ok_http_code=$AUTH_DUMPPRIVKEY_OK_CODE
 auth_walletprocesspsbt_noauth_http_code=$AUTH_WALLETPROCESS_NOAUTH_CODE
 auth_walletprocesspsbt_wrong_http_code=$AUTH_WALLETPROCESS_WRONG_CODE
 auth_walletprocesspsbt_ok_http_code=$AUTH_WALLETPROCESS_OK_CODE
