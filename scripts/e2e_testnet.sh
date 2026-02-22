@@ -1776,6 +1776,30 @@ if [[ "$AUTH_WALLETPASSPHRASE_OK_ID" != "auth-walletpassphrase" ]]; then
   exit 1
 fi
 
+AUTH_WALLETPASSPHRASECHANGE_PAYLOAD='{"jsonrpc":"2.0","id":"auth-walletpassphrasechange","method":"walletpassphrasechange","params":["wrong-old-passphrase","new-passphrase"]}'
+AUTH_WALLETPASSPHRASECHANGE_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_WALLETPASSPHRASECHANGE_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_WALLETPASSPHRASECHANGE_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for walletpassphrasechange without auth, got: $AUTH_WALLETPASSPHRASECHANGE_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_WALLETPASSPHRASECHANGE_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_WALLETPASSPHRASECHANGE_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_WALLETPASSPHRASECHANGE_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for walletpassphrasechange with wrong auth, got: $AUTH_WALLETPASSPHRASECHANGE_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_WALLETPASSPHRASECHANGE_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_walletpassphrasechange_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_WALLETPASSPHRASECHANGE_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_WALLETPASSPHRASECHANGE_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated walletpassphrasechange, got: $AUTH_WALLETPASSPHRASECHANGE_OK_CODE" >&2
+  exit 1
+fi
+AUTH_WALLETPASSPHRASECHANGE_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_walletpassphrasechange_success_response.json")"
+if [[ "$AUTH_WALLETPASSPHRASECHANGE_OK_ID" != "auth-walletpassphrasechange" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated walletpassphrasechange" >&2
+  exit 1
+fi
+
 AUTH_WALLETPROCESS_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-walletprocesspsbt\",\"method\":\"walletprocesspsbt\",\"params\":[\"$FUNDED_PSBT\"]}"
 AUTH_WALLETPROCESS_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_WALLETPROCESS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
 if [[ "$AUTH_WALLETPROCESS_NOAUTH_CODE" != "401" ]]; then
@@ -2038,6 +2062,9 @@ auth_walletlock_ok_http_code=$AUTH_WALLETLOCK_OK_CODE
 auth_walletpassphrase_noauth_http_code=$AUTH_WALLETPASSPHRASE_NOAUTH_CODE
 auth_walletpassphrase_wrong_http_code=$AUTH_WALLETPASSPHRASE_WRONG_CODE
 auth_walletpassphrase_ok_http_code=$AUTH_WALLETPASSPHRASE_OK_CODE
+auth_walletpassphrasechange_noauth_http_code=$AUTH_WALLETPASSPHRASECHANGE_NOAUTH_CODE
+auth_walletpassphrasechange_wrong_http_code=$AUTH_WALLETPASSPHRASECHANGE_WRONG_CODE
+auth_walletpassphrasechange_ok_http_code=$AUTH_WALLETPASSPHRASECHANGE_OK_CODE
 auth_walletprocesspsbt_noauth_http_code=$AUTH_WALLETPROCESS_NOAUTH_CODE
 auth_walletprocesspsbt_wrong_http_code=$AUTH_WALLETPROCESS_WRONG_CODE
 auth_walletprocesspsbt_ok_http_code=$AUTH_WALLETPROCESS_OK_CODE
