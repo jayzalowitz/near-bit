@@ -1821,6 +1821,23 @@ Validated:
   - `final_success_metric=70`, `final_failed_metric=0`
 - Log scans across all three runs reported no matches for `tx generator idle`, `no schedule provided`, `signal 11`, or `SIGSEGV`.
 
+## Continuation (2026-02-22): RPC compatibility matrix documentation
+
+Implemented:
+- Added dedicated RPC compatibility reference document:
+  - `docs/rpc-compatibility-matrix.md`
+  - covers Tier 1/Tier 2/Tier 3 methods from Issue #11 with status labels (`Core-like`, `Adapted`, `Intentional stub`).
+  - explicitly documents intentional PoS/networking stubs and current adapter caveats.
+- Linked the new matrix from `docs/index.html` in the throughput/methodology section for discoverability.
+
+Primary files:
+- `docs/rpc-compatibility-matrix.md`
+- `docs/index.html`
+
+Verification reruns:
+- `rg -n "rpc-compatibility-matrix.md|Tier 1|Intentional PoS" docs/index.html docs/rpc-compatibility-matrix.md -S`
+  - confirms matrix content headings and site link are present.
+
 ## Issue #1 goal check
 
 Status:
