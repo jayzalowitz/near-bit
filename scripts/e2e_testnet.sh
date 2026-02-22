@@ -2040,6 +2040,30 @@ if [[ "$AUTH_KEYPOOLREFILL_OK_ID" != "auth-keypoolrefill" ]]; then
   exit 1
 fi
 
+AUTH_SIGNMESSAGE_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-signmessage\",\"method\":\"signmessage\",\"params\":[\"$FUNDED_ADDR\",\"auth-check-message\"]}"
+AUTH_SIGNMESSAGE_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_SIGNMESSAGE_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_SIGNMESSAGE_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for signmessage without auth, got: $AUTH_SIGNMESSAGE_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_SIGNMESSAGE_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_SIGNMESSAGE_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_SIGNMESSAGE_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for signmessage with wrong auth, got: $AUTH_SIGNMESSAGE_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_SIGNMESSAGE_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_signmessage_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_SIGNMESSAGE_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_SIGNMESSAGE_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated signmessage, got: $AUTH_SIGNMESSAGE_OK_CODE" >&2
+  exit 1
+fi
+AUTH_SIGNMESSAGE_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_signmessage_success_response.json")"
+if [[ "$AUTH_SIGNMESSAGE_OK_ID" != "auth-signmessage" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated signmessage" >&2
+  exit 1
+fi
+
 AUTH_WALLETPROCESS_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-walletprocesspsbt\",\"method\":\"walletprocesspsbt\",\"params\":[\"$FUNDED_PSBT\"]}"
 AUTH_WALLETPROCESS_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_WALLETPROCESS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
 if [[ "$AUTH_WALLETPROCESS_NOAUTH_CODE" != "401" ]]; then
@@ -2335,6 +2359,9 @@ auth_settxfee_ok_http_code=$AUTH_SETTXFEE_OK_CODE
 auth_keypoolrefill_noauth_http_code=$AUTH_KEYPOOLREFILL_NOAUTH_CODE
 auth_keypoolrefill_wrong_http_code=$AUTH_KEYPOOLREFILL_WRONG_CODE
 auth_keypoolrefill_ok_http_code=$AUTH_KEYPOOLREFILL_OK_CODE
+auth_signmessage_noauth_http_code=$AUTH_SIGNMESSAGE_NOAUTH_CODE
+auth_signmessage_wrong_http_code=$AUTH_SIGNMESSAGE_WRONG_CODE
+auth_signmessage_ok_http_code=$AUTH_SIGNMESSAGE_OK_CODE
 auth_walletprocesspsbt_noauth_http_code=$AUTH_WALLETPROCESS_NOAUTH_CODE
 auth_walletprocesspsbt_wrong_http_code=$AUTH_WALLETPROCESS_WRONG_CODE
 auth_walletprocesspsbt_ok_http_code=$AUTH_WALLETPROCESS_OK_CODE
