@@ -411,7 +411,7 @@ main() {
     collect_metrics_loop "${run_pid}" "${metrics_file}" &
     local metrics_pid="$!"
 
-    local max_wait_s runtime_elapsed_s startup_elapsed_s timed_out timeout_phase schedule_stop_requested schedule_started
+    local max_wait_s runtime_elapsed_s startup_elapsed_s timed_out timeout_phase schedule_stop_requested schedule_started run_localnet_started
     max_wait_s="$((duration + RUN_GRACE_S))"
     runtime_elapsed_s=0
     startup_elapsed_s=0
@@ -419,15 +419,23 @@ main() {
     timeout_phase=""
     schedule_stop_requested=0
     schedule_started=0
+    run_localnet_started=0
     while kill -0 "${run_pid}" >/dev/null 2>&1; do
-      if [[ "${schedule_started}" -eq 0 ]] && grep -E -q 'started schedule=|starting the static load schedule' "${log_file}"; then
-        schedule_started=1
-      fi
-      if [[ "${schedule_started}" -eq 0 ]] && [[ "${ENABLE_CONTROLLER}" -eq 0 ]] && grep -E -q 'ready to produce block, has enough approvals|RUST_LOG=.*--home .* run$' "${log_file}"; then
-        # Controller-disabled runs may not emit tx-generator schedule logs.
-        # Accept either active block-production readiness (info logs) or
-        # run-localnet launch marker (works even when --loglevel=warn).
-        schedule_started=1
+      if [[ -f "${log_file}" ]]; then
+        if [[ "${run_localnet_started}" -eq 0 ]] && grep -E -q 'RUST_LOG=.*--home .* run$' "${log_file}"; then
+          run_localnet_started=1
+        fi
+
+        if [[ "${run_localnet_started}" -eq 1 ]]; then
+          if [[ "${schedule_started}" -eq 0 ]] && grep -E -q 'started schedule=|starting the static load schedule' "${log_file}"; then
+            schedule_started=1
+          fi
+          if [[ "${schedule_started}" -eq 0 ]] && [[ "${ENABLE_CONTROLLER}" -eq 0 ]]; then
+            # Controller-disabled runs may not emit tx-generator schedule logs.
+            # Treat run-localnet launch as runtime start to avoid counting setup.
+            schedule_started=1
+          fi
+        fi
       fi
 
       if [[ "${schedule_started}" -eq 0 ]]; then
@@ -438,7 +446,7 @@ main() {
           break
         fi
       else
-        if [[ "${ENABLE_CONTROLLER}" -eq 1 ]] && [[ "${schedule_stop_requested}" -eq 0 ]] && grep -q 'completed running the schedule' "${log_file}"; then
+        if [[ "${ENABLE_CONTROLLER}" -eq 1 ]] && [[ "${schedule_stop_requested}" -eq 0 ]] && [[ -f "${log_file}" ]] && grep -q 'completed running the schedule' "${log_file}"; then
           schedule_stop_requested=1
           terminate_run_process "${run_pid}" "TERM"
         fi
@@ -553,6 +561,7 @@ main() {
       --argjson timed_out "${timed_out}" \
       --arg timeout_phase "${timeout_phase}" \
       --argjson schedule_started "${schedule_started}" \
+      --argjson run_localnet_started "${run_localnet_started}" \
       --argjson avg_tps "$(json_number_or_null "${avg_rate}")" \
       --argjson peak_tps "$(json_number_or_null "${peak_rate}")" \
       --argjson final_processed_log "$(json_number_or_null "${final_processed}")" \
@@ -572,6 +581,7 @@ main() {
         effective_run_status: $effective_run_status,
         timed_out: $timed_out,
         timeout_phase: (if $timed_out == 1 then $timeout_phase else null end),
+        run_localnet_started_from_log: $run_localnet_started,
         schedule_started_from_log: $schedule_started,
         observed: {
           avg_tps_from_log: $avg_tps,
@@ -614,9 +624,9 @@ main() {
     "${summary_files[@]}" >"${RUN_DIR}/summary.json"
 
   {
-    echo "profile,target_tps,target_duration_s,controller_enabled,run_status,effective_run_status,timed_out,timeout_phase,schedule_started_from_log,avg_tps_from_log,peak_tps_from_log,final_success_metric,final_failed_metric,schedule_completed_from_log,signal_11_from_log"
+    echo "profile,target_tps,target_duration_s,controller_enabled,run_status,effective_run_status,timed_out,timeout_phase,run_localnet_started_from_log,schedule_started_from_log,avg_tps_from_log,peak_tps_from_log,final_success_metric,final_failed_metric,schedule_completed_from_log,signal_11_from_log"
     find "${RUN_DIR}" -mindepth 2 -maxdepth 2 -name summary.json -type f | sort | while read -r summary_file; do
-      jq -r '[.profile, .target_tps, .target_duration_s, .controller_enabled, .run_status, .effective_run_status, .timed_out, (.timeout_phase // "n/a"), .schedule_started_from_log, .observed.avg_tps_from_log, .observed.peak_tps_from_log, .observed.final_success_metric, .observed.final_failed_metric, .observed.schedule_completed_from_log, .observed.signal_11_from_log] | @csv' "${summary_file}"
+      jq -r '[.profile, .target_tps, .target_duration_s, .controller_enabled, .run_status, .effective_run_status, .timed_out, (.timeout_phase // "n/a"), .run_localnet_started_from_log, .schedule_started_from_log, .observed.avg_tps_from_log, .observed.peak_tps_from_log, .observed.final_success_metric, .observed.final_failed_metric, .observed.schedule_completed_from_log, .observed.signal_11_from_log] | @csv' "${summary_file}"
     done
   } >"${RUN_DIR}/summary.csv"
 
@@ -631,10 +641,10 @@ main() {
     echo
     echo "## Profiles"
     echo
-    echo "| profile | target TPS | duration (s) | controller enabled | run status | effective status | timed out | timeout phase | schedule started | avg TPS (log) | peak TPS (log) | final success metric | final failed metric | schedule completed | signal 11 |"
-    echo "|---|---:|---:|---|---:|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|"
+    echo "| profile | target TPS | duration (s) | controller enabled | run status | effective status | timed out | timeout phase | run launched | schedule started | avg TPS (log) | peak TPS (log) | final success metric | final failed metric | schedule completed | signal 11 |"
+    echo "|---|---:|---:|---|---:|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|"
     find "${RUN_DIR}" -mindepth 2 -maxdepth 2 -name summary.json -type f | sort | while read -r summary_file; do
-      jq -r '"| \(.profile) | \(.target_tps) | \(.target_duration_s) | \(.controller_enabled) | \(.run_status) | \(.effective_run_status) | \(.timed_out) | \(.timeout_phase // "n/a") | \(.schedule_started_from_log) | \(.observed.avg_tps_from_log // "n/a") | \(.observed.peak_tps_from_log // "n/a") | \(.observed.final_success_metric // "n/a") | \(.observed.final_failed_metric // "n/a") | \(.observed.schedule_completed_from_log // "n/a") | \(.observed.signal_11_from_log // "n/a") |"' "${summary_file}"
+      jq -r '"| \(.profile) | \(.target_tps) | \(.target_duration_s) | \(.controller_enabled) | \(.run_status) | \(.effective_run_status) | \(.timed_out) | \(.timeout_phase // "n/a") | \(.run_localnet_started_from_log) | \(.schedule_started_from_log) | \(.observed.avg_tps_from_log // "n/a") | \(.observed.peak_tps_from_log // "n/a") | \(.observed.final_success_metric // "n/a") | \(.observed.final_failed_metric // "n/a") | \(.observed.schedule_completed_from_log // "n/a") | \(.observed.signal_11_from_log // "n/a") |"' "${summary_file}"
     done
     echo
     echo "Raw artifacts:"
