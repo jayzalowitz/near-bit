@@ -2424,6 +2424,54 @@ if [[ "$AUTH_LISTUNSPENT_OK_ID" != "auth-listunspent" ]]; then
   exit 1
 fi
 
+AUTH_LISTTRANSACTIONS_PAYLOAD='{"jsonrpc":"2.0","id":"auth-listtransactions","method":"listtransactions","params":[]}'
+AUTH_LISTTRANSACTIONS_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_LISTTRANSACTIONS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_LISTTRANSACTIONS_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for listtransactions without auth, got: $AUTH_LISTTRANSACTIONS_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_LISTTRANSACTIONS_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_LISTTRANSACTIONS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_LISTTRANSACTIONS_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for listtransactions with wrong auth, got: $AUTH_LISTTRANSACTIONS_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_LISTTRANSACTIONS_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_listtransactions_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_LISTTRANSACTIONS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_LISTTRANSACTIONS_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated listtransactions, got: $AUTH_LISTTRANSACTIONS_OK_CODE" >&2
+  exit 1
+fi
+AUTH_LISTTRANSACTIONS_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_listtransactions_success_response.json")"
+if [[ "$AUTH_LISTTRANSACTIONS_OK_ID" != "auth-listtransactions" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated listtransactions" >&2
+  exit 1
+fi
+
+AUTH_LISTSINCEBLOCK_PAYLOAD='{"jsonrpc":"2.0","id":"auth-listsinceblock","method":"listsinceblock","params":[]}'
+AUTH_LISTSINCEBLOCK_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_LISTSINCEBLOCK_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_LISTSINCEBLOCK_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for listsinceblock without auth, got: $AUTH_LISTSINCEBLOCK_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_LISTSINCEBLOCK_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_LISTSINCEBLOCK_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_LISTSINCEBLOCK_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for listsinceblock with wrong auth, got: $AUTH_LISTSINCEBLOCK_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_LISTSINCEBLOCK_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_listsinceblock_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_LISTSINCEBLOCK_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_LISTSINCEBLOCK_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated listsinceblock, got: $AUTH_LISTSINCEBLOCK_OK_CODE" >&2
+  exit 1
+fi
+AUTH_LISTSINCEBLOCK_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_listsinceblock_success_response.json")"
+if [[ "$AUTH_LISTSINCEBLOCK_OK_ID" != "auth-listsinceblock" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated listsinceblock" >&2
+  exit 1
+fi
+
 AUTH_WALLETPROCESS_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-walletprocesspsbt\",\"method\":\"walletprocesspsbt\",\"params\":[\"$FUNDED_PSBT\"]}"
 AUTH_WALLETPROCESS_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_WALLETPROCESS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
 if [[ "$AUTH_WALLETPROCESS_NOAUTH_CODE" != "401" ]]; then
@@ -2767,6 +2815,12 @@ auth_listreceivedbyaddress_ok_http_code=$AUTH_LISTRECVBYADDR_OK_CODE
 auth_listunspent_noauth_http_code=$AUTH_LISTUNSPENT_NOAUTH_CODE
 auth_listunspent_wrong_http_code=$AUTH_LISTUNSPENT_WRONG_CODE
 auth_listunspent_ok_http_code=$AUTH_LISTUNSPENT_OK_CODE
+auth_listtransactions_noauth_http_code=$AUTH_LISTTRANSACTIONS_NOAUTH_CODE
+auth_listtransactions_wrong_http_code=$AUTH_LISTTRANSACTIONS_WRONG_CODE
+auth_listtransactions_ok_http_code=$AUTH_LISTTRANSACTIONS_OK_CODE
+auth_listsinceblock_noauth_http_code=$AUTH_LISTSINCEBLOCK_NOAUTH_CODE
+auth_listsinceblock_wrong_http_code=$AUTH_LISTSINCEBLOCK_WRONG_CODE
+auth_listsinceblock_ok_http_code=$AUTH_LISTSINCEBLOCK_OK_CODE
 auth_walletprocesspsbt_noauth_http_code=$AUTH_WALLETPROCESS_NOAUTH_CODE
 auth_walletprocesspsbt_wrong_http_code=$AUTH_WALLETPROCESS_WRONG_CODE
 auth_walletprocesspsbt_ok_http_code=$AUTH_WALLETPROCESS_OK_CODE
