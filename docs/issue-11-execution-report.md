@@ -1528,6 +1528,27 @@ Verification rerun:
 - `./scripts/e2e_testnet.sh`
 - `cargo test -q -p bitinfinity-btcrpc`
 
+## Continuation (2026-02-22): CI auth-coverage drift guard
+
+Implemented:
+- Added executable guard script:
+  - `scripts/check_auth_coverage.sh`
+- Script behavior:
+  - extracts all RPC `method` tokens in `scripts/e2e_testnet.sh`,
+  - extracts `method` tokens inside the auth-verification block,
+  - fails when any btcrpc method used in the E2E flow is missing from auth coverage (with `query` explicitly ignored as NEAR JSON-RPC).
+- Wired guard into CI test job:
+  - new step `Verify E2E auth coverage matrix` in `.github/workflows/ci.yml`.
+
+Primary files:
+- `scripts/check_auth_coverage.sh`
+- `.github/workflows/ci.yml`
+
+Verification rerun:
+- `bash -n scripts/check_auth_coverage.sh`
+- `./scripts/check_auth_coverage.sh`
+- `ruby -e 'require \"yaml\"; YAML.load_file(\".github/workflows/ci.yml\")'`
+
 ## Issue #1 goal check
 
 Status:
