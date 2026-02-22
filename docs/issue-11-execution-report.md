@@ -1749,6 +1749,26 @@ Verification reruns:
   - `test_getmempool_relations_reject_non_pending_txid` passed:
     - validates confirmed/non-pending txids return `-5` for both relation methods.
 
+## Continuation (2026-02-22): getmempoolentry pending-only enforcement
+
+Implemented:
+- Hardened `getmempoolentry` in `bitinfinity-btcrpc/src/main.rs` to align with mempool semantics:
+  - now returns `-5` when the requested txid exists in cache but is not pending (`near_tx_hash` is not `pending:*`),
+  - retains successful mempool-entry output for pending transactions.
+- This removes a cache-vs-mempool mismatch where previously confirmed entries could be surfaced as mempool entries.
+
+Primary file:
+- `bitinfinity-btcrpc/src/main.rs`
+
+Verification reruns:
+- `cargo test -p bitinfinity-btcrpc test_getmempool -- --nocapture`
+  - `test_getmempoolentry_requires_pending_entry` passed:
+    - confirms confirmed/non-pending txids return `-5` from `getmempoolentry`.
+  - `test_getmempoolentry_accepts_pending_entry` passed:
+    - confirms pending txids return normal mempool-entry fields.
+  - `test_getmempool_relations_track_transitive_pending_graph` passed.
+  - `test_getmempool_relations_reject_non_pending_txid` passed.
+
 ## Issue #1 goal check
 
 Status:
