@@ -2232,6 +2232,54 @@ if [[ "$AUTH_GETRECVBYLABEL_OK_ID" != "auth-getreceivedbylabel" ]]; then
   exit 1
 fi
 
+AUTH_GETWALLETINFO_PAYLOAD='{"jsonrpc":"2.0","id":"auth-getwalletinfo","method":"getwalletinfo","params":[]}'
+AUTH_GETWALLETINFO_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_GETWALLETINFO_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETWALLETINFO_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for getwalletinfo without auth, got: $AUTH_GETWALLETINFO_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_GETWALLETINFO_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_GETWALLETINFO_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETWALLETINFO_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for getwalletinfo with wrong auth, got: $AUTH_GETWALLETINFO_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_GETWALLETINFO_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_getwalletinfo_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_GETWALLETINFO_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETWALLETINFO_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated getwalletinfo, got: $AUTH_GETWALLETINFO_OK_CODE" >&2
+  exit 1
+fi
+AUTH_GETWALLETINFO_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_getwalletinfo_success_response.json")"
+if [[ "$AUTH_GETWALLETINFO_OK_ID" != "auth-getwalletinfo" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated getwalletinfo" >&2
+  exit 1
+fi
+
+AUTH_LISTADDRGROUPINGS_PAYLOAD='{"jsonrpc":"2.0","id":"auth-listaddressgroupings","method":"listaddressgroupings","params":[]}'
+AUTH_LISTADDRGROUPINGS_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_LISTADDRGROUPINGS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_LISTADDRGROUPINGS_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for listaddressgroupings without auth, got: $AUTH_LISTADDRGROUPINGS_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_LISTADDRGROUPINGS_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_LISTADDRGROUPINGS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_LISTADDRGROUPINGS_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for listaddressgroupings with wrong auth, got: $AUTH_LISTADDRGROUPINGS_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_LISTADDRGROUPINGS_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_listaddressgroupings_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_LISTADDRGROUPINGS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_LISTADDRGROUPINGS_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated listaddressgroupings, got: $AUTH_LISTADDRGROUPINGS_OK_CODE" >&2
+  exit 1
+fi
+AUTH_LISTADDRGROUPINGS_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_listaddressgroupings_success_response.json")"
+if [[ "$AUTH_LISTADDRGROUPINGS_OK_ID" != "auth-listaddressgroupings" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated listaddressgroupings" >&2
+  exit 1
+fi
+
 AUTH_WALLETPROCESS_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-walletprocesspsbt\",\"method\":\"walletprocesspsbt\",\"params\":[\"$FUNDED_PSBT\"]}"
 AUTH_WALLETPROCESS_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_WALLETPROCESS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
 if [[ "$AUTH_WALLETPROCESS_NOAUTH_CODE" != "401" ]]; then
@@ -2551,6 +2599,12 @@ auth_getaddressesbylabel_ok_http_code=$AUTH_GETADDRBYLABEL_OK_CODE
 auth_getreceivedbylabel_noauth_http_code=$AUTH_GETRECVBYLABEL_NOAUTH_CODE
 auth_getreceivedbylabel_wrong_http_code=$AUTH_GETRECVBYLABEL_WRONG_CODE
 auth_getreceivedbylabel_ok_http_code=$AUTH_GETRECVBYLABEL_OK_CODE
+auth_getwalletinfo_noauth_http_code=$AUTH_GETWALLETINFO_NOAUTH_CODE
+auth_getwalletinfo_wrong_http_code=$AUTH_GETWALLETINFO_WRONG_CODE
+auth_getwalletinfo_ok_http_code=$AUTH_GETWALLETINFO_OK_CODE
+auth_listaddressgroupings_noauth_http_code=$AUTH_LISTADDRGROUPINGS_NOAUTH_CODE
+auth_listaddressgroupings_wrong_http_code=$AUTH_LISTADDRGROUPINGS_WRONG_CODE
+auth_listaddressgroupings_ok_http_code=$AUTH_LISTADDRGROUPINGS_OK_CODE
 auth_walletprocesspsbt_noauth_http_code=$AUTH_WALLETPROCESS_NOAUTH_CODE
 auth_walletprocesspsbt_wrong_http_code=$AUTH_WALLETPROCESS_WRONG_CODE
 auth_walletprocesspsbt_ok_http_code=$AUTH_WALLETPROCESS_OK_CODE
