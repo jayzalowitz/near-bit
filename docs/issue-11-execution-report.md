@@ -1805,6 +1805,21 @@ Verification reruns:
 - `ruby -e 'require "yaml"; YAML.load_file(".github/workflows/nightly-fuzz.yml")'`
   - confirms workflow YAML remains valid after schedule/duration updates.
 
+## Continuation (2026-02-22): controller-null benchmark stability rerun sweep
+
+Validated:
+- Executed a 3-run controller-disabled stability sweep in warn-mode to verify no recurring startup/runtime crash behavior:
+  - `./scripts/benchmark/run_tps_profiles.sh --profile baseline --tps-override 40 --duration-override 3 --run-grace 5 --startup-timeout 15 --num-accounts 10 --metrics-interval 1 --skip-build --disable-controller --allow-nonzero-run-status --loglevel warn --out-dir artifacts/benchmarks/controller-null-stability-20260222T083947Z-r1`
+  - `./scripts/benchmark/run_tps_profiles.sh --profile baseline --tps-override 40 --duration-override 3 --run-grace 5 --startup-timeout 15 --num-accounts 10 --metrics-interval 1 --skip-build --disable-controller --allow-nonzero-run-status --loglevel warn --out-dir artifacts/benchmarks/controller-null-stability-20260222T083947Z-r2`
+  - `./scripts/benchmark/run_tps_profiles.sh --profile baseline --tps-override 40 --duration-override 3 --run-grace 5 --startup-timeout 15 --num-accounts 10 --metrics-interval 1 --skip-build --disable-controller --allow-nonzero-run-status --loglevel warn --out-dir artifacts/benchmarks/controller-null-stability-20260222T083947Z-r3`
+- Observed in each run's per-profile summary:
+  - `run_status=0`, `effective_run_status=0`, `timed_out=0`
+  - `run_localnet_started_from_log=1`, `schedule_started_from_log=1`
+  - `schedule_completed_from_log=0` (expected with controller disabled)
+  - `signal_11_from_log=0`
+  - `final_success_metric=70`, `final_failed_metric=0`
+- Log scans across all three runs reported no matches for `tx generator idle`, `no schedule provided`, `signal 11`, or `SIGSEGV`.
+
 ## Issue #1 goal check
 
 Status:
@@ -1816,7 +1831,6 @@ Status:
 ## Issue #11 remaining high-priority gaps (not completed here)
 
 Still open and required for full #11 closure:
-- Optional upstream follow-up: deeper `controller: null` tx-generator behavior analysis beyond startup-timeout mitigation (latest warn-mode controller-null rerun showed `signal_11_from_log=0`).
 - External audit/bounty/legal/governance/infra phases.
 - Full launch-gate completion across all #11 phases.
 
