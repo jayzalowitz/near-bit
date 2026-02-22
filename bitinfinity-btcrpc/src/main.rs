@@ -5144,6 +5144,14 @@ async fn handle_getmempoolentry(state: &RpcState, request: &JsonRpcRequest) -> J
     };
     let tx_cache = state.tx_cache.read().await;
     if let Some(entry) = tx_cache.entries.get(txid) {
+        if !is_pending_mempool_entry(entry) {
+            drop(tx_cache);
+            return err_response(
+                &request.id,
+                -5,
+                format!("Transaction {} not in mempool", txid),
+            );
+        }
         let size = entry.raw_hex.len() / 2;
         let vsize = if size > 0 { size } else { 250 }; // default 250 vbytes
         drop(tx_cache);
@@ -11271,7 +11279,8 @@ mod tests {
         derive_script_pub_key_hex, encode_bitcoin_varint, extract_unsigned_tx_hex,
         handle_addquantumkey, handle_analyzepsbt, handle_combinepsbt, handle_createpsbt,
         handle_createrawtransaction, handle_decodepsbt, handle_finalizepsbt,
-        handle_getmempoolancestors, handle_getmempooldescendants, handle_joinpsbts,
+        handle_getmempoolancestors, handle_getmempooldescendants, handle_getmempoolentry,
+        handle_joinpsbts,
         handle_listquantumkeys, handle_removequantumkey, handle_utxoupdatepsbt, TxCacheEntry,
         parse_patoshi_record_bytes, verify_bitcoin_message_signature, write_compact_size,
         JsonRpcRequest, RpcState,
@@ -12907,6 +12916,99 @@ mod tests {
                 descendants_response.error.as_ref().map(|e| e.code),
                 Some(-5),
                 "confirmed tx should be treated as not in mempool"
+            );
+        });
+    }
+
+    #[test]
+    fn test_getmempoolentry_requires_pending_entry() {
+        let runtime = tokio::runtime::Runtime::new().expect("tokio runtime should initialize");
+        let state = RpcState::new(
+            "bitinfinity-testnet".to_string(),
+            "test".to_string(),
+            "http://127.0.0.1:3030".to_string(),
+        );
+
+        runtime.block_on(async {
+            let txid = "55".repeat(32);
+            let mut tx_cache = state.tx_cache.write().await;
+            tx_cache.entries.clear();
+            tx_cache.entries.insert(
+                txid.clone(),
+                TxCacheEntry {
+                    near_tx_hash: "included:blockhash".to_string(),
+                    raw_hex: build_unsigned_raw_tx_with_input(&"66".repeat(32)),
+                    sender_id: "confirmed.near".to_string(),
+                    receiver_id: String::new(),
+                    amount_satoshis: 0,
+                    block_height: 100,
+                    is_incoming: false,
+                },
+            );
+            drop(tx_cache);
+
+            let request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(7007),
+                method: "getmempoolentry".to_string(),
+                params: json!([txid]),
+            };
+            let response = handle_getmempoolentry(&state, &request).await;
+            assert!(response.result.is_none());
+            assert_eq!(
+                response.error.as_ref().map(|e| e.code),
+                Some(-5),
+                "confirmed tx should be treated as not in mempool for getmempoolentry"
+            );
+        });
+    }
+
+    #[test]
+    fn test_getmempoolentry_accepts_pending_entry() {
+        let runtime = tokio::runtime::Runtime::new().expect("tokio runtime should initialize");
+        let state = RpcState::new(
+            "bitinfinity-testnet".to_string(),
+            "test".to_string(),
+            "http://127.0.0.1:3030".to_string(),
+        );
+
+        runtime.block_on(async {
+            let txid = "77".repeat(32);
+            let mut tx_cache = state.tx_cache.write().await;
+            tx_cache.entries.clear();
+            tx_cache.entries.insert(
+                txid.clone(),
+                TxCacheEntry {
+                    near_tx_hash: "pending:77".to_string(),
+                    raw_hex: build_unsigned_raw_tx_with_input(&"88".repeat(32)),
+                    sender_id: "pending.near".to_string(),
+                    receiver_id: String::new(),
+                    amount_satoshis: 0,
+                    block_height: 0,
+                    is_incoming: false,
+                },
+            );
+            drop(tx_cache);
+
+            let request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(7008),
+                method: "getmempoolentry".to_string(),
+                params: json!([txid]),
+            };
+            let response = handle_getmempoolentry(&state, &request).await;
+            assert!(
+                response.error.is_none(),
+                "pending entry should be accepted by getmempoolentry"
+            );
+            assert_eq!(
+                response
+                    .result
+                    .as_ref()
+                    .and_then(|r| r.get("ancestorcount"))
+                    .and_then(|v| v.as_u64()),
+                Some(1),
+                "single pending entry should report ancestorcount=1"
             );
         });
     }
