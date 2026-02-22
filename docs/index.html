@@ -248,6 +248,39 @@
     .feature h3 { font-size: 18px; margin-bottom: 8px; }
     .feature p { color: var(--muted); font-size: 15px; }
 
+    /* Documentation links */
+    .docs-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+    @media (max-width: 700px) {
+      .docs-grid { grid-template-columns: 1fr; }
+    }
+    .doc-link {
+      display: block;
+      padding: 18px 20px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      text-decoration: none;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .doc-link:hover {
+      border-color: var(--blue);
+      transform: translateY(-1px);
+    }
+    .doc-link strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 16px;
+    }
+    .doc-link span {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
     /* Diagram */
     .diagram-wrap {
       background: var(--card);
@@ -668,6 +701,64 @@
         <h3>Bitcoin can't do this</h3>
         <p>Bitcoin has no upgrade path for quantum resistance. Changing Bitcoin's signature scheme would require a hard fork that the network has never successfully executed for a change this fundamental. Bitcoin Infinity builds the migration path in from day one, so when the threat arrives, the solution is already deployed.</p>
       </div>
+    </div>
+  </section>
+
+  <!-- Documentation -->
+  <section>
+    <h2>Read the <span>documentation</span></h2>
+    <p class="subtitle">
+      The docs now include deep technical guides for architecture, integration, operations, security, tokenomics, and troubleshooting.
+    </p>
+    <div class="docs-grid">
+      <a class="doc-link" href="documentation-hub.md">
+        <strong>Documentation Hub</strong>
+        <span>Single entry point linking all major guides.</span>
+      </a>
+      <a class="doc-link" href="architecture-overview.md">
+        <strong>Architecture Overview</strong>
+        <span>Component map, trust boundaries, and execution flow.</span>
+      </a>
+      <a class="doc-link" href="rpc-integration-playbook.md">
+        <strong>RPC Integration Playbook</strong>
+        <span>How to integrate wallets and services against the adapter.</span>
+      </a>
+      <a class="doc-link" href="wallet-operations-guide.md">
+        <strong>Wallet Operations Guide</strong>
+        <span>Lifecycle behavior, lock states, and operational guardrails.</span>
+      </a>
+      <a class="doc-link" href="local-dev-and-testing.md">
+        <strong>Local Development and Testing</strong>
+        <span>Build/test/lint/audit/fuzz workflow aligned to CI.</span>
+      </a>
+      <a class="doc-link" href="validator-operations-runbook.md">
+        <strong>Validator Operations Runbook</strong>
+        <span>Node lifecycle, rollout strategy, and incident response.</span>
+      </a>
+      <a class="doc-link" href="security-and-threat-model.md">
+        <strong>Security and Threat Model</strong>
+        <span>Threat classes, mitigations, and assurance pipeline.</span>
+      </a>
+      <a class="doc-link" href="tokenomics-and-governance.md">
+        <strong>Tokenomics and Governance</strong>
+        <span>Supply invariants, emission strategy, and policy controls.</span>
+      </a>
+      <a class="doc-link" href="troubleshooting.md">
+        <strong>Troubleshooting Guide</strong>
+        <span>Fixes for common local, CI, and runtime integration failures.</span>
+      </a>
+      <a class="doc-link" href="benchmark-methodology.md">
+        <strong>Benchmark Methodology</strong>
+        <span>Throughput reporting rules, profile definitions, and artifacts.</span>
+      </a>
+      <a class="doc-link" href="rpc-compatibility-matrix.md">
+        <strong>RPC Compatibility Matrix</strong>
+        <span>Status of Core-like, adapted, and intentionally stubbed methods.</span>
+      </a>
+      <a class="doc-link" href="rpc-error-codes.md">
+        <strong>RPC Error Codes</strong>
+        <span>Operational meaning of adapter JSON-RPC errors.</span>
+      </a>
     </div>
   </section>
 
