@@ -26,7 +26,7 @@ This document summarizes JSON-RPC error codes currently emitted by `bitinfinity-
 | `-6` | Insufficient funds / missing spendable key | Sender lacks funds or no usable local key entry exists. |
 | `-5` | Not found / invalid identifier | Missing tx/block/address, invalid key/address input, mempool miss. |
 | `-4` | Operation rejected by state/policy | Fee-bump unsupported, insufficient funds in specific flows, wallet persistence errors. |
-| `-3` | Invalid amount | Non-positive, non-finite, overflowed, or sub-satoshi-precision send amounts. |
+| `-3` | Invalid amount | Non-positive/negative (depending on method), non-finite, overflowed, or sub-satoshi-precision amounts across send, PSBT/raw intent, and NEAR action/deposit/allowance flows. |
 | `-1` | Generic unsupported operation | Explicitly disabled/not-implemented endpoints (e.g., unsupported wallet dump modes). |
 
 ## Notes
