@@ -2136,6 +2136,54 @@ if [[ "$AUTH_SETLABEL_OK_ID" != "auth-setlabel" ]]; then
   exit 1
 fi
 
+AUTH_GETRAWCHANGEADDR_PAYLOAD='{"jsonrpc":"2.0","id":"auth-getrawchangeaddress","method":"getrawchangeaddress","params":[]}'
+AUTH_GETRAWCHANGEADDR_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_GETRAWCHANGEADDR_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETRAWCHANGEADDR_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for getrawchangeaddress without auth, got: $AUTH_GETRAWCHANGEADDR_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_GETRAWCHANGEADDR_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_GETRAWCHANGEADDR_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETRAWCHANGEADDR_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for getrawchangeaddress with wrong auth, got: $AUTH_GETRAWCHANGEADDR_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_GETRAWCHANGEADDR_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_getrawchangeaddress_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_GETRAWCHANGEADDR_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETRAWCHANGEADDR_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated getrawchangeaddress, got: $AUTH_GETRAWCHANGEADDR_OK_CODE" >&2
+  exit 1
+fi
+AUTH_GETRAWCHANGEADDR_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_getrawchangeaddress_success_response.json")"
+if [[ "$AUTH_GETRAWCHANGEADDR_OK_ID" != "auth-getrawchangeaddress" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated getrawchangeaddress" >&2
+  exit 1
+fi
+
+AUTH_LISTLABELS_PAYLOAD='{"jsonrpc":"2.0","id":"auth-listlabels","method":"listlabels","params":[]}'
+AUTH_LISTLABELS_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_LISTLABELS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_LISTLABELS_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for listlabels without auth, got: $AUTH_LISTLABELS_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_LISTLABELS_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_LISTLABELS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_LISTLABELS_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for listlabels with wrong auth, got: $AUTH_LISTLABELS_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_LISTLABELS_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_listlabels_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_LISTLABELS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_LISTLABELS_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated listlabels, got: $AUTH_LISTLABELS_OK_CODE" >&2
+  exit 1
+fi
+AUTH_LISTLABELS_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_listlabels_success_response.json")"
+if [[ "$AUTH_LISTLABELS_OK_ID" != "auth-listlabels" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated listlabels" >&2
+  exit 1
+fi
+
 AUTH_WALLETPROCESS_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-walletprocesspsbt\",\"method\":\"walletprocesspsbt\",\"params\":[\"$FUNDED_PSBT\"]}"
 AUTH_WALLETPROCESS_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_WALLETPROCESS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
 if [[ "$AUTH_WALLETPROCESS_NOAUTH_CODE" != "401" ]]; then
@@ -2443,6 +2491,12 @@ auth_getnewaddress_ok_http_code=$AUTH_GETNEWADDRESS_OK_CODE
 auth_setlabel_noauth_http_code=$AUTH_SETLABEL_NOAUTH_CODE
 auth_setlabel_wrong_http_code=$AUTH_SETLABEL_WRONG_CODE
 auth_setlabel_ok_http_code=$AUTH_SETLABEL_OK_CODE
+auth_getrawchangeaddress_noauth_http_code=$AUTH_GETRAWCHANGEADDR_NOAUTH_CODE
+auth_getrawchangeaddress_wrong_http_code=$AUTH_GETRAWCHANGEADDR_WRONG_CODE
+auth_getrawchangeaddress_ok_http_code=$AUTH_GETRAWCHANGEADDR_OK_CODE
+auth_listlabels_noauth_http_code=$AUTH_LISTLABELS_NOAUTH_CODE
+auth_listlabels_wrong_http_code=$AUTH_LISTLABELS_WRONG_CODE
+auth_listlabels_ok_http_code=$AUTH_LISTLABELS_OK_CODE
 auth_walletprocesspsbt_noauth_http_code=$AUTH_WALLETPROCESS_NOAUTH_CODE
 auth_walletprocesspsbt_wrong_http_code=$AUTH_WALLETPROCESS_WRONG_CODE
 auth_walletprocesspsbt_ok_http_code=$AUTH_WALLETPROCESS_OK_CODE
