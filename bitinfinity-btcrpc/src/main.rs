@@ -4434,7 +4434,18 @@ async fn handle_getreceivedbyaddress(
     for (_txid, entry) in &tx_cache.entries {
         // Incoming transfers from the indexer
         if entry.is_incoming && entry.receiver_id == addr {
-            total_received_satoshis += entry.amount_satoshis;
+            total_received_satoshis = match total_received_satoshis
+                .checked_add(entry.amount_satoshis)
+            {
+                Some(total) => total,
+                None => {
+                    return err_response(
+                        &request.id,
+                        -32000,
+                        "Received amount overflow while aggregating address history".to_string(),
+                    )
+                }
+            };
             continue;
         }
         // Locally-sent transactions to this address
@@ -4442,7 +4453,17 @@ async fn handle_getreceivedbyaddress(
             let parts: Vec<&str> = entry.raw_hex.splitn(3, ':').collect();
             if parts.len() >= 3 && parts[1] == addr {
                 if let Ok(sats) = parts[2].parse::<u64>() {
-                    total_received_satoshis += sats;
+                    total_received_satoshis = match total_received_satoshis.checked_add(sats) {
+                        Some(total) => total,
+                        None => {
+                            return err_response(
+                                &request.id,
+                                -32000,
+                                "Received amount overflow while aggregating address history"
+                                    .to_string(),
+                            )
+                        }
+                    };
                 }
             }
         }
@@ -4456,7 +4477,16 @@ async fn handle_getreceivedbyaddress(
             {
                 for out in &parsed.outputs {
                     if !out.is_op_return && out.address == addr {
-                        total_received_satoshis += out.amount_satoshis;
+                        total_received_satoshis =
+                            match total_received_satoshis.checked_add(out.amount_satoshis) {
+                                Some(total) => total,
+                                None => return err_response(
+                                    &request.id,
+                                    -32000,
+                                    "Received amount overflow while aggregating address history"
+                                        .to_string(),
+                                ),
+                            };
                     }
                 }
             }
@@ -10093,14 +10123,34 @@ async fn handle_getreceivedbylabel(state: &RpcState, request: &JsonRpcRequest) -
     let mut total_received_satoshis: u64 = 0;
     for (_txid, entry) in &tx_cache.entries {
         if entry.is_incoming && entry.receiver_id == label {
-            total_received_satoshis += entry.amount_satoshis;
+            total_received_satoshis =
+                match total_received_satoshis.checked_add(entry.amount_satoshis) {
+                    Some(total) => total,
+                    None => {
+                        return err_response(
+                            &request.id,
+                            -32000,
+                            "Received amount overflow while aggregating label history".to_string(),
+                        )
+                    }
+                };
             continue;
         }
         if entry.raw_hex.starts_with("sendtoaddress:") {
             let parts: Vec<&str> = entry.raw_hex.splitn(3, ':').collect();
             if parts.len() >= 3 && parts[1] == label {
                 if let Ok(sats) = parts[2].parse::<u64>() {
-                    total_received_satoshis += sats;
+                    total_received_satoshis = match total_received_satoshis.checked_add(sats) {
+                        Some(total) => total,
+                        None => {
+                            return err_response(
+                                &request.id,
+                                -32000,
+                                "Received amount overflow while aggregating label history"
+                                    .to_string(),
+                            )
+                        }
+                    };
                 }
             }
         }
@@ -11856,15 +11906,15 @@ mod tests {
         handle_createrawtransaction, handle_decodepsbt, handle_encryptwallet, handle_finalizepsbt,
         handle_fundgaskey, handle_fundrawtransaction, handle_getbalance,
         handle_getmempoolancestors, handle_getmempooldescendants, handle_getmempoolentry,
-        handle_getunconfirmedbalance, handle_getwalletinfo, handle_importaddress, handle_joinpsbts,
-        handle_keypoolrefill, handle_listquantumkeys, handle_listreceivedbylabel,
-        handle_listunspent, handle_listwalletdir, handle_listwallets, handle_loadwallet,
-        handle_lockunspent, handle_removequantumkey, handle_sendmany, handle_sendneartx,
-        handle_sendtoaddress, handle_setlabel, handle_stake, handle_unloadwallet,
-        handle_utxoupdatepsbt, handle_walletcreatefundedpsbt, handle_walletpassphrasechange,
-        handle_walletprocesspsbt, handle_withdrawgaskey, parse_patoshi_record_bytes,
-        verify_bitcoin_message_signature, write_compact_size, JsonRpcRequest, RpcState,
-        TxCacheEntry,
+        handle_getreceivedbyaddress, handle_getreceivedbylabel, handle_getunconfirmedbalance,
+        handle_getwalletinfo, handle_importaddress, handle_joinpsbts, handle_keypoolrefill,
+        handle_listquantumkeys, handle_listreceivedbylabel, handle_listunspent,
+        handle_listwalletdir, handle_listwallets, handle_loadwallet, handle_lockunspent,
+        handle_removequantumkey, handle_sendmany, handle_sendneartx, handle_sendtoaddress,
+        handle_setlabel, handle_stake, handle_unloadwallet, handle_utxoupdatepsbt,
+        handle_walletcreatefundedpsbt, handle_walletpassphrasechange, handle_walletprocesspsbt,
+        handle_withdrawgaskey, parse_patoshi_record_bytes, verify_bitcoin_message_signature,
+        write_compact_size, JsonRpcRequest, RpcState, TxCacheEntry,
     };
     use base64::Engine;
     use secp256k1::{Message, Secp256k1, SecretKey};
@@ -14168,6 +14218,116 @@ mod tests {
                     .and_then(|v| v.as_u64()),
                 Some(1),
                 "single pending entry should report ancestorcount=1"
+            );
+        });
+    }
+
+    #[test]
+    fn test_getreceivedbyaddress_rejects_accumulator_overflow() {
+        let runtime = tokio::runtime::Runtime::new().expect("tokio runtime should initialize");
+        let state = RpcState::new(
+            "bitinfinity-testnet".to_string(),
+            "test".to_string(),
+            "http://127.0.0.1:3030".to_string(),
+        );
+        let addr = "bc1qoverflowtestaddress0000000000000000000000000";
+
+        runtime.block_on(async {
+            let mut tx_cache = state.tx_cache.write().await;
+            tx_cache.entries.clear();
+            tx_cache.entries.insert(
+                "aa".repeat(32),
+                TxCacheEntry {
+                    near_tx_hash: "pending:overflow-a".to_string(),
+                    raw_hex: String::new(),
+                    sender_id: "sender.near".to_string(),
+                    receiver_id: addr.to_string(),
+                    amount_satoshis: u64::MAX,
+                    block_height: 0,
+                    is_incoming: true,
+                },
+            );
+            tx_cache.entries.insert(
+                "bb".repeat(32),
+                TxCacheEntry {
+                    near_tx_hash: "pending:overflow-b".to_string(),
+                    raw_hex: String::new(),
+                    sender_id: "sender.near".to_string(),
+                    receiver_id: addr.to_string(),
+                    amount_satoshis: 1,
+                    block_height: 0,
+                    is_incoming: true,
+                },
+            );
+            drop(tx_cache);
+
+            let request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(7009),
+                method: "getreceivedbyaddress".to_string(),
+                params: json!([addr]),
+            };
+            let response = handle_getreceivedbyaddress(&state, &request).await;
+            assert!(response.result.is_none());
+            assert_eq!(
+                response.error.as_ref().map(|e| e.code),
+                Some(-32000),
+                "getreceivedbyaddress should reject satoshi accumulator overflow"
+            );
+        });
+    }
+
+    #[test]
+    fn test_getreceivedbylabel_rejects_accumulator_overflow() {
+        let runtime = tokio::runtime::Runtime::new().expect("tokio runtime should initialize");
+        let state = RpcState::new(
+            "bitinfinity-testnet".to_string(),
+            "test".to_string(),
+            "http://127.0.0.1:3030".to_string(),
+        );
+        let label = "bc1qoverflowlabel000000000000000000000000000000";
+
+        runtime.block_on(async {
+            let mut tx_cache = state.tx_cache.write().await;
+            tx_cache.entries.clear();
+            tx_cache.entries.insert(
+                "cc".repeat(32),
+                TxCacheEntry {
+                    near_tx_hash: "pending:overflow-c".to_string(),
+                    raw_hex: String::new(),
+                    sender_id: "sender.near".to_string(),
+                    receiver_id: label.to_string(),
+                    amount_satoshis: u64::MAX,
+                    block_height: 0,
+                    is_incoming: true,
+                },
+            );
+            tx_cache.entries.insert(
+                "dd".repeat(32),
+                TxCacheEntry {
+                    near_tx_hash: "pending:overflow-d".to_string(),
+                    raw_hex: String::new(),
+                    sender_id: "sender.near".to_string(),
+                    receiver_id: label.to_string(),
+                    amount_satoshis: 1,
+                    block_height: 0,
+                    is_incoming: true,
+                },
+            );
+            drop(tx_cache);
+
+            let request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(7010),
+                method: "getreceivedbylabel".to_string(),
+                params: json!([label]),
+            };
+            let response = handle_getreceivedbylabel(&state, &request).await;
+            assert!(response.result.is_none());
+            assert_eq!(
+                response.error.as_ref().map(|e| e.code),
+                Some(-32000),
+                "getreceivedbylabel should reject satoshi accumulator overflow"
             );
         });
     }
