@@ -16,20 +16,21 @@ fuzz_target!(|data: &[u8]| {
 
     if let Ok(s) = std::str::from_utf8(data) {
         let trimmed = s.trim();
+        let trimmed_bytes = trimmed.as_bytes();
 
         // Test hex decode of arbitrary input.
-        let _ = hex::decode(trimmed);
+        let _ = hex::decode(trimmed_bytes);
 
         // Exercise odd-length and truncated variants.
-        let odd = if trimmed.len() % 2 == 0 && !trimmed.is_empty() {
-            &trimmed[..trimmed.len() - 1]
+        let odd = if trimmed_bytes.len().is_multiple_of(2) && !trimmed_bytes.is_empty() {
+            &trimmed_bytes[..trimmed_bytes.len() - 1]
         } else {
-            trimmed
+            trimmed_bytes
         };
         let _ = hex::decode(odd);
 
         // If it decodes, try consensus-decode from hex payload as tx bytes.
-        if let Ok(bytes) = hex::decode(trimmed) {
+        if let Ok(bytes) = hex::decode(trimmed_bytes) {
             let _ = bitcoin::Transaction::consensus_decode(&mut std::io::Cursor::new(&bytes));
             let half = bytes.len() / 2;
             let _ =
