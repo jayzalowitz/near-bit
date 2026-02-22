@@ -8231,29 +8231,12 @@ async fn handle_sendneartx(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
         None => return err_response(&request.id, -32602, "actions must be an array".to_string()),
     };
 
-    let (key_entry, secret_key, near_pubkey_str) = match get_sender_key(state, sender).await {
-        Ok(v) => v,
-        Err(resp) => return resp,
-    };
-    let (block_hash, nonce) =
-        match get_block_and_nonce(state, sender, &near_pubkey_str, &request.id).await {
-            Ok(v) => v,
-            Err(resp) => return resp,
-        };
+    enum ValidatedSendNearAction {
+        Ready(NearAction),
+        Stake(u128),
+    }
 
-    let pk_uncompressed = match key_entry.public_key_uncompressed_bytes() {
-        Ok(b) => b,
-        Err(e) => return err_response(&request.id, -32000, format!("Key error: {}", e)),
-    };
-
-    let mut builder = NearTxBuilder::new(
-        sender.to_string(),
-        pk_uncompressed,
-        nonce,
-        receiver.to_string(),
-        block_hash,
-    );
-
+    let mut validated_actions = Vec::with_capacity(actions_arr.len());
     for action_obj in actions_arr {
         let action_type = action_obj
             .get("type")
@@ -8276,7 +8259,9 @@ async fn handle_sendneartx(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
                         )
                     }
                 };
-                NearAction::transfer(ParsedBitcoinTx::satoshis_to_yocto(sat))
+                ValidatedSendNearAction::Ready(NearAction::transfer(
+                    ParsedBitcoinTx::satoshis_to_yocto(sat),
+                ))
             }
             "function_call" => {
                 let method = action_obj
@@ -8307,9 +8292,14 @@ async fn handle_sendneartx(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
                     }
                 };
                 let deposit_yocto = ParsedBitcoinTx::satoshis_to_yocto(deposit_sat);
-                NearAction::function_call(method, args_str.as_bytes(), gas, deposit_yocto)
+                ValidatedSendNearAction::Ready(NearAction::function_call(
+                    method,
+                    args_str.as_bytes(),
+                    gas,
+                    deposit_yocto,
+                ))
             }
-            "create_account" => NearAction::create_account(),
+            "create_account" => ValidatedSendNearAction::Ready(NearAction::create_account()),
             "deploy_contract" => {
                 let code_b64 = action_obj
                     .get("code_base64")
@@ -8317,7 +8307,7 @@ async fn handle_sendneartx(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
                     .unwrap_or("");
                 use base64::Engine;
                 match base64::engine::general_purpose::STANDARD.decode(code_b64) {
-                    Ok(code) => NearAction::deploy_contract(&code),
+                    Ok(code) => ValidatedSendNearAction::Ready(NearAction::deploy_contract(&code)),
                     Err(e) => {
                         return err_response(
                             &request.id,
@@ -8336,12 +8326,14 @@ async fn handle_sendneartx(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
                     Ok(b) if b.len() == 64 => {
                         let mut arr = [0u8; 64];
                         arr.copy_from_slice(&b);
-                        NearAction::add_full_access_key(&arr)
+                        ValidatedSendNearAction::Ready(NearAction::add_full_access_key(&arr))
                     }
                     Ok(b) if b.len() == 32 => {
                         let mut arr = [0u8; 32];
                         arr.copy_from_slice(&b);
-                        NearAction::add_full_access_key_ed25519(&arr)
+                        ValidatedSendNearAction::Ready(NearAction::add_full_access_key_ed25519(
+                            &arr,
+                        ))
                     }
                     _ => return err_response(&request.id, -32602, "Invalid pubkey_hex for add_full_access_key (expected 32 bytes for Ed25519 or 64 bytes for secp256k1)".to_string()),
                 }
@@ -8355,12 +8347,12 @@ async fn handle_sendneartx(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
                     Ok(b) if b.len() == 64 => {
                         let mut arr = [0u8; 64];
                         arr.copy_from_slice(&b);
-                        NearAction::delete_key(&arr)
+                        ValidatedSendNearAction::Ready(NearAction::delete_key(&arr))
                     }
                     Ok(b) if b.len() == 32 => {
                         let mut arr = [0u8; 32];
                         arr.copy_from_slice(&b);
-                        NearAction::delete_key_ed25519(&arr)
+                        ValidatedSendNearAction::Ready(NearAction::delete_key_ed25519(&arr))
                     }
                     _ => return err_response(&request.id, -32602, "Invalid pubkey_hex for delete_key (expected 32 bytes for Ed25519 or 64 bytes for secp256k1)".to_string()),
                 }
@@ -8370,7 +8362,7 @@ async fn handle_sendneartx(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
                     .get("beneficiary")
                     .and_then(|v| v.as_str())
                     .unwrap_or("");
-                NearAction::delete_account(beneficiary)
+                ValidatedSendNearAction::Ready(NearAction::delete_account(beneficiary))
             }
             "stake" => {
                 let btc = action_obj
@@ -8386,7 +8378,7 @@ async fn handle_sendneartx(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
                             .to_string(),
                     ),
                 };
-                NearAction::stake(ParsedBitcoinTx::satoshis_to_yocto(sat), &pk_uncompressed)
+                ValidatedSendNearAction::Stake(ParsedBitcoinTx::satoshis_to_yocto(sat))
             }
             "add_function_call_key" => {
                 let pk_hex = action_obj
@@ -8424,7 +8416,12 @@ async fn handle_sendneartx(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
                     Ok(b) if b.len() == 64 => {
                         let mut arr = [0u8; 64];
                         arr.copy_from_slice(&b);
-                        NearAction::add_function_call_key(&arr, allowance, receiver_id, &methods)
+                        ValidatedSendNearAction::Ready(NearAction::add_function_call_key(
+                            &arr,
+                            allowance,
+                            receiver_id,
+                            &methods,
+                        ))
                     }
                     _ => {
                         return err_response(
@@ -8442,7 +8439,9 @@ async fn handle_sendneartx(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
                     .unwrap_or("");
                 use base64::Engine;
                 match base64::engine::general_purpose::STANDARD.decode(code_b64) {
-                    Ok(code) => NearAction::deploy_global_contract(&code),
+                    Ok(code) => {
+                        ValidatedSendNearAction::Ready(NearAction::deploy_global_contract(&code))
+                    }
                     Err(e) => {
                         return err_response(
                             &request.id,
@@ -8458,7 +8457,9 @@ async fn handle_sendneartx(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
                         Ok(b) if b.len() == 32 => {
                             let mut arr = [0u8; 32];
                             arr.copy_from_slice(&b);
-                            NearAction::use_global_contract_by_hash(&arr)
+                            ValidatedSendNearAction::Ready(NearAction::use_global_contract_by_hash(
+                                &arr,
+                            ))
                         }
                         _ => {
                             return err_response(
@@ -8471,7 +8472,9 @@ async fn handle_sendneartx(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
                 } else if let Some(account_id) =
                     action_obj.get("account_id").and_then(|v| v.as_str())
                 {
-                    NearAction::use_global_contract_by_account(account_id)
+                    ValidatedSendNearAction::Ready(NearAction::use_global_contract_by_account(
+                        account_id,
+                    ))
                 } else {
                     return err_response(
                         &request.id,
@@ -8505,7 +8508,9 @@ async fn handle_sendneartx(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
                     Ok(b) if b.len() == 64 => {
                         let mut arr = [0u8; 64];
                         arr.copy_from_slice(&b);
-                        NearAction::transfer_to_gas_key(&arr, deposit)
+                        ValidatedSendNearAction::Ready(NearAction::transfer_to_gas_key(
+                            &arr, deposit,
+                        ))
                     }
                     _ => {
                         return err_response(
@@ -8541,7 +8546,9 @@ async fn handle_sendneartx(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
                     Ok(b) if b.len() == 64 => {
                         let mut arr = [0u8; 64];
                         arr.copy_from_slice(&b);
-                        NearAction::withdraw_from_gas_key(&arr, amount)
+                        ValidatedSendNearAction::Ready(NearAction::withdraw_from_gas_key(
+                            &arr, amount,
+                        ))
                     }
                     _ => {
                         return err_response(
@@ -8552,7 +8559,9 @@ async fn handle_sendneartx(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
                     }
                 }
             }
-            "deterministic_state_init" => NearAction::deterministic_state_init(),
+            "deterministic_state_init" => {
+                ValidatedSendNearAction::Ready(NearAction::deterministic_state_init())
+            }
             "delegate" => {
                 let delegate_action_hex = action_obj
                     .get("delegate_action_hex")
@@ -8567,7 +8576,7 @@ async fn handle_sendneartx(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
                 let sig_bytes =
                     hex::decode(signature_hex).map_err(|e| format!("Invalid signature_hex: {}", e));
                 match (delegate_bytes, sig_bytes) {
-                    (Ok(d), Ok(s)) => NearAction::delegate(&d, &s),
+                    (Ok(d), Ok(s)) => ValidatedSendNearAction::Ready(NearAction::delegate(&d, &s)),
                     (Err(e), _) | (_, Err(e)) => return err_response(&request.id, -32602, e),
                 }
             }
@@ -8579,7 +8588,41 @@ async fn handle_sendneartx(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
                 )
             }
         };
-        builder.add_action(action);
+        validated_actions.push(action);
+    }
+
+    let (key_entry, secret_key, near_pubkey_str) = match get_sender_key(state, sender).await {
+        Ok(v) => v,
+        Err(resp) => return resp,
+    };
+    let (block_hash, nonce) =
+        match get_block_and_nonce(state, sender, &near_pubkey_str, &request.id).await {
+            Ok(v) => v,
+            Err(resp) => return resp,
+        };
+
+    let pk_uncompressed = match key_entry.public_key_uncompressed_bytes() {
+        Ok(b) => b,
+        Err(e) => return err_response(&request.id, -32000, format!("Key error: {}", e)),
+    };
+
+    let mut builder = NearTxBuilder::new(
+        sender.to_string(),
+        pk_uncompressed,
+        nonce,
+        receiver.to_string(),
+        block_hash,
+    );
+
+    for action in validated_actions {
+        match action {
+            ValidatedSendNearAction::Ready(action) => {
+                builder.add_action(action);
+            }
+            ValidatedSendNearAction::Stake(stake_yocto) => {
+                builder.add_action(NearAction::stake(stake_yocto, &pk_uncompressed));
+            }
+        }
     }
 
     match builder.sign_and_encode(&secret_key) {
@@ -11764,11 +11807,12 @@ mod tests {
         handle_getunconfirmedbalance, handle_getwalletinfo, handle_importaddress, handle_joinpsbts,
         handle_keypoolrefill, handle_listquantumkeys, handle_listreceivedbylabel,
         handle_listunspent, handle_listwalletdir, handle_listwallets, handle_loadwallet,
-        handle_lockunspent, handle_removequantumkey, handle_sendmany, handle_sendtoaddress,
-        handle_setlabel, handle_stake, handle_unloadwallet, handle_utxoupdatepsbt,
-        handle_walletcreatefundedpsbt, handle_walletpassphrasechange, handle_walletprocesspsbt,
-        handle_withdrawgaskey, parse_patoshi_record_bytes, verify_bitcoin_message_signature,
-        write_compact_size, JsonRpcRequest, RpcState, TxCacheEntry,
+        handle_lockunspent, handle_removequantumkey, handle_sendmany, handle_sendneartx,
+        handle_sendtoaddress, handle_setlabel, handle_stake, handle_unloadwallet,
+        handle_utxoupdatepsbt, handle_walletcreatefundedpsbt, handle_walletpassphrasechange,
+        handle_walletprocesspsbt, handle_withdrawgaskey, parse_patoshi_record_bytes,
+        verify_bitcoin_message_signature, write_compact_size, JsonRpcRequest, RpcState,
+        TxCacheEntry,
     };
     use base64::Engine;
     use secp256k1::{Message, Secp256k1, SecretKey};
@@ -11981,6 +12025,42 @@ mod tests {
                 response.error.as_ref().map(|e| e.code),
                 Some(-3),
                 "sendmany should reject sub-satoshi decimal precision"
+            );
+        });
+    }
+
+    #[test]
+    fn test_sendneartx_rejects_sub_satoshi_transfer_before_key_lookup() {
+        let runtime = tokio::runtime::Runtime::new().expect("tokio runtime should initialize");
+        let state = RpcState::new(
+            "bitinfinity-testnet".to_string(),
+            "test".to_string(),
+            "http://127.0.0.1:3030".to_string(),
+        );
+
+        runtime.block_on(async {
+            let request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(71007),
+                method: "sendneartx".to_string(),
+                params: json!([
+                    "sender.near",
+                    "receiver.near",
+                    [
+                        {
+                            "type": "transfer",
+                            "amount_btc": 0.000000001
+                        }
+                    ]
+                ]),
+            };
+            let response = handle_sendneartx(&state, &request).await;
+
+            assert!(response.result.is_none());
+            assert_eq!(
+                response.error.as_ref().map(|e| e.code),
+                Some(-3),
+                "sendneartx should validate transfer amount before key/network lookups"
             );
         });
     }
