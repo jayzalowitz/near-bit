@@ -20,6 +20,7 @@ BTC_RPC_ADDR="${BTC_RPC_ADDR:-127.0.0.1:18332}"
 BTC_RPC_AUTH_ADDR="${BTC_RPC_AUTH_ADDR:-127.0.0.1:18333}"
 BTCRPC_AUTH_USER="${BTCRPC_AUTH_USER:-e2euser}"
 BTCRPC_AUTH_PASS="${BTCRPC_AUTH_PASS:-e2epass}"
+NEAR_NETWORK_PORT="${NEAR_NETWORK_PORT:-24567}"
 
 NEARD_BIN="${NEARD_BIN:-$ROOT_DIR/nearcore/target/release/neard}"
 TOOLS_BIN="${TOOLS_BIN:-$ROOT_DIR/target/debug/bitinfinity-tools}"
@@ -58,12 +59,58 @@ cleanup() {
 }
 trap cleanup EXIT
 
-for cmd in cargo curl jq; do
+for cmd in cargo curl jq lsof; do
   if ! command -v "$cmd" >/dev/null 2>&1; then
     echo "Missing required command: $cmd" >&2
     exit 1
   fi
 done
+
+extract_port_from_url() {
+  local url_no_scheme="${1#*://}"
+  local host_port="${url_no_scheme%%/*}"
+  echo "${host_port##*:}"
+}
+
+validate_port_number() {
+  local port="$1"
+  [[ "$port" =~ ^[0-9]+$ ]] && ((port >= 1 && port <= 65535))
+}
+
+assert_port_available() {
+  local port="$1"
+  local label="$2"
+  local listeners
+
+  listeners="$(lsof -n -P -iTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)"
+  if [[ -n "$listeners" ]]; then
+    echo "$label port $port is already in use; stop the conflicting process or set an alternate port env var." >&2
+    echo "$listeners" >&2
+    exit 1
+  fi
+}
+
+NEAR_RPC_PORT="$(extract_port_from_url "$NEAR_RPC_URL")"
+BTC_RPC_PORT="${BTC_RPC_ADDR##*:}"
+BTC_RPC_AUTH_PORT="${BTC_RPC_AUTH_ADDR##*:}"
+
+for port_label in \
+  "NEAR_RPC_PORT:$NEAR_RPC_PORT" \
+  "NEAR_NETWORK_PORT:$NEAR_NETWORK_PORT" \
+  "BTC_RPC_PORT:$BTC_RPC_PORT" \
+  "BTC_RPC_AUTH_PORT:$BTC_RPC_AUTH_PORT"; do
+  label="${port_label%%:*}"
+  port="${port_label##*:}"
+  if ! validate_port_number "$port"; then
+    echo "Invalid $label value: $port" >&2
+    exit 1
+  fi
+done
+
+assert_port_available "$NEAR_RPC_PORT" "NEAR RPC"
+assert_port_available "$NEAR_NETWORK_PORT" "NEAR network"
+assert_port_available "$BTC_RPC_PORT" "Bitcoin RPC"
+assert_port_available "$BTC_RPC_AUTH_PORT" "Bitcoin RPC auth"
 
 if [[ ! -x "$NEARD_BIN" ]]; then
   echo "Missing neard binary at $NEARD_BIN" >&2
