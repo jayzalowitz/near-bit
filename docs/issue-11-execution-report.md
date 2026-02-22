@@ -1672,6 +1672,41 @@ Verification reruns:
 - `./scripts/benchmark/run_tps_profiles.sh --profile baseline --tps-override 40 --duration-override 3 --run-grace 5 --startup-timeout 15 --num-accounts 10 --metrics-interval 1 --skip-build --disable-controller --allow-nonzero-run-status --loglevel warn --out-dir artifacts/benchmarks/logfile-guard-smoke-20260222T082027Z`
   - confirmed no transient `grep ... No such file or directory` log noise during startup.
 
+## Continuation (2026-02-22): benchmark metric baseline subtraction
+
+Implemented:
+- Hardened benchmark metric accounting in `scripts/benchmark/run_tps_profiles.sh`:
+  - captures pre-run metric baselines at run-localnet launch,
+  - computes benchmark-only deltas for:
+    - `final_success_metric`
+    - `final_failed_metric`
+  - preserves raw counters for auditability in per-profile summary:
+    - `pre_run_success_metric_baseline`
+    - `pre_run_failed_metric_baseline`
+    - `final_success_metric_raw`
+    - `final_failed_metric_raw`.
+- This removes `create-accounts` transaction pollution from benchmark final metric outputs.
+
+Primary file:
+- `scripts/benchmark/run_tps_profiles.sh`
+
+Verification reruns:
+- `bash -n scripts/benchmark/run_tps_profiles.sh`
+- `./scripts/benchmark/run_tps_profiles.sh --profile baseline --tps-override 60 --duration-override 4 --run-grace 8 --startup-timeout 30 --num-accounts 20 --metrics-interval 1 --skip-build --allow-nonzero-run-status --out-dir artifacts/benchmarks/metric-delta-enabled-20260222T082130Z`
+  - observed in `artifacts/benchmarks/metric-delta-enabled-20260222T082130Z/baseline/summary.json`:
+    - `pre_run_success_metric_baseline=20`
+    - `final_success_metric_raw=192`
+    - `final_success_metric=172` (baseline-adjusted)
+    - `final_failed_metric=0`
+    - `effective_run_status=0`, `signal_11_from_log=0`.
+- `./scripts/benchmark/run_tps_profiles.sh --profile baseline --tps-override 40 --duration-override 3 --run-grace 5 --startup-timeout 15 --num-accounts 10 --metrics-interval 1 --skip-build --disable-controller --allow-nonzero-run-status --loglevel warn --out-dir artifacts/benchmarks/metric-delta-null-20260222T082259Z`
+  - observed in `artifacts/benchmarks/metric-delta-null-20260222T082259Z/baseline/summary.json`:
+    - `pre_run_success_metric_baseline=10`
+    - `final_success_metric_raw=80`
+    - `final_success_metric=70` (baseline-adjusted)
+    - `final_failed_metric=0`
+    - `run_status=0`, `timed_out=0`.
+
 ## Issue #1 goal check
 
 Status:
