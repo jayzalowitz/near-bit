@@ -2049,6 +2049,30 @@ Verification reruns:
   - result: `67 passed`, `0 failed`.
   - includes new raw/PSBT/funding sub-satoshi rejection coverage alongside all prior hardening tests.
 
+## Continuation (2026-02-22): NEAR action amount-conversion cleanup for advanced RPC paths
+
+Implemented:
+- Added shared non-negative BTC conversion helper:
+  - `btc_to_satoshis_non_negative_checked(amount_btc: f64) -> Option<u64>`
+  - allows exact zero; rejects negative/non-finite/sub-satoshi/overflow values.
+- Removed remaining lossy casts in NEAR advanced action handling:
+  - `addnearkey` function-call allowance parsing now uses checked conversion.
+  - `sendneartx` action parsing now validates/converts amounts for:
+    - `transfer`
+    - `function_call` (`deposit_btc`)
+    - `stake`
+    - `add_function_call_key` (`allowance_btc`)
+    - `transfer_to_gas_key`
+    - `withdraw_from_gas_key`
+  - invalid amounts now return deterministic `-3` errors instead of truncating via cast.
+- Added regression coverage for the new helper:
+  - `test_btc_to_satoshis_non_negative_checked_validation`
+
+Verification reruns:
+- `cargo test -p bitinfinity-btcrpc -- --nocapture`
+  - result: `68 passed`, `0 failed`.
+  - includes new non-negative conversion helper assertions plus prior send/raw/PSBT/NEAR hardening tests.
+
 ## Issue #11 remaining high-priority gaps (not completed here)
 
 Still open and required for full #11 closure:
