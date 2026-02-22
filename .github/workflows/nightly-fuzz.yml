@@ -2,13 +2,15 @@ name: Nightly Fuzz
 
 on:
   schedule:
-    - cron: "0 4 * * *"
+    # Run every 6 hours; each run fuzzes each target for ~6h.
+    # This yields ~24h cumulative fuzz time per target per day.
+    - cron: "0 */6 * * *"
   workflow_dispatch:
     inputs:
       max_total_time:
         description: "Per-target fuzz time in seconds"
         required: false
-        default: "1800"
+        default: "21600"
 
 env:
   CARGO_TERM_COLOR: always
@@ -30,7 +32,7 @@ jobs:
             target: fuzz_tx_hex
           - crate_path: bitinfinity-btcrpc
             target: fuzz_tx_translator
-    timeout-minutes: 90
+    timeout-minutes: 360
     steps:
       - uses: actions/checkout@v4
 
@@ -54,7 +56,7 @@ jobs:
           set -euo pipefail
           DURATION="${{ github.event.inputs.max_total_time }}"
           if [ -z "${DURATION}" ]; then
-            DURATION="1800"
+            DURATION="21600"
           fi
           cd "${{ matrix.crate_path }}"
           cargo fuzz run "${{ matrix.target }}" -- -max_total_time="${DURATION}" -timeout=10
