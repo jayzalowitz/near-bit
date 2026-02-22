@@ -202,6 +202,18 @@ prepare_schedule_file() {
 
 ensure_binaries() {
   if [[ "${SKIP_BUILD}" -eq 1 ]]; then
+    if [[ "${DRY_RUN}" -eq 0 ]]; then
+      if [[ ! -x "${TX_GEN_DIR}/neard" ]]; then
+        echo "error: expected executable ${TX_GEN_DIR}/neard when using --skip-build" >&2
+        echo "hint: rerun without --skip-build to build and link neard with tx_generator support." >&2
+        exit 1
+      fi
+      if ! grep -a -E -q 'starting the static load schedule|completed running the schedule|tx generator idle: no schedule provided' "${TX_GEN_DIR}/neard"; then
+        echo "error: ${TX_GEN_DIR}/neard does not appear to include tx_generator benchmark markers." >&2
+        echo "hint: rerun without --skip-build to rebuild neard with --features tx_generator." >&2
+        exit 1
+      fi
+    fi
     return
   fi
   require_cmd cargo
