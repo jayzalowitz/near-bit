@@ -1848,6 +1848,54 @@ if [[ "$AUTH_CREATEWALLET_OK_ID" != "auth-createwallet" ]]; then
   exit 1
 fi
 
+AUTH_LOADWALLET_PAYLOAD='{"jsonrpc":"2.0","id":"auth-loadwallet","method":"loadwallet","params":["auth-wallet"]}'
+AUTH_LOADWALLET_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_LOADWALLET_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_LOADWALLET_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for loadwallet without auth, got: $AUTH_LOADWALLET_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_LOADWALLET_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_LOADWALLET_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_LOADWALLET_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for loadwallet with wrong auth, got: $AUTH_LOADWALLET_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_LOADWALLET_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_loadwallet_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_LOADWALLET_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_LOADWALLET_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated loadwallet, got: $AUTH_LOADWALLET_OK_CODE" >&2
+  exit 1
+fi
+AUTH_LOADWALLET_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_loadwallet_success_response.json")"
+if [[ "$AUTH_LOADWALLET_OK_ID" != "auth-loadwallet" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated loadwallet" >&2
+  exit 1
+fi
+
+AUTH_UNLOADWALLET_PAYLOAD='{"jsonrpc":"2.0","id":"auth-unloadwallet","method":"unloadwallet","params":["auth-wallet"]}'
+AUTH_UNLOADWALLET_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_UNLOADWALLET_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_UNLOADWALLET_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for unloadwallet without auth, got: $AUTH_UNLOADWALLET_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_UNLOADWALLET_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_UNLOADWALLET_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_UNLOADWALLET_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for unloadwallet with wrong auth, got: $AUTH_UNLOADWALLET_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_UNLOADWALLET_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_unloadwallet_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_UNLOADWALLET_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_UNLOADWALLET_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated unloadwallet, got: $AUTH_UNLOADWALLET_OK_CODE" >&2
+  exit 1
+fi
+AUTH_UNLOADWALLET_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_unloadwallet_success_response.json")"
+if [[ "$AUTH_UNLOADWALLET_OK_ID" != "auth-unloadwallet" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated unloadwallet" >&2
+  exit 1
+fi
+
 AUTH_WALLETPROCESS_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-walletprocesspsbt\",\"method\":\"walletprocesspsbt\",\"params\":[\"$FUNDED_PSBT\"]}"
 AUTH_WALLETPROCESS_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_WALLETPROCESS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
 if [[ "$AUTH_WALLETPROCESS_NOAUTH_CODE" != "401" ]]; then
@@ -2119,6 +2167,12 @@ auth_encryptwallet_ok_http_code=$AUTH_ENCRYPTWALLET_OK_CODE
 auth_createwallet_noauth_http_code=$AUTH_CREATEWALLET_NOAUTH_CODE
 auth_createwallet_wrong_http_code=$AUTH_CREATEWALLET_WRONG_CODE
 auth_createwallet_ok_http_code=$AUTH_CREATEWALLET_OK_CODE
+auth_loadwallet_noauth_http_code=$AUTH_LOADWALLET_NOAUTH_CODE
+auth_loadwallet_wrong_http_code=$AUTH_LOADWALLET_WRONG_CODE
+auth_loadwallet_ok_http_code=$AUTH_LOADWALLET_OK_CODE
+auth_unloadwallet_noauth_http_code=$AUTH_UNLOADWALLET_NOAUTH_CODE
+auth_unloadwallet_wrong_http_code=$AUTH_UNLOADWALLET_WRONG_CODE
+auth_unloadwallet_ok_http_code=$AUTH_UNLOADWALLET_OK_CODE
 auth_walletprocesspsbt_noauth_http_code=$AUTH_WALLETPROCESS_NOAUTH_CODE
 auth_walletprocesspsbt_wrong_http_code=$AUTH_WALLETPROCESS_WRONG_CODE
 auth_walletprocesspsbt_ok_http_code=$AUTH_WALLETPROCESS_OK_CODE
