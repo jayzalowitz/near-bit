@@ -5414,15 +5414,18 @@ async fn handle_getmempoolentry(state: &RpcState, request: &JsonRpcRequest) -> J
         drop(tx_cache);
 
         // Compute fee from NEAR gas price (same logic as estimatesmartfee)
-        let fee_btc = match state.near_client.gas_price().await {
+        let (fee_btc, fee_sats) = match state.near_client.gas_price().await {
             Ok(gas_price_str) => {
                 let gas_price: u128 = gas_price_str.parse().unwrap_or(100_000_000);
                 let fee_yocto = gas_price * 4_000_000_000_000u128;
-                (fee_yocto as f64 / 1e24).max(0.00001)
+                let fee_btc = (fee_yocto as f64 / 1e24).max(0.00001);
+                let min_fee_sats = 1_000u64; // 0.00001 BTC floor
+                let fee_sats_from_yocto = fee_yocto / crate::tx_translator::YOCTO_PER_SATOSHI;
+                let fee_sats = u64::try_from(fee_sats_from_yocto).unwrap_or(u64::MAX);
+                (fee_btc, fee_sats.max(min_fee_sats))
             }
-            Err(_) => 0.00001,
+            Err(_) => (0.00001, 1_000),
         };
-        let fee_sats = (fee_btc * 100_000_000.0) as u64;
 
         let height = match state.near_client.status().await {
             Ok(s) => s.latest_block_height,
