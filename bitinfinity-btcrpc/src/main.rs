@@ -992,7 +992,7 @@ async fn rpc_handler(
         "listaddressgroupings" => handle_listaddressgroupings(&state, &request).await,
         "getaddressesbylabel" => handle_getaddressesbylabel(&state, &request).await,
         "listreceivedbyaddress" => handle_listreceivedbyaddress(&state, &request).await,
-        "keypoolrefill" => handle_keypoolrefill(&request),
+        "keypoolrefill" => handle_keypoolrefill(&state, &request).await,
         "scantxoutset" => handle_scantxoutset(&state, &request).await,
         // Wallet - locking
         "lockunspent" => handle_lockunspent(&state, &request).await,
@@ -1018,7 +1018,7 @@ async fn rpc_handler(
         "sendmany" => handle_sendmany(&state, &request).await,
         "listtransactions" => handle_listtransactions(&state, &request).await,
         "getreceivedbyaddress" => handle_getreceivedbyaddress(&state, &request).await,
-        "settxfee" => handle_settxfee(&request),
+        "settxfee" => handle_settxfee(&state, &request).await,
         "abandontransaction" => handle_abandontransaction(&state, &request).await,
         "bumpfee" => handle_bumpfee(&request),
         // PSBT (stubs)
@@ -1109,7 +1109,7 @@ async fn rpc_handler(
         "generateblock" => handle_generateblock(&request),
         "importaddress" => handle_importaddress(&state, &request).await,
         "importpubkey" => handle_importpubkey(&state, &request).await,
-        "backupwallet" => handle_backupwallet(&state, &request),
+        "backupwallet" => handle_backupwallet(&state, &request).await,
         "invalidateblock" => handle_invalidateblock(&request),
         "reconsiderblock" => handle_reconsiderblock(&request),
         "waitforblock" => handle_waitforblock(&state, &request).await,
@@ -1119,7 +1119,7 @@ async fn rpc_handler(
         "prioritisetransaction" => handle_prioritisetransaction(&request),
         "getreceivedbylabel" => handle_getreceivedbylabel(&state, &request).await,
         "listlabels" => handle_listlabels(&state, &request).await,
-        "setlabel" => handle_setlabel(&request),
+        "setlabel" => handle_setlabel(&state, &request).await,
         "walletpassphrasechange" => handle_walletpassphrasechange(&state, &request).await,
         "encryptwallet" => handle_encryptwallet(&state, &request).await,
         "getmemoryinfo" => handle_getmemoryinfo(&request),
@@ -1516,6 +1516,9 @@ async fn handle_getblockhash(state: &RpcState, request: &JsonRpcRequest) -> Json
 // ============================================================================
 
 async fn handle_getbalance(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
     let account_id = if let Some(params) = request.params.as_array() {
         // Bitcoin Core: getbalance("*") or getbalance("") or getbalance() all mean "total wallet balance"
         let first = params.first().and_then(|v| v.as_str()).unwrap_or("");
@@ -1570,6 +1573,9 @@ async fn handle_getbalance(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
 }
 
 async fn handle_getaccount(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
     let account_id = get_str_param(&request.params, 0).unwrap_or("");
     if account_id.is_empty() {
         return err_response(&request.id, -32602, "Missing address parameter".to_string());
@@ -1594,6 +1600,9 @@ async fn handle_getaccount(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
 }
 
 async fn handle_listunspent(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
     // listunspent [minconf] [maxconf] [addresses]
     let minconf = get_u64_param(&request.params, 0).unwrap_or(1);
     let maxconf = get_u64_param(&request.params, 1).unwrap_or(9_999_999);
@@ -2077,6 +2086,9 @@ async fn handle_listaddressgroupings(
     state: &RpcState,
     request: &JsonRpcRequest,
 ) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
     let keystore = state.keystore.read().await;
     let addrs: Vec<String> = keystore.all_addresses();
     drop(keystore);
@@ -2093,6 +2105,9 @@ async fn handle_listaddressgroupings(
 }
 
 async fn handle_getaddressesbylabel(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
     let keystore = state.keystore.read().await;
     let mut result = serde_json::Map::new();
     for addr in keystore.addresses() {
@@ -2688,6 +2703,9 @@ async fn handle_getrawtransaction(state: &RpcState, request: &JsonRpcRequest) ->
 }
 
 async fn handle_gettransaction(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
     let txid = match get_str_param(&request.params, 0) {
         Some(id) => id,
         None => return err_response(&request.id, -32602, "Missing txid parameter".to_string()),
@@ -3974,6 +3992,9 @@ fn handle_createrawtransaction(request: &JsonRpcRequest) -> JsonRpcResponse {
 /// fundrawtransaction - add inputs (funded address) to cover outputs + fee.
 /// In account-based model, this means picking a funded address from the keystore.
 async fn handle_fundrawtransaction(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
     let raw_hex = match get_str_param(&request.params, 0) {
         Some(hex) => hex,
         None => {
@@ -4051,6 +4072,9 @@ async fn handle_fundrawtransaction(state: &RpcState, request: &JsonRpcRequest) -
 /// listtransactions - list recent wallet transactions
 /// Params: [label, count, skip, include_watchonly]
 async fn handle_listtransactions(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
     let label = get_str_param(&request.params, 0).unwrap_or("*");
     let count = request
         .params
@@ -4264,6 +4288,9 @@ async fn handle_getreceivedbyaddress(
     state: &RpcState,
     request: &JsonRpcRequest,
 ) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
     let addr = match get_str_param(&request.params, 0) {
         Some(a) => a,
         None => return err_response(&request.id, -32602, "Missing address parameter".to_string()),
@@ -4316,7 +4343,10 @@ async fn handle_getreceivedbyaddress(
 }
 
 /// settxfee - set the transaction fee (no-op for NEAR, but wallets call it)
-fn handle_settxfee(request: &JsonRpcRequest) -> JsonRpcResponse {
+async fn handle_settxfee(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
     ok_response(&request.id, json!(true))
 }
 
@@ -4365,6 +4395,9 @@ fn handle_uptime(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse 
 
 /// getaddressinfo - get detailed info about a Bitcoin address
 async fn handle_getaddressinfo(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
     let addr = match get_str_param(&request.params, 0) {
         Some(a) => a,
         None => return err_response(&request.id, -32602, "Missing address parameter".to_string()),
@@ -4457,6 +4490,9 @@ async fn handle_getaddressinfo(state: &RpcState, request: &JsonRpcRequest) -> Js
 
 /// getbalances - detailed balance breakdown
 async fn handle_getbalances(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
     let keystore = state.keystore.read().await;
     let owned_addresses: Vec<String> = keystore.addresses().iter().map(|a| a.to_string()).collect();
     let watch_only_addresses: Vec<String> = keystore.watch_only_addresses().to_vec();
@@ -4659,6 +4695,9 @@ async fn handle_listreceivedbyaddress(
     state: &RpcState,
     request: &JsonRpcRequest,
 ) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
     let _minconf = get_u64_param(&request.params, 0).unwrap_or(1);
 
     let keystore = state.keystore.read().await;
@@ -5104,7 +5143,10 @@ async fn handle_walletlock(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
 }
 
 /// keypoolrefill - no-op in our implementation
-fn handle_keypoolrefill(request: &JsonRpcRequest) -> JsonRpcResponse {
+async fn handle_keypoolrefill(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
     ok_response(&request.id, json!(null))
 }
 
@@ -6156,6 +6198,9 @@ async fn handle_walletcreatefundedpsbt(
     state: &RpcState,
     request: &JsonRpcRequest,
 ) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
     // walletcreatefundedpsbt(inputs, outputs, locktime, options)
     // If inputs is empty, auto-select from wallet UTXOs
     let inputs = request
@@ -6680,6 +6725,9 @@ fn handle_verifytxoutproof(request: &JsonRpcRequest) -> JsonRpcResponse {
 
 /// listsinceblock - list transactions since a block
 async fn handle_listsinceblock(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
     let status = match state.near_client.status().await {
         Ok(s) => s,
         Err(e) => return err_response(&request.id, -32000, format!("Node error: {}", e)),
@@ -7162,6 +7210,9 @@ fn handle_utxoupdatepsbt(request: &JsonRpcRequest) -> JsonRpcResponse {
 
 /// abandontransaction - mark a tx as abandoned (no-op)
 async fn handle_abandontransaction(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
     let txid = match get_str_param(&request.params, 0) {
         Some(t) => t.to_string(),
         None => return err_response(&request.id, -32602, "Missing txid parameter".to_string()),
@@ -7195,6 +7246,9 @@ fn handle_bumpfee(request: &JsonRpcRequest) -> JsonRpcResponse {
 
 /// lockunspent / listlockunspent
 async fn handle_lockunspent(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
     // lockunspent(unlock, [{"txid":..., "vout":...}, ...])
     let unlock = get_bool_param(&request.params, 0).unwrap_or(true);
 
@@ -7275,6 +7329,9 @@ async fn handle_lockunspent(state: &RpcState, request: &JsonRpcRequest) -> JsonR
 }
 
 async fn handle_listlockunspent(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
     let locked = state.locked_utxos.read().await;
     let result: Vec<serde_json::Value> = locked
         .iter()
@@ -9487,6 +9544,9 @@ fn handle_generateblock(request: &JsonRpcRequest) -> JsonRpcResponse {
 }
 
 async fn handle_importaddress(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
     let address = match get_str_param(&request.params, 0) {
         Some(a) => a.to_string(),
         None => return err_response(&request.id, -32602, "Missing address parameter".to_string()),
@@ -9504,6 +9564,9 @@ async fn handle_importaddress(state: &RpcState, request: &JsonRpcRequest) -> Jso
 /// importpubkey - import a public key as watch-only
 /// Derives the address from the pubkey and adds it as watch-only
 async fn handle_importpubkey(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
     let pubkey_hex = match get_str_param(&request.params, 0) {
         Some(p) => p,
         None => return err_response(&request.id, -32602, "Missing pubkey parameter".to_string()),
@@ -9539,7 +9602,10 @@ async fn handle_importpubkey(state: &RpcState, request: &JsonRpcRequest) -> Json
     ok_response(&request.id, json!(null))
 }
 
-fn handle_backupwallet(_state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+async fn handle_backupwallet(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
     let dest = get_str_param(&request.params, 0).unwrap_or("");
     if dest.is_empty() {
         return err_response(
@@ -9680,6 +9746,9 @@ fn handle_prioritisetransaction(request: &JsonRpcRequest) -> JsonRpcResponse {
 }
 
 async fn handle_getreceivedbylabel(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
     let label = get_str_param(&request.params, 0).unwrap_or("");
     if label.is_empty() {
         return ok_response(&request.id, json!(0.0));
@@ -9715,12 +9784,18 @@ async fn handle_getreceivedbylabel(state: &RpcState, request: &JsonRpcRequest) -
 }
 
 async fn handle_listlabels(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
     let keystore = state.keystore.read().await;
     let labels: Vec<String> = keystore.all_addresses();
     ok_response(&request.id, json!(labels))
 }
 
-fn handle_setlabel(request: &JsonRpcRequest) -> JsonRpcResponse {
+async fn handle_setlabel(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
     ok_response(&request.id, json!(null))
 }
 
@@ -9728,6 +9803,9 @@ async fn handle_walletpassphrasechange(
     state: &RpcState,
     request: &JsonRpcRequest,
 ) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
     let old_passphrase = match get_str_param(&request.params, 0) {
         Some(p) => p.to_string(),
         None => return err_response(&request.id, -32602, "Missing old passphrase".to_string()),
@@ -9758,6 +9836,9 @@ async fn handle_walletpassphrasechange(
 }
 
 async fn handle_encryptwallet(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
     let passphrase = match get_str_param(&request.params, 0) {
         Some(p) => p.to_string(),
         None => {
@@ -9870,9 +9951,12 @@ fn handle_abortrescan(request: &JsonRpcRequest) -> JsonRpcResponse {
 }
 
 async fn handle_getunconfirmedbalance(
-    _state: &RpcState,
+    state: &RpcState,
     request: &JsonRpcRequest,
 ) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
     // NEAR has ~1 second finality — there is no meaningful "unconfirmed" state.
     // Always return 0.0 to match the semantics: all balances are confirmed.
     ok_response(&request.id, json!(0.0))
@@ -10415,6 +10499,9 @@ fn handle_listbanned(request: &JsonRpcRequest) -> JsonRpcResponse {
 }
 
 async fn handle_listreceivedbylabel(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    if let Some(resp) = ensure_wallet_loaded(state, request).await {
+        return resp;
+    }
     // In our model, each address is its own "label"
     let keystore = state.keystore.read().await;
     let addresses: Vec<String> = keystore.all_addresses();
@@ -11429,14 +11516,17 @@ async fn main() {
 mod tests {
     use super::{
         derive_script_pub_key_hex, encode_bitcoin_varint, extract_unsigned_tx_hex,
-        handle_addquantumkey, handle_analyzepsbt, handle_combinepsbt, handle_createpsbt,
-        handle_createrawtransaction, handle_decodepsbt, handle_finalizepsbt,
+        handle_addquantumkey, handle_analyzepsbt, handle_backupwallet, handle_combinepsbt,
+        handle_createpsbt, handle_createrawtransaction, handle_decodepsbt, handle_encryptwallet,
+        handle_finalizepsbt, handle_fundrawtransaction, handle_getbalance,
         handle_getmempoolancestors, handle_getmempooldescendants, handle_getmempoolentry,
-        handle_getwalletinfo, handle_joinpsbts, handle_listquantumkeys, handle_listwalletdir,
-        handle_listwallets, handle_loadwallet, handle_removequantumkey, handle_unloadwallet,
-        handle_utxoupdatepsbt, handle_walletprocesspsbt, parse_patoshi_record_bytes,
-        verify_bitcoin_message_signature, write_compact_size, JsonRpcRequest, RpcState,
-        TxCacheEntry,
+        handle_getunconfirmedbalance, handle_getwalletinfo, handle_importaddress, handle_joinpsbts,
+        handle_keypoolrefill, handle_listquantumkeys, handle_listreceivedbylabel,
+        handle_listunspent, handle_listwalletdir, handle_listwallets, handle_loadwallet,
+        handle_lockunspent, handle_removequantumkey, handle_setlabel, handle_unloadwallet,
+        handle_utxoupdatepsbt, handle_walletcreatefundedpsbt, handle_walletpassphrasechange,
+        handle_walletprocesspsbt, parse_patoshi_record_bytes, verify_bitcoin_message_signature,
+        write_compact_size, JsonRpcRequest, RpcState, TxCacheEntry,
     };
     use base64::Engine;
     use secp256k1::{Message, Secp256k1, SecretKey};
@@ -13479,6 +13569,209 @@ mod tests {
                     .and_then(|v| v.as_str()),
                 Some("ops-wallet"),
                 "listwalletdir should reflect active wallet alias"
+            );
+        });
+    }
+
+    #[test]
+    fn test_extended_wallet_methods_reject_unloaded_wallet() {
+        let runtime = tokio::runtime::Runtime::new().expect("tokio runtime should initialize");
+        let state = RpcState::new(
+            "bitinfinity-testnet".to_string(),
+            "test".to_string(),
+            "http://127.0.0.1:3030".to_string(),
+        );
+
+        runtime.block_on(async {
+            let unload_request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(7110),
+                method: "unloadwallet".to_string(),
+                params: json!([]),
+            };
+            let unload_response = handle_unloadwallet(&state, &unload_request).await;
+            assert!(
+                unload_response.error.is_none(),
+                "unloadwallet should succeed before validating guards"
+            );
+
+            let getbalance_request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(7111),
+                method: "getbalance".to_string(),
+                params: json!([]),
+            };
+            let getbalance_response = handle_getbalance(&state, &getbalance_request).await;
+            assert_eq!(
+                getbalance_response.error.as_ref().map(|e| e.code),
+                Some(-18),
+                "getbalance should reject unloaded wallet"
+            );
+
+            let listunspent_request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(7112),
+                method: "listunspent".to_string(),
+                params: json!([]),
+            };
+            let listunspent_response = handle_listunspent(&state, &listunspent_request).await;
+            assert_eq!(
+                listunspent_response.error.as_ref().map(|e| e.code),
+                Some(-18),
+                "listunspent should reject unloaded wallet"
+            );
+
+            let fundraw_request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(7113),
+                method: "fundrawtransaction".to_string(),
+                params: json!([""]),
+            };
+            let fundraw_response = handle_fundrawtransaction(&state, &fundraw_request).await;
+            assert_eq!(
+                fundraw_response.error.as_ref().map(|e| e.code),
+                Some(-18),
+                "fundrawtransaction should reject unloaded wallet"
+            );
+
+            let lockunspent_request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(7114),
+                method: "lockunspent".to_string(),
+                params: json!([true]),
+            };
+            let lockunspent_response = handle_lockunspent(&state, &lockunspent_request).await;
+            assert_eq!(
+                lockunspent_response.error.as_ref().map(|e| e.code),
+                Some(-18),
+                "lockunspent should reject unloaded wallet"
+            );
+
+            let keypoolrefill_request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(7115),
+                method: "keypoolrefill".to_string(),
+                params: json!([]),
+            };
+            let keypoolrefill_response = handle_keypoolrefill(&state, &keypoolrefill_request).await;
+            assert_eq!(
+                keypoolrefill_response.error.as_ref().map(|e| e.code),
+                Some(-18),
+                "keypoolrefill should reject unloaded wallet"
+            );
+
+            let backupwallet_request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(7116),
+                method: "backupwallet".to_string(),
+                params: json!(["/tmp/backup-wallet-test.json"]),
+            };
+            let backupwallet_response = handle_backupwallet(&state, &backupwallet_request).await;
+            assert_eq!(
+                backupwallet_response.error.as_ref().map(|e| e.code),
+                Some(-18),
+                "backupwallet should reject unloaded wallet"
+            );
+
+            let setlabel_request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(7117),
+                method: "setlabel".to_string(),
+                params: json!(["bc1qexample", "label"]),
+            };
+            let setlabel_response = handle_setlabel(&state, &setlabel_request).await;
+            assert_eq!(
+                setlabel_response.error.as_ref().map(|e| e.code),
+                Some(-18),
+                "setlabel should reject unloaded wallet"
+            );
+
+            let walletpassphrasechange_request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(7118),
+                method: "walletpassphrasechange".to_string(),
+                params: json!(["old", "new"]),
+            };
+            let walletpassphrasechange_response =
+                handle_walletpassphrasechange(&state, &walletpassphrasechange_request).await;
+            assert_eq!(
+                walletpassphrasechange_response
+                    .error
+                    .as_ref()
+                    .map(|e| e.code),
+                Some(-18),
+                "walletpassphrasechange should reject unloaded wallet"
+            );
+
+            let encryptwallet_request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(7119),
+                method: "encryptwallet".to_string(),
+                params: json!(["test-passphrase"]),
+            };
+            let encryptwallet_response = handle_encryptwallet(&state, &encryptwallet_request).await;
+            assert_eq!(
+                encryptwallet_response.error.as_ref().map(|e| e.code),
+                Some(-18),
+                "encryptwallet should reject unloaded wallet"
+            );
+
+            let unconfirmed_request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(7120),
+                method: "getunconfirmedbalance".to_string(),
+                params: json!([]),
+            };
+            let unconfirmed_response =
+                handle_getunconfirmedbalance(&state, &unconfirmed_request).await;
+            assert_eq!(
+                unconfirmed_response.error.as_ref().map(|e| e.code),
+                Some(-18),
+                "getunconfirmedbalance should reject unloaded wallet"
+            );
+
+            let importaddress_request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(7121),
+                method: "importaddress".to_string(),
+                params: json!(["bc1qexample"]),
+            };
+            let importaddress_response = handle_importaddress(&state, &importaddress_request).await;
+            assert_eq!(
+                importaddress_response.error.as_ref().map(|e| e.code),
+                Some(-18),
+                "importaddress should reject unloaded wallet"
+            );
+
+            let walletcreatefundedpsbt_request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(7122),
+                method: "walletcreatefundedpsbt".to_string(),
+                params: json!([[], {"bc1qexample": 0.001}]),
+            };
+            let walletcreatefundedpsbt_response =
+                handle_walletcreatefundedpsbt(&state, &walletcreatefundedpsbt_request).await;
+            assert_eq!(
+                walletcreatefundedpsbt_response
+                    .error
+                    .as_ref()
+                    .map(|e| e.code),
+                Some(-18),
+                "walletcreatefundedpsbt should reject unloaded wallet"
+            );
+
+            let listreceivedbylabel_request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(7123),
+                method: "listreceivedbylabel".to_string(),
+                params: json!([]),
+            };
+            let listreceivedbylabel_response =
+                handle_listreceivedbylabel(&state, &listreceivedbylabel_request).await;
+            assert_eq!(
+                listreceivedbylabel_response.error.as_ref().map(|e| e.code),
+                Some(-18),
+                "listreceivedbylabel should reject unloaded wallet"
             );
         });
     }
