@@ -1933,6 +1933,27 @@ Verification reruns:
 - `ruby -e 'require "yaml"; YAML.load_file(".github/workflows/ci.yml"); YAML.load_file(".github/workflows/nightly-fuzz.yml")'`
   - result: workflow YAML remains valid after matrix expansion.
 
+## Continuation (2026-02-22): balance-arithmetic guard hardening for send RPC paths
+
+Implemented:
+- Added BTC→satoshi conversion guard helper in btcrpc:
+  - `btc_to_satoshis_checked(amount_btc: f64) -> Option<u64>`
+  - rejects non-finite values, non-positive amounts, overflow, and sub-satoshi precision.
+- Hardened `sendtoaddress` arithmetic:
+  - now uses checked conversion instead of lossy `as u64` casts;
+  - rejects subtract-fee underflow (`-3`) instead of risking invalid zero/underflowed sends.
+- Hardened `sendmany` arithmetic:
+  - now rejects invalid/sub-satoshi per-recipient amounts (`-3`) instead of silently skipping/truncating.
+- Added regression tests:
+  - `test_btc_to_satoshis_checked_validation`
+  - `test_sendtoaddress_rejects_too_small_amount_after_subtract_fee`
+  - `test_sendmany_rejects_sub_satoshi_amount`
+
+Verification reruns:
+- `cargo test -p bitinfinity-btcrpc -- --nocapture`
+  - result: `59 passed`, `0 failed`.
+  - includes all new arithmetic guard tests plus prior wallet/mempool/PSBT/quantum coverage.
+
 ## Issue #11 remaining high-priority gaps (not completed here)
 
 Still open and required for full #11 closure:
