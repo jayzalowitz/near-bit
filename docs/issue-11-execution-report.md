@@ -1795,7 +1795,8 @@ Implemented:
 - Hardened `.github/workflows/nightly-fuzz.yml` toward Phase 0.2 runtime expectations:
   - schedule increased from once daily to every 6 hours (`0 */6 * * *`),
   - per-target default fuzz duration increased from `1800s` (30m) to `21600s` (6h),
-  - job timeout increased from `90` to `360` minutes to match the new soak duration.
+  - job timeout increased from `90` to `360` minutes to match the new soak duration,
+  - workflow-level concurrency guard added (`nightly-fuzz-${{ github.ref }}`) to avoid overlapping soak runs.
 - Resulting coverage intent: ~24 hours cumulative fuzz runtime per target per day (4 runs/day * 6h).
 
 Primary file:
