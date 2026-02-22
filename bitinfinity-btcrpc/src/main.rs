@@ -1116,8 +1116,8 @@ async fn rpc_handler(
         "dumpwallet" => handle_dumpwallet(&request),
         "getchaintxstats" => handle_getchaintxstats(&state, &request).await,
         "generatetodescriptor" => handle_generatetodescriptor(&request),
-        "getmempoolancestors" => handle_getmempoolancestors(&request),
-        "getmempooldescendants" => handle_getmempooldescendants(&request),
+        "getmempoolancestors" => handle_getmempoolancestors(&state, &request).await,
+        "getmempooldescendants" => handle_getmempooldescendants(&state, &request).await,
         "getnettotals" => handle_getnettotals(&state, &request).await,
         "getnodeaddresses" => handle_getnodeaddresses(&state, &request).await,
         "importmulti" => handle_importmulti(&request),
@@ -3020,8 +3020,122 @@ async fn handle_estimatesmartfee(state: &RpcState, request: &JsonRpcRequest) -> 
 }
 
 // ============================================================================
-// Mempool handlers (stubs — account-based chain has no mempool in BTC sense)
+// Mempool handlers
 // ============================================================================
+
+fn is_pending_mempool_entry(entry: &TxCacheEntry) -> bool {
+    entry.near_tx_hash.starts_with("pending:")
+}
+
+fn parse_input_txids_from_raw_hex(raw_hex: &str) -> Vec<String> {
+    if raw_hex.is_empty() {
+        return Vec::new();
+    }
+
+    let bytes = match hex::decode(raw_hex) {
+        Ok(bytes) => bytes,
+        Err(_) => return Vec::new(),
+    };
+
+    let tx: bitcoin::Transaction = match bitcoin::consensus::deserialize(&bytes) {
+        Ok(tx) => tx,
+        Err(_) => return Vec::new(),
+    };
+
+    tx.input
+        .iter()
+        .map(|input| input.previous_output.txid.to_string())
+        .collect()
+}
+
+fn build_pending_mempool_graph(
+    pending_entries: &HashMap<String, TxCacheEntry>,
+) -> (HashMap<String, Vec<String>>, HashMap<String, Vec<String>>) {
+    let mut parents: HashMap<String, Vec<String>> = HashMap::new();
+    let mut children: HashMap<String, Vec<String>> = HashMap::new();
+
+    for (txid, entry) in pending_entries {
+        let mut direct_parents = Vec::new();
+        for input_txid in parse_input_txids_from_raw_hex(&entry.raw_hex) {
+            if pending_entries.contains_key(&input_txid) {
+                direct_parents.push(input_txid.clone());
+                children.entry(input_txid).or_default().push(txid.clone());
+            }
+        }
+        direct_parents.sort();
+        direct_parents.dedup();
+        if !direct_parents.is_empty() {
+            parents.insert(txid.clone(), direct_parents);
+        }
+    }
+
+    for txids in children.values_mut() {
+        txids.sort();
+        txids.dedup();
+    }
+
+    (parents, children)
+}
+
+fn collect_transitive_related_txids(
+    root_txid: &str,
+    adjacency: &HashMap<String, Vec<String>>,
+) -> Vec<String> {
+    let mut visited: HashSet<String> = HashSet::new();
+    let mut stack = adjacency.get(root_txid).cloned().unwrap_or_default();
+    let mut result = Vec::new();
+
+    while let Some(next_txid) = stack.pop() {
+        if !visited.insert(next_txid.clone()) {
+            continue;
+        }
+        if let Some(next_hops) = adjacency.get(&next_txid) {
+            for next_hop in next_hops {
+                if !visited.contains(next_hop) {
+                    stack.push(next_hop.clone());
+                }
+            }
+        }
+        result.push(next_txid);
+    }
+
+    result.sort();
+    result
+}
+
+fn build_mempool_relationship_entry(
+    entry: &TxCacheEntry,
+    depends: &[String],
+    spent_by: &[String],
+    now: i64,
+) -> serde_json::Value {
+    let vsize = if entry.raw_hex.is_empty() {
+        250usize
+    } else {
+        entry.raw_hex.len() / 2
+    };
+    let ancestor_count = depends.len() + 1;
+    let descendant_count = spent_by.len() + 1;
+
+    json!({
+        "vsize": vsize,
+        "weight": vsize * 4,
+        "fee": 0.00001,
+        "modifiedfee": 0.00001,
+        "time": now,
+        "height": entry.block_height,
+        "descendantcount": descendant_count,
+        "descendantsize": vsize * descendant_count,
+        "descendantfees": 1000 * descendant_count,
+        "ancestorcount": ancestor_count,
+        "ancestorsize": vsize * ancestor_count,
+        "ancestorfees": 1000 * ancestor_count,
+        "depends": depends,
+        "spentby": spent_by,
+        "bip125-replaceable": false,
+        "unbroadcast": false
+    })
+}
 
 async fn handle_getmempoolinfo(state: &RpcState, _request: &JsonRpcRequest) -> JsonRpcResponse {
     // NEAR has ~1s finality, so the "mempool" is effectively always empty.
@@ -3030,7 +3144,7 @@ async fn handle_getmempoolinfo(state: &RpcState, _request: &JsonRpcRequest) -> J
     let pending: Vec<_> = tx_cache
         .entries
         .values()
-        .filter(|e| e.near_tx_hash.starts_with("pending:"))
+        .filter(|e| is_pending_mempool_entry(e))
         .collect();
     let size = pending.len();
     let bytes: usize = pending
@@ -3072,7 +3186,7 @@ async fn handle_getrawmempool(state: &RpcState, request: &JsonRpcRequest) -> Jso
     let pending_entries: Vec<_> = tx_cache
         .entries
         .iter()
-        .filter(|(_, e)| e.near_tx_hash.starts_with("pending:"))
+        .filter(|(_, e)| is_pending_mempool_entry(e))
         .collect();
 
     if !verbose {
@@ -9966,12 +10080,109 @@ fn handle_generatetodescriptor(request: &JsonRpcRequest) -> JsonRpcResponse {
     )
 }
 
-fn handle_getmempoolancestors(request: &JsonRpcRequest) -> JsonRpcResponse {
-    ok_response(&request.id, json!([]))
+async fn handle_getmempoolancestors(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
+    let txid = match get_str_param(&request.params, 0) {
+        Some(t) => t,
+        None => return err_response(&request.id, -32602, "Missing txid parameter".to_string()),
+    };
+    let verbose = request
+        .params
+        .as_array()
+        .and_then(|arr| arr.get(1))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
+    let tx_cache = state.tx_cache.read().await;
+    let pending_entries: HashMap<String, TxCacheEntry> = tx_cache
+        .entries
+        .iter()
+        .filter(|(_, entry)| is_pending_mempool_entry(entry))
+        .map(|(txid, entry)| (txid.clone(), entry.clone()))
+        .collect();
+    drop(tx_cache);
+
+    if !pending_entries.contains_key(txid) {
+        return err_response(
+            &request.id,
+            -5,
+            format!("Transaction {} not in mempool", txid),
+        );
+    }
+
+    let (parents, children) = build_pending_mempool_graph(&pending_entries);
+    let ancestor_txids = collect_transitive_related_txids(txid, &parents);
+    if !verbose {
+        return ok_response(&request.id, json!(ancestor_txids));
+    }
+
+    let now = chrono::Utc::now().timestamp();
+    let mut result = serde_json::Map::new();
+    for ancestor_txid in ancestor_txids {
+        if let Some(entry) = pending_entries.get(&ancestor_txid) {
+            let depends = parents.get(&ancestor_txid).cloned().unwrap_or_default();
+            let spent_by = children.get(&ancestor_txid).cloned().unwrap_or_default();
+            result.insert(
+                ancestor_txid,
+                build_mempool_relationship_entry(entry, &depends, &spent_by, now),
+            );
+        }
+    }
+
+    ok_response(&request.id, json!(result))
 }
 
-fn handle_getmempooldescendants(request: &JsonRpcRequest) -> JsonRpcResponse {
-    ok_response(&request.id, json!([]))
+async fn handle_getmempooldescendants(
+    state: &RpcState,
+    request: &JsonRpcRequest,
+) -> JsonRpcResponse {
+    let txid = match get_str_param(&request.params, 0) {
+        Some(t) => t,
+        None => return err_response(&request.id, -32602, "Missing txid parameter".to_string()),
+    };
+    let verbose = request
+        .params
+        .as_array()
+        .and_then(|arr| arr.get(1))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
+    let tx_cache = state.tx_cache.read().await;
+    let pending_entries: HashMap<String, TxCacheEntry> = tx_cache
+        .entries
+        .iter()
+        .filter(|(_, entry)| is_pending_mempool_entry(entry))
+        .map(|(txid, entry)| (txid.clone(), entry.clone()))
+        .collect();
+    drop(tx_cache);
+
+    if !pending_entries.contains_key(txid) {
+        return err_response(
+            &request.id,
+            -5,
+            format!("Transaction {} not in mempool", txid),
+        );
+    }
+
+    let (parents, children) = build_pending_mempool_graph(&pending_entries);
+    let descendant_txids = collect_transitive_related_txids(txid, &children);
+    if !verbose {
+        return ok_response(&request.id, json!(descendant_txids));
+    }
+
+    let now = chrono::Utc::now().timestamp();
+    let mut result = serde_json::Map::new();
+    for descendant_txid in descendant_txids {
+        if let Some(entry) = pending_entries.get(&descendant_txid) {
+            let depends = parents.get(&descendant_txid).cloned().unwrap_or_default();
+            let spent_by = children.get(&descendant_txid).cloned().unwrap_or_default();
+            result.insert(
+                descendant_txid,
+                build_mempool_relationship_entry(entry, &depends, &spent_by, now),
+            );
+        }
+    }
+
+    ok_response(&request.id, json!(result))
 }
 
 async fn handle_getnettotals(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResponse {
@@ -11059,8 +11270,9 @@ mod tests {
     use super::{
         derive_script_pub_key_hex, encode_bitcoin_varint, extract_unsigned_tx_hex,
         handle_addquantumkey, handle_analyzepsbt, handle_combinepsbt, handle_createpsbt,
-        handle_createrawtransaction, handle_decodepsbt, handle_finalizepsbt, handle_joinpsbts,
-        handle_listquantumkeys, handle_removequantumkey, handle_utxoupdatepsbt,
+        handle_createrawtransaction, handle_decodepsbt, handle_finalizepsbt,
+        handle_getmempoolancestors, handle_getmempooldescendants, handle_joinpsbts,
+        handle_listquantumkeys, handle_removequantumkey, handle_utxoupdatepsbt, TxCacheEntry,
         parse_patoshi_record_bytes, verify_bitcoin_message_signature, write_compact_size,
         JsonRpcRequest, RpcState,
     };
@@ -12491,6 +12703,210 @@ mod tests {
                 response.error.as_ref().map(|e| e.code),
                 Some(-32602),
                 "invalid pubkey hex should return invalid-params"
+            );
+        });
+    }
+
+    fn build_unsigned_raw_tx_with_input(prev_txid: &str) -> String {
+        let mut prev = hex::decode(prev_txid).expect("prev txid must be valid hex");
+        assert_eq!(prev.len(), 32, "prev txid must be 32 bytes");
+        prev.reverse(); // raw tx stores previous txid in little-endian order
+
+        let mut raw = Vec::new();
+        raw.extend_from_slice(&2u32.to_le_bytes()); // version
+        raw.push(1); // vin count
+        raw.extend_from_slice(&prev); // prev txid
+        raw.extend_from_slice(&0u32.to_le_bytes()); // vout
+        raw.push(0); // scriptSig length
+        raw.extend_from_slice(&0xffff_ffffu32.to_le_bytes()); // sequence
+        raw.push(1); // vout count
+        raw.extend_from_slice(&10_000u64.to_le_bytes()); // value (sats)
+        raw.push(0); // scriptPubKey length
+        raw.extend_from_slice(&0u32.to_le_bytes()); // locktime
+        hex::encode(raw)
+    }
+
+    #[test]
+    fn test_getmempool_relations_track_transitive_pending_graph() {
+        let runtime = tokio::runtime::Runtime::new().expect("tokio runtime should initialize");
+        let state = RpcState::new(
+            "bitinfinity-testnet".to_string(),
+            "test".to_string(),
+            "http://127.0.0.1:3030".to_string(),
+        );
+
+        runtime.block_on(async {
+            let parent_txid = "11".repeat(32);
+            let child_txid = "22".repeat(32);
+            let grandchild_txid = "33".repeat(32);
+
+            let child_raw_hex = build_unsigned_raw_tx_with_input(&parent_txid);
+            let grandchild_raw_hex = build_unsigned_raw_tx_with_input(&child_txid);
+
+            let mut tx_cache = state.tx_cache.write().await;
+            tx_cache.entries.clear();
+            tx_cache.entries.insert(
+                parent_txid.clone(),
+                TxCacheEntry {
+                    near_tx_hash: "pending:parent".to_string(),
+                    raw_hex: String::new(),
+                    sender_id: "parent.near".to_string(),
+                    receiver_id: String::new(),
+                    amount_satoshis: 0,
+                    block_height: 10,
+                    is_incoming: false,
+                },
+            );
+            tx_cache.entries.insert(
+                child_txid.clone(),
+                TxCacheEntry {
+                    near_tx_hash: "pending:child".to_string(),
+                    raw_hex: child_raw_hex,
+                    sender_id: "child.near".to_string(),
+                    receiver_id: String::new(),
+                    amount_satoshis: 0,
+                    block_height: 11,
+                    is_incoming: false,
+                },
+            );
+            tx_cache.entries.insert(
+                grandchild_txid.clone(),
+                TxCacheEntry {
+                    near_tx_hash: "pending:grandchild".to_string(),
+                    raw_hex: grandchild_raw_hex,
+                    sender_id: "grandchild.near".to_string(),
+                    receiver_id: String::new(),
+                    amount_satoshis: 0,
+                    block_height: 12,
+                    is_incoming: false,
+                },
+            );
+            drop(tx_cache);
+
+            let ancestors_request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(7002),
+                method: "getmempoolancestors".to_string(),
+                params: json!([grandchild_txid, false]),
+            };
+            let ancestors_response = handle_getmempoolancestors(&state, &ancestors_request).await;
+            assert!(
+                ancestors_response.error.is_none(),
+                "getmempoolancestors should succeed for pending tx"
+            );
+            assert_eq!(
+                ancestors_response
+                    .result
+                    .as_ref()
+                    .and_then(|v| v.as_array())
+                    .cloned(),
+                Some(vec![json!(parent_txid), json!(child_txid)]),
+                "ancestors should include transitive parent chain"
+            );
+
+            let descendants_request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(7003),
+                method: "getmempooldescendants".to_string(),
+                params: json!([parent_txid, false]),
+            };
+            let descendants_response =
+                handle_getmempooldescendants(&state, &descendants_request).await;
+            assert!(
+                descendants_response.error.is_none(),
+                "getmempooldescendants should succeed for pending tx"
+            );
+            assert_eq!(
+                descendants_response
+                    .result
+                    .as_ref()
+                    .and_then(|v| v.as_array())
+                    .cloned(),
+                Some(vec![json!(child_txid), json!(grandchild_txid)]),
+                "descendants should include transitive child chain"
+            );
+
+            let verbose_request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(7004),
+                method: "getmempooldescendants".to_string(),
+                params: json!([parent_txid, true]),
+            };
+            let verbose_response = handle_getmempooldescendants(&state, &verbose_request).await;
+            assert!(
+                verbose_response.error.is_none(),
+                "verbose getmempooldescendants should succeed"
+            );
+            let verbose_result = verbose_response
+                .result
+                .as_ref()
+                .and_then(|v| v.as_object())
+                .expect("verbose descendants should return an object");
+            assert!(
+                verbose_result.contains_key(&child_txid),
+                "verbose descendants should include direct child entry"
+            );
+            assert!(
+                verbose_result.contains_key(&grandchild_txid),
+                "verbose descendants should include transitive child entry"
+            );
+        });
+    }
+
+    #[test]
+    fn test_getmempool_relations_reject_non_pending_txid() {
+        let runtime = tokio::runtime::Runtime::new().expect("tokio runtime should initialize");
+        let state = RpcState::new(
+            "bitinfinity-testnet".to_string(),
+            "test".to_string(),
+            "http://127.0.0.1:3030".to_string(),
+        );
+
+        runtime.block_on(async {
+            let txid = "44".repeat(32);
+            let mut tx_cache = state.tx_cache.write().await;
+            tx_cache.entries.clear();
+            tx_cache.entries.insert(
+                txid.clone(),
+                TxCacheEntry {
+                    near_tx_hash: "included:blockhash".to_string(),
+                    raw_hex: String::new(),
+                    sender_id: "confirmed.near".to_string(),
+                    receiver_id: String::new(),
+                    amount_satoshis: 0,
+                    block_height: 999,
+                    is_incoming: false,
+                },
+            );
+            drop(tx_cache);
+
+            let ancestors_request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(7005),
+                method: "getmempoolancestors".to_string(),
+                params: json!([txid]),
+            };
+            let ancestors_response = handle_getmempoolancestors(&state, &ancestors_request).await;
+            assert!(ancestors_response.result.is_none());
+            assert_eq!(
+                ancestors_response.error.as_ref().map(|e| e.code),
+                Some(-5),
+                "confirmed tx should be treated as not in mempool"
+            );
+
+            let descendants_request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(7006),
+                method: "getmempooldescendants".to_string(),
+                params: json!([txid]),
+            };
+            let descendants_response =
+                handle_getmempooldescendants(&state, &descendants_request).await;
+            assert!(descendants_response.result.is_none());
+            assert_eq!(
+                descendants_response.error.as_ref().map(|e| e.code),
+                Some(-5),
+                "confirmed tx should be treated as not in mempool"
             );
         });
     }
