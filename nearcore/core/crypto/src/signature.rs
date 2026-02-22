@@ -472,14 +472,18 @@ impl Secp256K1Signature {
         &self,
         msg: [u8; 32],
     ) -> Result<Secp256K1PublicKey, crate::errors::ParseSignatureError> {
-        let recoverable_sig = secp256k1::ecdsa::RecoverableSignature::from_compact(
-            &self.0[0..64],
-            secp256k1::ecdsa::RecoveryId::from_i32(i32::from(self.0[64])).unwrap(),
-        )
-        .map_err(|err| crate::errors::ParseSignatureError::InvalidData {
-            error_message: err.to_string(),
+        let recovery_id =
+            secp256k1::ecdsa::RecoveryId::from_i32(i32::from(self.0[64])).map_err(|err| {
+                crate::errors::ParseSignatureError::InvalidData { error_message: err.to_string() }
+            })?;
+        let recoverable_sig =
+            secp256k1::ecdsa::RecoverableSignature::from_compact(&self.0[0..64], recovery_id)
+                .map_err(|err| crate::errors::ParseSignatureError::InvalidData {
+                    error_message: err.to_string(),
+                })?;
+        let msg = Message::from_slice(&msg).map_err(|err| {
+            crate::errors::ParseSignatureError::InvalidData { error_message: err.to_string() }
         })?;
-        let msg = Message::from_slice(&msg).unwrap();
 
         let res = SECP256K1
             .recover_ecdsa(&msg, &recoverable_sig)
@@ -923,5 +927,18 @@ mod tests {
         assert!(serde_json::from_str::<PublicKey>(invalid).is_err());
         assert!(serde_json::from_str::<SecretKey>(invalid).is_err());
         assert!(serde_json::from_str::<Signature>(invalid).is_err());
+    }
+
+    #[test]
+    fn test_secp256k1_recover_rejects_invalid_recovery_id() {
+        let mut sig_bytes = [0u8; 65];
+        sig_bytes[64] = 4; // valid recovery IDs are only 0..=3
+        let signature = super::Secp256K1Signature::from(sig_bytes);
+
+        let result = signature.recover([0u8; 32]);
+        assert!(
+            result.is_err(),
+            "recover() must return an error, not panic, for invalid recovery IDs"
+        );
     }
 }

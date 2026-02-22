@@ -36,6 +36,8 @@ jobs:
             target: fuzz_tx_hex
           - crate_path: bitinfinity-btcrpc
             target: fuzz_tx_translator
+          - crate_path: nearcore/core/crypto
+            target: fuzz_secp256k1_recover
     timeout-minutes: 360
     steps:
       - uses: actions/checkout@v4

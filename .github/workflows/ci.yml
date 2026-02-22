@@ -184,6 +184,11 @@ jobs:
           cd bitinfinity-btcrpc
           cargo fuzz run fuzz_tx_translator -- -max_total_time=30 -timeout=5
 
+      - name: Fuzz secp256k1 recover path (30s)
+        run: |
+          cd nearcore/core/crypto
+          cargo fuzz run fuzz_secp256k1_recover -- -max_total_time=30 -timeout=5
+
   # ─────────────────────────────────────────────
   # Benchmark runner smoke (dry-run only)
   # ─────────────────────────────────────────────
