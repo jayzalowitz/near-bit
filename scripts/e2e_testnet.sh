@@ -2592,6 +2592,30 @@ if [[ "$AUTH_UTXOUPDATEPSBT_OK_ID" != "auth-utxoupdatepsbt" ]]; then
   exit 1
 fi
 
+AUTH_COMBINEPSBT_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-combinepsbt\",\"method\":\"combinepsbt\",\"params\":[[\"$FUNDED_PSBT\",\"$SIGNED_PSBT\"]]}"
+AUTH_COMBINEPSBT_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_COMBINEPSBT_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_COMBINEPSBT_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for combinepsbt without auth, got: $AUTH_COMBINEPSBT_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_COMBINEPSBT_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_COMBINEPSBT_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_COMBINEPSBT_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for combinepsbt with wrong auth, got: $AUTH_COMBINEPSBT_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_COMBINEPSBT_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_combinepsbt_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_COMBINEPSBT_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_COMBINEPSBT_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated combinepsbt, got: $AUTH_COMBINEPSBT_OK_CODE" >&2
+  exit 1
+fi
+AUTH_COMBINEPSBT_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_combinepsbt_success_response.json")"
+if [[ "$AUTH_COMBINEPSBT_OK_ID" != "auth-combinepsbt" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated combinepsbt" >&2
+  exit 1
+fi
+
 AUTH_WALLETCREATE_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-walletcreatefundedpsbt\",\"method\":\"walletcreatefundedpsbt\",\"params\":[[],[{\"$SATOSHI_ADDR\":0.0001}],0,{}]}"
 AUTH_WALLETCREATE_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_WALLETCREATE_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
 if [[ "$AUTH_WALLETCREATE_NOAUTH_CODE" != "401" ]]; then
@@ -2932,6 +2956,9 @@ auth_finalizepsbt_ok_http_code=$AUTH_FINALIZEPSBT_OK_CODE
 auth_utxoupdatepsbt_noauth_http_code=$AUTH_UTXOUPDATEPSBT_NOAUTH_CODE
 auth_utxoupdatepsbt_wrong_http_code=$AUTH_UTXOUPDATEPSBT_WRONG_CODE
 auth_utxoupdatepsbt_ok_http_code=$AUTH_UTXOUPDATEPSBT_OK_CODE
+auth_combinepsbt_noauth_http_code=$AUTH_COMBINEPSBT_NOAUTH_CODE
+auth_combinepsbt_wrong_http_code=$AUTH_COMBINEPSBT_WRONG_CODE
+auth_combinepsbt_ok_http_code=$AUTH_COMBINEPSBT_OK_CODE
 auth_walletcreatefundedpsbt_noauth_http_code=$AUTH_WALLETCREATE_NOAUTH_CODE
 auth_walletcreatefundedpsbt_wrong_http_code=$AUTH_WALLETCREATE_WRONG_CODE
 auth_walletcreatefundedpsbt_ok_http_code=$AUTH_WALLETCREATE_OK_CODE
