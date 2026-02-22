@@ -703,6 +703,27 @@ Verification rerun:
 - `cargo test -q -p bitinfinity-btcrpc`
 - `cargo test -q -p bitinfinity-btcrpc` (second consecutive pass to confirm flake mitigation)
 
+## Continuation (2026-02-21): E2E fail-fast port-collision diagnostics
+
+Implemented:
+- Hardened `scripts/e2e_testnet.sh` startup checks to fail fast on occupied listener ports with actionable diagnostics instead of crashing deeper in runtime startup.
+- Added preflight validation for:
+  - `NEAR_RPC_URL` port
+  - `NEAR_NETWORK_PORT` (default `24567`)
+  - `BTC_RPC_ADDR` port
+  - `BTC_RPC_AUTH_ADDR` port
+- Added port-number validation (`1..65535`) and explicit `lsof` listener dump on conflicts.
+- Added `lsof` to required command checks.
+
+Primary file:
+- `scripts/e2e_testnet.sh`
+
+Verification rerun:
+- `bash -n scripts/e2e_testnet.sh`
+- `./scripts/e2e_testnet.sh` (initial run intentionally demonstrated fail-fast collision output on occupied port `3030`)
+- `./scripts/e2e_testnet.sh` (clean rerun after removing stale process passed)
+- `cargo test -q -p bitinfinity-btcrpc`
+
 ## Issue #1 goal check
 
 Status:
