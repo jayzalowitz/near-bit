@@ -2030,6 +2030,25 @@ Verification reruns:
   - result: `64 passed`, `0 failed`.
   - includes new NEAR convenience amount-validation tests plus prior nonce-floor/sendmany/sendtoaddress hardening coverage.
 
+## Continuation (2026-02-22): raw/PSBT intent amount parsing hardening
+
+Implemented:
+- Replaced additional lossy float-to-`u64` conversions in Bitcoin transaction intent/PSBT flows with checked satoshi conversion:
+  - `createrawtransaction` output parsing now enforces satoshi precision before tx-intent encoding.
+  - `signrawtransactionwithwallet` intent decoding rejects invalid/sub-satoshi output amounts.
+  - `fundrawtransaction` intent decoding rejects invalid/sub-satoshi amounts and total-amount overflow.
+  - `parse_psbt_output_pairs` now returns satoshi-denominated outputs using checked conversion.
+  - `createpsbt` and `walletcreatefundedpsbt` consume validated satoshi outputs directly.
+- Added regression tests:
+  - `test_createpsbt_rejects_sub_satoshi_output_amount`
+  - `test_createrawtransaction_rejects_sub_satoshi_output_amount`
+  - `test_fundrawtransaction_rejects_sub_satoshi_intent_output`
+
+Verification reruns:
+- `cargo test -p bitinfinity-btcrpc -- --nocapture`
+  - result: `67 passed`, `0 failed`.
+  - includes new raw/PSBT/funding sub-satoshi rejection coverage alongside all prior hardening tests.
+
 ## Issue #11 remaining high-priority gaps (not completed here)
 
 Still open and required for full #11 closure:
