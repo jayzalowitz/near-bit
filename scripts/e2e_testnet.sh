@@ -196,10 +196,8 @@ echo "[5/12] Initializing node home..."
   >"$ARTIFACT_DIR/init.log" 2>&1
 
 echo "[6/12] Starting bitinfinity-neard..."
-(
-  "$NODE_BIN" run --home "$NODE_HOME" --neard-bin "$NEARD_BIN" \
-    >"$ARTIFACT_DIR/node.log" 2>&1 || true
-) &
+"$NODE_BIN" run --home "$NODE_HOME" --neard-bin "$NEARD_BIN" \
+  >"$ARTIFACT_DIR/node.log" 2>&1 &
 NODE_PID=$!
 
 wait_for_near() {
@@ -225,12 +223,10 @@ if [[ "$LATER_HEIGHT" -le "$INITIAL_HEIGHT" ]]; then
 fi
 
 echo "[7/12] Starting bitinfinity-btcrpc..."
-(
-  HOME="$BTCRPC_HOME" BTC_RPC_NOAUTH=1 "$BTCRPC_BIN" \
-    --near-rpc-url "$NEAR_RPC_URL" \
-    --btc-rpc-addr "$BTC_RPC_ADDR" \
-    >"$ARTIFACT_DIR/btcrpc.log" 2>&1 || true
-) &
+HOME="$BTCRPC_HOME" BTC_RPC_NOAUTH=1 "$BTCRPC_BIN" \
+  --near-rpc-url "$NEAR_RPC_URL" \
+  --btc-rpc-addr "$BTC_RPC_ADDR" \
+  >"$ARTIFACT_DIR/btcrpc.log" 2>&1 &
 BTCRPC_PID=$!
 
 wait_for_btcrpc() {
@@ -521,12 +517,10 @@ if kill -0 "$BTCRPC_PID" 2>/dev/null; then
   wait "$BTCRPC_PID" 2>/dev/null || true
 fi
 
-(
-  HOME="$BTCRPC_HOME" BTC_RPC_NOAUTH=1 "$BTCRPC_BIN" \
-    --near-rpc-url "$NEAR_RPC_URL" \
-    --btc-rpc-addr "$BTC_RPC_ADDR" \
-    >"$ARTIFACT_DIR/btcrpc.log" 2>&1 || true
-) &
+HOME="$BTCRPC_HOME" BTC_RPC_NOAUTH=1 "$BTCRPC_BIN" \
+  --near-rpc-url "$NEAR_RPC_URL" \
+  --btc-rpc-addr "$BTC_RPC_ADDR" \
+  >"$ARTIFACT_DIR/btcrpc.log" 2>&1 &
 BTCRPC_PID=$!
 
 if ! wait_for_btcrpc; then
@@ -1554,15 +1548,13 @@ if [[ "$ACCESS_KEY_COUNT" -lt 1 ]]; then
 fi
 
 echo "[auth] Verifying Bitcoin RPC auth behavior..."
-(
-  HOME="$BTCRPC_AUTH_HOME" \
-  BTC_RPC_USER="$BTCRPC_AUTH_USER" \
-  BTC_RPC_PASS="$BTCRPC_AUTH_PASS" \
-  "$BTCRPC_BIN" \
-    --near-rpc-url "$NEAR_RPC_URL" \
-    --btc-rpc-addr "$BTC_RPC_AUTH_ADDR" \
-    >"$ARTIFACT_DIR/btcrpc_auth.log" 2>&1 || true
-) &
+HOME="$BTCRPC_AUTH_HOME" \
+BTC_RPC_USER="$BTCRPC_AUTH_USER" \
+BTC_RPC_PASS="$BTCRPC_AUTH_PASS" \
+"$BTCRPC_BIN" \
+  --near-rpc-url "$NEAR_RPC_URL" \
+  --btc-rpc-addr "$BTC_RPC_AUTH_ADDR" \
+  >"$ARTIFACT_DIR/btcrpc_auth.log" 2>&1 &
 BTCRPC_AUTH_PID=$!
 
 wait_for_btcrpc_auth() {
