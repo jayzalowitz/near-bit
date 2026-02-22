@@ -2064,6 +2064,30 @@ if [[ "$AUTH_SIGNMESSAGE_OK_ID" != "auth-signmessage" ]]; then
   exit 1
 fi
 
+AUTH_VERIFYMESSAGE_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-verifymessage\",\"method\":\"verifymessage\",\"params\":[\"$FUNDED_ADDR\",\"bad-signature\",\"auth-check-message\"]}"
+AUTH_VERIFYMESSAGE_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_VERIFYMESSAGE_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_VERIFYMESSAGE_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for verifymessage without auth, got: $AUTH_VERIFYMESSAGE_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_VERIFYMESSAGE_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_VERIFYMESSAGE_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_VERIFYMESSAGE_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for verifymessage with wrong auth, got: $AUTH_VERIFYMESSAGE_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_VERIFYMESSAGE_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_verifymessage_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_VERIFYMESSAGE_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_VERIFYMESSAGE_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated verifymessage, got: $AUTH_VERIFYMESSAGE_OK_CODE" >&2
+  exit 1
+fi
+AUTH_VERIFYMESSAGE_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_verifymessage_success_response.json")"
+if [[ "$AUTH_VERIFYMESSAGE_OK_ID" != "auth-verifymessage" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated verifymessage" >&2
+  exit 1
+fi
+
 AUTH_WALLETPROCESS_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-walletprocesspsbt\",\"method\":\"walletprocesspsbt\",\"params\":[\"$FUNDED_PSBT\"]}"
 AUTH_WALLETPROCESS_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_WALLETPROCESS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
 if [[ "$AUTH_WALLETPROCESS_NOAUTH_CODE" != "401" ]]; then
@@ -2362,6 +2386,9 @@ auth_keypoolrefill_ok_http_code=$AUTH_KEYPOOLREFILL_OK_CODE
 auth_signmessage_noauth_http_code=$AUTH_SIGNMESSAGE_NOAUTH_CODE
 auth_signmessage_wrong_http_code=$AUTH_SIGNMESSAGE_WRONG_CODE
 auth_signmessage_ok_http_code=$AUTH_SIGNMESSAGE_OK_CODE
+auth_verifymessage_noauth_http_code=$AUTH_VERIFYMESSAGE_NOAUTH_CODE
+auth_verifymessage_wrong_http_code=$AUTH_VERIFYMESSAGE_WRONG_CODE
+auth_verifymessage_ok_http_code=$AUTH_VERIFYMESSAGE_OK_CODE
 auth_walletprocesspsbt_noauth_http_code=$AUTH_WALLETPROCESS_NOAUTH_CODE
 auth_walletprocesspsbt_wrong_http_code=$AUTH_WALLETPROCESS_WRONG_CODE
 auth_walletprocesspsbt_ok_http_code=$AUTH_WALLETPROCESS_OK_CODE
