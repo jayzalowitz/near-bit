@@ -2162,6 +2162,21 @@ Verification reruns:
   - result: `73 passed`, `0 failed`.
   - includes the new checked-sum overflow test plus all prior amount-validation/fail-fast hardening coverage.
 
+## Continuation (2026-02-22): received-amount accumulator overflow hardening
+
+Implemented:
+- Hardened `getreceivedbyaddress` and `getreceivedbylabel` satoshi aggregation loops:
+  - replaced unchecked `+=` accumulation with checked addition;
+  - return deterministic `-32000` errors on overflow instead of potential wrap/panic paths.
+- Added regression tests:
+  - `test_getreceivedbyaddress_rejects_accumulator_overflow`
+  - `test_getreceivedbylabel_rejects_accumulator_overflow`
+
+Verification reruns:
+- `cargo test -p bitinfinity-btcrpc -- --nocapture`
+  - result: `75 passed`, `0 failed`.
+  - includes new received-amount overflow regression coverage plus all prior hardening tests.
+
 ## Issue #11 remaining high-priority gaps (not completed here)
 
 Still open and required for full #11 closure:
