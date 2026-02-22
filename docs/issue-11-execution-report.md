@@ -1593,6 +1593,28 @@ Verification reruns:
   - produced `artifacts/benchmarks/controller-null-timeout-diagnostics-20260222T075716Z/summary.json`
   - observed `timed_out=1`, `timeout_phase=\"runtime\"`, `schedule_started_from_log=1`, `signal_11_from_log=0`
 
+## Continuation (2026-02-22): skip-build tx-generator binary preflight guard
+
+Implemented:
+- Added non-dry-run preflight validation for `--skip-build` mode in:
+  - `scripts/benchmark/run_tps_profiles.sh`
+- Guard behavior:
+  - verifies `${TX_GEN_DIR}/neard` exists and is executable,
+  - verifies the binary contains tx-generator benchmark markers,
+  - fails fast with actionable guidance when marker checks fail.
+- This prevents long benchmark runs against binaries that likely were not built with `--features tx_generator`.
+
+Primary file:
+- `scripts/benchmark/run_tps_profiles.sh`
+
+Verification reruns:
+- `bash -n scripts/benchmark/run_tps_profiles.sh`
+- `./scripts/benchmark/run_tps_profiles.sh --dry-run --skip-build --profile baseline --metrics-interval 1` (passes dry-run path)
+- `./scripts/benchmark/run_tps_profiles.sh --profile baseline --tps-override 60 --duration-override 4 --run-grace 8 --startup-timeout 15 --num-accounts 20 --metrics-interval 1 --skip-build --disable-controller --allow-nonzero-run-status --loglevel warn --out-dir artifacts/benchmarks/skip-build-preflight-guard-20260222T080020Z` (expected preflight failure)
+  - observed error:
+    - `does not appear to include tx_generator benchmark markers`
+    - guidance to rerun without `--skip-build`
+
 ## Issue #1 goal check
 
 Status:
