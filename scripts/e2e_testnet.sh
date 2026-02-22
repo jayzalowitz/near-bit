@@ -1617,6 +1617,78 @@ if [[ "$AUTH_GETBLOCKHEADER_OK_ID" != "auth-getblockheader" ]]; then
   exit 1
 fi
 
+AUTH_GETBESTBLOCKHASH_PAYLOAD='{"jsonrpc":"2.0","id":"auth-getbestblockhash","method":"getbestblockhash","params":[]}'
+AUTH_GETBESTBLOCKHASH_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_GETBESTBLOCKHASH_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETBESTBLOCKHASH_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for getbestblockhash without auth, got: $AUTH_GETBESTBLOCKHASH_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_GETBESTBLOCKHASH_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_GETBESTBLOCKHASH_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETBESTBLOCKHASH_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for getbestblockhash with wrong auth, got: $AUTH_GETBESTBLOCKHASH_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_GETBESTBLOCKHASH_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_getbestblockhash_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_GETBESTBLOCKHASH_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETBESTBLOCKHASH_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated getbestblockhash, got: $AUTH_GETBESTBLOCKHASH_OK_CODE" >&2
+  exit 1
+fi
+AUTH_GETBESTBLOCKHASH_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_getbestblockhash_success_response.json")"
+if [[ "$AUTH_GETBESTBLOCKHASH_OK_ID" != "auth-getbestblockhash" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated getbestblockhash" >&2
+  exit 1
+fi
+
+AUTH_GETBLOCKHASH_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-getblockhash\",\"method\":\"getblockhash\",\"params\":[$INITIAL_HEIGHT]}"
+AUTH_GETBLOCKHASH_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_GETBLOCKHASH_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETBLOCKHASH_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for getblockhash without auth, got: $AUTH_GETBLOCKHASH_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_GETBLOCKHASH_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_GETBLOCKHASH_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETBLOCKHASH_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for getblockhash with wrong auth, got: $AUTH_GETBLOCKHASH_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_GETBLOCKHASH_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_getblockhash_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_GETBLOCKHASH_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETBLOCKHASH_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated getblockhash, got: $AUTH_GETBLOCKHASH_OK_CODE" >&2
+  exit 1
+fi
+AUTH_GETBLOCKHASH_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_getblockhash_success_response.json")"
+if [[ "$AUTH_GETBLOCKHASH_OK_ID" != "auth-getblockhash" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated getblockhash" >&2
+  exit 1
+fi
+
+AUTH_GETBLOCKCHAININFO_PAYLOAD='{"jsonrpc":"2.0","id":"auth-getblockchaininfo","method":"getblockchaininfo","params":[]}'
+AUTH_GETBLOCKCHAININFO_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_GETBLOCKCHAININFO_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETBLOCKCHAININFO_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for getblockchaininfo without auth, got: $AUTH_GETBLOCKCHAININFO_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_GETBLOCKCHAININFO_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_GETBLOCKCHAININFO_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETBLOCKCHAININFO_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for getblockchaininfo with wrong auth, got: $AUTH_GETBLOCKCHAININFO_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_GETBLOCKCHAININFO_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_getblockchaininfo_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_GETBLOCKCHAININFO_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETBLOCKCHAININFO_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated getblockchaininfo, got: $AUTH_GETBLOCKCHAININFO_OK_CODE" >&2
+  exit 1
+fi
+AUTH_GETBLOCKCHAININFO_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_getblockchaininfo_success_response.json")"
+if [[ "$AUTH_GETBLOCKCHAININFO_OK_ID" != "auth-getblockchaininfo" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated getblockchaininfo" >&2
+  exit 1
+fi
+
 AUTH_GETBLOCK_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-getblock\",\"method\":\"getblock\",\"params\":[\"$BEST_BLOCK_HASH\",1]}"
 AUTH_GETBLOCK_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_GETBLOCK_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
 if [[ "$AUTH_GETBLOCK_NOAUTH_CODE" != "401" ]]; then
@@ -3097,6 +3169,15 @@ auth_ok_result=$AUTH_OK_RESULT
 auth_getblockheader_noauth_http_code=$AUTH_GETBLOCKHEADER_NOAUTH_CODE
 auth_getblockheader_wrong_http_code=$AUTH_GETBLOCKHEADER_WRONG_CODE
 auth_getblockheader_ok_http_code=$AUTH_GETBLOCKHEADER_OK_CODE
+auth_getbestblockhash_noauth_http_code=$AUTH_GETBESTBLOCKHASH_NOAUTH_CODE
+auth_getbestblockhash_wrong_http_code=$AUTH_GETBESTBLOCKHASH_WRONG_CODE
+auth_getbestblockhash_ok_http_code=$AUTH_GETBESTBLOCKHASH_OK_CODE
+auth_getblockhash_noauth_http_code=$AUTH_GETBLOCKHASH_NOAUTH_CODE
+auth_getblockhash_wrong_http_code=$AUTH_GETBLOCKHASH_WRONG_CODE
+auth_getblockhash_ok_http_code=$AUTH_GETBLOCKHASH_OK_CODE
+auth_getblockchaininfo_noauth_http_code=$AUTH_GETBLOCKCHAININFO_NOAUTH_CODE
+auth_getblockchaininfo_wrong_http_code=$AUTH_GETBLOCKCHAININFO_WRONG_CODE
+auth_getblockchaininfo_ok_http_code=$AUTH_GETBLOCKCHAININFO_OK_CODE
 auth_getblock_noauth_http_code=$AUTH_GETBLOCK_NOAUTH_CODE
 auth_getblock_wrong_http_code=$AUTH_GETBLOCK_WRONG_CODE
 auth_getblock_ok_http_code=$AUTH_GETBLOCK_OK_CODE
