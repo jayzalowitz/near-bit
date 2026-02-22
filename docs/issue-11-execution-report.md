@@ -1424,6 +1424,36 @@ Verification rerun:
 - `./scripts/e2e_testnet.sh`
 - `cargo test -q -p bitinfinity-btcrpc`
 
+## Continuation (2026-02-22): block-hash/blockchaininfo auth-gating coverage
+
+Implemented:
+- Extended auth-depth E2E checks to include additional chain-read methods:
+  - `getbestblockhash`
+  - `getblockhash`
+  - `getblockchaininfo`
+- For each method, added explicit auth triad assertions:
+  - unauthenticated request returns HTTP `401`,
+  - wrong-credential request returns HTTP `401`,
+  - authenticated request returns HTTP `200` with matching JSON-RPC `id`.
+- Added summary exports:
+  - `auth_getbestblockhash_noauth_http_code`
+  - `auth_getbestblockhash_wrong_http_code`
+  - `auth_getbestblockhash_ok_http_code`
+  - `auth_getblockhash_noauth_http_code`
+  - `auth_getblockhash_wrong_http_code`
+  - `auth_getblockhash_ok_http_code`
+  - `auth_getblockchaininfo_noauth_http_code`
+  - `auth_getblockchaininfo_wrong_http_code`
+  - `auth_getblockchaininfo_ok_http_code`
+
+Primary file:
+- `scripts/e2e_testnet.sh`
+
+Verification rerun:
+- `bash -n scripts/e2e_testnet.sh`
+- `./scripts/e2e_testnet.sh`
+- `cargo test -q -p bitinfinity-btcrpc`
+
 ## Issue #1 goal check
 
 Status:
