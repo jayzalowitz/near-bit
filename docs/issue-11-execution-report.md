@@ -1707,6 +1707,25 @@ Verification reruns:
     - `final_failed_metric=0`
     - `run_status=0`, `timed_out=0`.
 
+## Continuation (2026-02-22): suppress bootstrap tx-generator idle log noise
+
+Implemented:
+- Updated `scripts/benchmark/run_tps_profiles.sh` account-creation bootstrap path to run with `RUST_LOG="info,transaction-generator=off"` in both dry-run command output and live execution.
+- This suppresses expected tx-generator idle/no-schedule noise emitted during `create-accounts` before the benchmark schedule begins, while preserving normal runtime tx-generator telemetry.
+
+Primary file:
+- `scripts/benchmark/run_tps_profiles.sh`
+
+Verification reruns:
+- `bash -n scripts/benchmark/run_tps_profiles.sh`
+- `./scripts/benchmark/run_tps_profiles.sh --profile baseline --tps-override 40 --duration-override 3 --run-grace 5 --startup-timeout 30 --num-accounts 10 --metrics-interval 1 --skip-build --allow-nonzero-run-status --out-dir artifacts/benchmarks/bootstrap-log-cleanup-20260222T082433Z`
+  - observed in `artifacts/benchmarks/bootstrap-log-cleanup-20260222T082433Z/baseline/summary.json`:
+    - `run_status=143`, `effective_run_status=0`, `timed_out=0`
+    - `run_localnet_started_from_log=1`, `schedule_started_from_log=1`, `schedule_completed_from_log=1`
+    - `pre_run_success_metric_baseline=10`, `final_success_metric_raw=144`, `final_success_metric=134`, `final_failed_metric=0`
+  - observed in `artifacts/benchmarks/bootstrap-log-cleanup-20260222T082433Z/baseline/neard.log`:
+    - no matches for `tx generator idle` / `no schedule provided` during bootstrap.
+
 ## Issue #1 goal check
 
 Status:
