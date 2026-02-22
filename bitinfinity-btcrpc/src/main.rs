@@ -7734,11 +7734,16 @@ async fn handle_stake(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcResp
         .and_then(|arr| arr.get(1))
         .and_then(|v| v.as_f64())
         .unwrap_or(0.0);
-    if amount_btc <= 0.0 {
-        return err_response(&request.id, -32602, "Amount must be positive".to_string());
-    }
-
-    let amount_sat = (amount_btc * 100_000_000.0) as u64;
+    let amount_sat = match btc_to_satoshis_checked(amount_btc) {
+        Some(sats) => sats,
+        None => {
+            return err_response(
+                &request.id,
+                -3,
+                "Invalid amount: must be positive, finite, and satoshi-precise".to_string(),
+            )
+        }
+    };
     let amount_yocto = ParsedBitcoinTx::satoshis_to_yocto(amount_sat);
 
     let (key_entry, secret_key, near_pubkey_str) = match get_sender_key(state, addr).await {
@@ -8451,6 +8456,27 @@ async fn handle_createnearaccount(state: &RpcState, request: &JsonRpcRequest) ->
         .and_then(|arr| arr.get(2))
         .and_then(|v| v.as_f64())
         .unwrap_or(0.0);
+    if !initial_btc.is_finite() || initial_btc < 0.0 {
+        return err_response(
+            &request.id,
+            -3,
+            "Invalid initial_balance_btc: must be non-negative and finite".to_string(),
+        );
+    }
+    let initial_sat_opt = if initial_btc > 0.0 {
+        match btc_to_satoshis_checked(initial_btc) {
+            Some(sats) => Some(sats),
+            None => {
+                return err_response(
+                    &request.id,
+                    -3,
+                    "Invalid initial_balance_btc: must be satoshi-precise".to_string(),
+                )
+            }
+        }
+    } else {
+        None
+    };
     let new_pk_hex = get_str_param(&request.params, 3);
 
     let (key_entry, secret_key, near_pubkey_str) = match get_sender_key(state, sender).await {
@@ -8475,8 +8501,7 @@ async fn handle_createnearaccount(state: &RpcState, request: &JsonRpcRequest) ->
         block_hash,
     );
     builder.add_action(NearAction::create_account());
-    if initial_btc > 0.0 {
-        let sat = (initial_btc * 100_000_000.0) as u64;
+    if let Some(sat) = initial_sat_opt {
         builder.add_action(NearAction::transfer(ParsedBitcoinTx::satoshis_to_yocto(
             sat,
         )));
@@ -8527,6 +8552,16 @@ async fn handle_fundgaskey(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
         .and_then(|arr| arr.get(2))
         .and_then(|v| v.as_f64())
         .unwrap_or(0.0);
+    let deposit_sat = match btc_to_satoshis_checked(btc) {
+        Some(sats) => sats,
+        None => {
+            return err_response(
+                &request.id,
+                -3,
+                "Invalid amount_btc: must be positive, finite, and satoshi-precise".to_string(),
+            )
+        }
+    };
 
     let gas_pk = match hex::decode(pk_hex) {
         Ok(b) if b.len() == 64 => {
@@ -8557,7 +8592,7 @@ async fn handle_fundgaskey(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
         Err(e) => return err_response(&request.id, -32000, format!("Key error: {}", e)),
     };
 
-    let deposit = ParsedBitcoinTx::satoshis_to_yocto((btc * 100_000_000.0) as u64);
+    let deposit = ParsedBitcoinTx::satoshis_to_yocto(deposit_sat);
     let mut builder = NearTxBuilder::new(
         sender.to_string(),
         pk_uncompressed,
@@ -8602,6 +8637,16 @@ async fn handle_withdrawgaskey(state: &RpcState, request: &JsonRpcRequest) -> Js
         .and_then(|arr| arr.get(2))
         .and_then(|v| v.as_f64())
         .unwrap_or(0.0);
+    let withdraw_sat = match btc_to_satoshis_checked(btc) {
+        Some(sats) => sats,
+        None => {
+            return err_response(
+                &request.id,
+                -3,
+                "Invalid amount_btc: must be positive, finite, and satoshi-precise".to_string(),
+            )
+        }
+    };
 
     let gas_pk = match hex::decode(pk_hex) {
         Ok(b) if b.len() == 64 => {
@@ -8632,7 +8677,7 @@ async fn handle_withdrawgaskey(state: &RpcState, request: &JsonRpcRequest) -> Js
         Err(e) => return err_response(&request.id, -32000, format!("Key error: {}", e)),
     };
 
-    let amount = ParsedBitcoinTx::satoshis_to_yocto((btc * 100_000_000.0) as u64);
+    let amount = ParsedBitcoinTx::satoshis_to_yocto(withdraw_sat);
     let mut builder = NearTxBuilder::new(
         sender.to_string(),
         pk_uncompressed,
@@ -11548,17 +11593,18 @@ mod tests {
     use super::{
         btc_to_satoshis_checked, derive_script_pub_key_hex, encode_bitcoin_varint,
         extract_unsigned_tx_hex, handle_addquantumkey, handle_analyzepsbt, handle_backupwallet,
-        handle_combinepsbt, handle_createpsbt, handle_createrawtransaction, handle_decodepsbt,
-        handle_encryptwallet, handle_finalizepsbt, handle_fundrawtransaction, handle_getbalance,
+        handle_combinepsbt, handle_createnearaccount, handle_createpsbt,
+        handle_createrawtransaction, handle_decodepsbt, handle_encryptwallet, handle_finalizepsbt,
+        handle_fundgaskey, handle_fundrawtransaction, handle_getbalance,
         handle_getmempoolancestors, handle_getmempooldescendants, handle_getmempoolentry,
         handle_getunconfirmedbalance, handle_getwalletinfo, handle_importaddress, handle_joinpsbts,
         handle_keypoolrefill, handle_listquantumkeys, handle_listreceivedbylabel,
         handle_listunspent, handle_listwalletdir, handle_listwallets, handle_loadwallet,
         handle_lockunspent, handle_removequantumkey, handle_sendmany, handle_sendtoaddress,
-        handle_setlabel, handle_unloadwallet, handle_utxoupdatepsbt, handle_walletcreatefundedpsbt,
-        handle_walletpassphrasechange, handle_walletprocesspsbt, parse_patoshi_record_bytes,
-        verify_bitcoin_message_signature, write_compact_size, JsonRpcRequest, RpcState,
-        TxCacheEntry,
+        handle_setlabel, handle_stake, handle_unloadwallet, handle_utxoupdatepsbt,
+        handle_walletcreatefundedpsbt, handle_walletpassphrasechange, handle_walletprocesspsbt,
+        handle_withdrawgaskey, parse_patoshi_record_bytes, verify_bitcoin_message_signature,
+        write_compact_size, JsonRpcRequest, RpcState, TxCacheEntry,
     };
     use base64::Engine;
     use secp256k1::{Message, Secp256k1, SecretKey};
@@ -11758,6 +11804,116 @@ mod tests {
                 response.error.as_ref().map(|e| e.code),
                 Some(-3),
                 "sendmany should reject sub-satoshi decimal precision"
+            );
+        });
+    }
+
+    #[test]
+    fn test_stake_rejects_sub_satoshi_amount() {
+        let runtime = tokio::runtime::Runtime::new().expect("tokio runtime should initialize");
+        let state = RpcState::new(
+            "bitinfinity-testnet".to_string(),
+            "test".to_string(),
+            "http://127.0.0.1:3030".to_string(),
+        );
+
+        runtime.block_on(async {
+            let request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(71003),
+                method: "stakenearsatoshis".to_string(),
+                params: json!(["sender.near", 0.000000001]),
+            };
+            let response = handle_stake(&state, &request).await;
+
+            assert!(response.result.is_none());
+            assert_eq!(
+                response.error.as_ref().map(|e| e.code),
+                Some(-3),
+                "stake should reject sub-satoshi decimal precision"
+            );
+        });
+    }
+
+    #[test]
+    fn test_createnearaccount_rejects_negative_initial_balance() {
+        let runtime = tokio::runtime::Runtime::new().expect("tokio runtime should initialize");
+        let state = RpcState::new(
+            "bitinfinity-testnet".to_string(),
+            "test".to_string(),
+            "http://127.0.0.1:3030".to_string(),
+        );
+
+        runtime.block_on(async {
+            let request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(71004),
+                method: "createnearaccount".to_string(),
+                params: json!(["sender.near", "new.near", -0.01]),
+            };
+            let response = handle_createnearaccount(&state, &request).await;
+
+            assert!(response.result.is_none());
+            assert_eq!(
+                response.error.as_ref().map(|e| e.code),
+                Some(-3),
+                "createnearaccount should reject negative initial balance"
+            );
+        });
+    }
+
+    #[test]
+    fn test_fundgaskey_rejects_sub_satoshi_amount() {
+        let runtime = tokio::runtime::Runtime::new().expect("tokio runtime should initialize");
+        let state = RpcState::new(
+            "bitinfinity-testnet".to_string(),
+            "test".to_string(),
+            "http://127.0.0.1:3030".to_string(),
+        );
+        let valid_pk_hex = "11".repeat(64);
+
+        runtime.block_on(async {
+            let request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(71005),
+                method: "fundgaskey".to_string(),
+                params: json!(["sender.near", valid_pk_hex, 0.000000001]),
+            };
+            let response = handle_fundgaskey(&state, &request).await;
+
+            assert!(response.result.is_none());
+            assert_eq!(
+                response.error.as_ref().map(|e| e.code),
+                Some(-3),
+                "fundgaskey should reject sub-satoshi decimal precision"
+            );
+        });
+    }
+
+    #[test]
+    fn test_withdrawgaskey_rejects_sub_satoshi_amount() {
+        let runtime = tokio::runtime::Runtime::new().expect("tokio runtime should initialize");
+        let state = RpcState::new(
+            "bitinfinity-testnet".to_string(),
+            "test".to_string(),
+            "http://127.0.0.1:3030".to_string(),
+        );
+        let valid_pk_hex = "22".repeat(64);
+
+        runtime.block_on(async {
+            let request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(71006),
+                method: "withdrawgaskey".to_string(),
+                params: json!(["sender.near", valid_pk_hex, 0.000000001]),
+            };
+            let response = handle_withdrawgaskey(&state, &request).await;
+
+            assert!(response.result.is_none());
+            assert_eq!(
+                response.error.as_ref().map(|e| e.code),
+                Some(-3),
+                "withdrawgaskey should reject sub-satoshi decimal precision"
             );
         });
     }
