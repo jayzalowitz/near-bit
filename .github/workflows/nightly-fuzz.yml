@@ -36,6 +36,8 @@ jobs:
             target: fuzz_tx_hex
           - crate_path: bitinfinity-btcrpc
             target: fuzz_tx_translator
+          - crate_path: bitinfinity-tools
+            target: fuzz_patoshi_csv
           - crate_path: nearcore/core/crypto
             target: fuzz_secp256k1_recover
     timeout-minutes: 360

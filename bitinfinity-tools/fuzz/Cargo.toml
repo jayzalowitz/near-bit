@@ -1,0 +1,21 @@
+[package]
+name = "bitinfinity-tools-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+csv = "1.3"
+libfuzzer-sys = "0.4"
+
+[[bin]]
+name = "fuzz_patoshi_csv"
+path = "fuzz_targets/fuzz_patoshi_csv.rs"
+test = false
+doc = false
+bench = false
+
+[workspace]

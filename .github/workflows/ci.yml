@@ -184,6 +184,11 @@ jobs:
           cd bitinfinity-btcrpc
           cargo fuzz run fuzz_tx_translator -- -max_total_time=30 -timeout=5
 
+      - name: Fuzz Patoshi CSV parser (30s)
+        run: |
+          cd bitinfinity-tools
+          cargo fuzz run fuzz_patoshi_csv -- -max_total_time=30 -timeout=5
+
       - name: Fuzz secp256k1 recover path (30s)
         run: |
           cd nearcore/core/crypto
