@@ -3339,25 +3339,27 @@ async fn handle_signrawtransactionwithwallet(
         address: String,
         amount_satoshis: u64,
     }
-    let (sender_addr, all_outputs) =
-        if let Ok(intent_json) = serde_json::from_str::<serde_json::Value>(&intent_str) {
-            let outputs = intent_json.get("outputs").and_then(|o| o.as_array());
-            match outputs {
-                Some(outs) if !outs.is_empty() => {
-                    let mut parsed_outputs = Vec::with_capacity(outs.len());
-                    for out in outs {
-                        let address = match out.get("address").and_then(|v| v.as_str()) {
-                            Some(addr) if !addr.is_empty() => addr.to_string(),
-                            _ => {
-                                return err_response(
-                                    &request.id,
-                                    -22,
-                                    "Invalid intent format: missing output address".to_string(),
-                                )
-                            }
-                        };
-                        let amount_btc = match out.get("amount").and_then(|v| v.as_f64()) {
-                            Some(amount) if amount.is_finite() && amount > 0.0 => amount,
+    let (sender_addr, all_outputs) = if let Ok(intent_json) =
+        serde_json::from_str::<serde_json::Value>(&intent_str)
+    {
+        let outputs = intent_json.get("outputs").and_then(|o| o.as_array());
+        match outputs {
+            Some(outs) if !outs.is_empty() => {
+                let mut parsed_outputs = Vec::with_capacity(outs.len());
+                for out in outs {
+                    let address = match out.get("address").and_then(|v| v.as_str()) {
+                        Some(addr) if !addr.is_empty() => addr.to_string(),
+                        _ => {
+                            return err_response(
+                                &request.id,
+                                -22,
+                                "Invalid intent format: missing output address".to_string(),
+                            )
+                        }
+                    };
+                    let amount_btc =
+                        match out.get("amount").and_then(|v| v.as_f64()) {
+                            Some(amount) => amount,
                             _ => return err_response(
                                 &request.id,
                                 -22,
@@ -3365,70 +3367,81 @@ async fn handle_signrawtransactionwithwallet(
                                     .to_string(),
                             ),
                         };
-                        parsed_outputs.push(OutputInfo {
-                            address,
-                            amount_satoshis: (amount_btc * 100_000_000.0) as u64,
-                        });
-                    }
-
-                    let total_sat: u64 = parsed_outputs.iter().map(|o| o.amount_satoshis).sum();
-
-                    // Find a funded sender from keystore
-                    let keystore = state.keystore.read().await;
-                    let addresses: Vec<String> =
-                        keystore.addresses().iter().map(|a| a.to_string()).collect();
-                    drop(keystore);
-
-                    let mut found_sender = None;
-                    for a in &addresses {
-                        if let Ok(account) = state.near_client.view_account(a).await {
-                            if account.balance_as_satoshis() >= total_sat {
-                                found_sender = Some(a.clone());
-                                break;
+                    let amount_satoshis = match btc_to_satoshis_checked(amount_btc) {
+                            Some(sats) => sats,
+                            None => {
+                                return err_response(
+                                    &request.id,
+                                    -22,
+                                    "Invalid intent format: output amount must be positive and satoshi-precise"
+                                        .to_string(),
+                                )
                             }
-                        }
-                    }
+                        };
+                    parsed_outputs.push(OutputInfo {
+                        address,
+                        amount_satoshis,
+                    });
+                }
 
-                    match found_sender {
-                        Some(s) => (s, parsed_outputs),
-                        None => {
-                            return ok_response(
-                                &request.id,
-                                json!({
-                                    "hex": raw_hex,
-                                    "complete": false,
-                                    "errors": [{"error": "Insufficient funds or no wallet keys"}]
-                                }),
-                            )
+                let total_sat: u64 = parsed_outputs.iter().map(|o| o.amount_satoshis).sum();
+
+                // Find a funded sender from keystore
+                let keystore = state.keystore.read().await;
+                let addresses: Vec<String> =
+                    keystore.addresses().iter().map(|a| a.to_string()).collect();
+                drop(keystore);
+
+                let mut found_sender = None;
+                for a in &addresses {
+                    if let Ok(account) = state.near_client.view_account(a).await {
+                        if account.balance_as_satoshis() >= total_sat {
+                            found_sender = Some(a.clone());
+                            break;
                         }
                     }
                 }
-                _ => return err_response(&request.id, -22, "Invalid intent format".to_string()),
+
+                match found_sender {
+                    Some(s) => (s, parsed_outputs),
+                    None => {
+                        return ok_response(
+                            &request.id,
+                            json!({
+                                "hex": raw_hex,
+                                "complete": false,
+                                "errors": [{"error": "Insufficient funds or no wallet keys"}]
+                            }),
+                        )
+                    }
+                }
             }
-        } else if let Ok(parsed) = ParsedBitcoinTx::from_hex_with_hrp(raw_hex, state.bech32_hrp()) {
-            // Real Bitcoin transaction — collect all non-change, non-OP_RETURN outputs
-            let payment_outputs: Vec<OutputInfo> = parsed
-                .outputs
-                .iter()
-                .filter(|o| {
-                    !o.is_op_return && o.address != parsed.sender_address && !o.address.is_empty()
-                })
-                .map(|o| OutputInfo {
-                    address: o.address.clone(),
-                    amount_satoshis: o.amount_satoshis,
-                })
-                .collect();
-            if payment_outputs.is_empty() {
-                return err_response(&request.id, -25, "No payment outputs found".to_string());
-            }
-            (parsed.sender_address.clone(), payment_outputs)
-        } else {
-            return err_response(
-                &request.id,
-                -22,
-                format!("TX decode failed: not a valid Bitcoin tx or bitinfinity intent"),
-            );
-        };
+            _ => return err_response(&request.id, -22, "Invalid intent format".to_string()),
+        }
+    } else if let Ok(parsed) = ParsedBitcoinTx::from_hex_with_hrp(raw_hex, state.bech32_hrp()) {
+        // Real Bitcoin transaction — collect all non-change, non-OP_RETURN outputs
+        let payment_outputs: Vec<OutputInfo> = parsed
+            .outputs
+            .iter()
+            .filter(|o| {
+                !o.is_op_return && o.address != parsed.sender_address && !o.address.is_empty()
+            })
+            .map(|o| OutputInfo {
+                address: o.address.clone(),
+                amount_satoshis: o.amount_satoshis,
+            })
+            .collect();
+        if payment_outputs.is_empty() {
+            return err_response(&request.id, -25, "No payment outputs found".to_string());
+        }
+        (parsed.sender_address.clone(), payment_outputs)
+    } else {
+        return err_response(
+            &request.id,
+            -22,
+            format!("TX decode failed: not a valid Bitcoin tx or bitinfinity intent"),
+        );
+    };
 
     // Look up sender's key
     let key_entry = {
@@ -3890,15 +3903,21 @@ fn handle_createrawtransaction(request: &JsonRpcRequest) -> JsonRpcResponse {
         None => return err_response(&request.id, -32602, "Missing outputs parameter".to_string()),
     };
 
+    struct OutputAmount {
+        address: String,
+        amount_btc: f64,
+        amount_satoshis: u64,
+    }
+
     // Parse outputs: object {"addr": amount} or array of such objects
-    let mut output_pairs: Vec<(String, f64)> = Vec::new();
+    let mut output_pairs: Vec<OutputAmount> = Vec::new();
     if let Some(obj) = outputs.as_object() {
         for (addr, value) in obj {
             if addr == "data" {
                 continue;
             }
-            let amount = match value.as_f64() {
-                Some(amount) if amount.is_finite() && amount > 0.0 => amount,
+            let amount_btc = match value.as_f64() {
+                Some(amount) => amount,
                 _ => {
                     return err_response(
                         &request.id,
@@ -3907,7 +3926,21 @@ fn handle_createrawtransaction(request: &JsonRpcRequest) -> JsonRpcResponse {
                     )
                 }
             };
-            output_pairs.push((addr.clone(), amount));
+            let amount_satoshis = match btc_to_satoshis_checked(amount_btc) {
+                Some(satoshis) => satoshis,
+                None => {
+                    return err_response(
+                        &request.id,
+                        -32602,
+                        "Output amounts must be positive and satoshi-precise".to_string(),
+                    )
+                }
+            };
+            output_pairs.push(OutputAmount {
+                address: addr.clone(),
+                amount_btc,
+                amount_satoshis,
+            });
         }
     } else if let Some(arr) = outputs.as_array() {
         for entry in arr {
@@ -3925,8 +3958,8 @@ fn handle_createrawtransaction(request: &JsonRpcRequest) -> JsonRpcResponse {
                 if addr == "data" {
                     continue;
                 }
-                let amount = match value.as_f64() {
-                    Some(amount) if amount.is_finite() && amount > 0.0 => amount,
+                let amount_btc = match value.as_f64() {
+                    Some(amount) => amount,
                     _ => {
                         return err_response(
                             &request.id,
@@ -3935,7 +3968,21 @@ fn handle_createrawtransaction(request: &JsonRpcRequest) -> JsonRpcResponse {
                         )
                     }
                 };
-                output_pairs.push((addr.clone(), amount));
+                let amount_satoshis = match btc_to_satoshis_checked(amount_btc) {
+                    Some(satoshis) => satoshis,
+                    None => {
+                        return err_response(
+                            &request.id,
+                            -32602,
+                            "Output amounts must be positive and satoshi-precise".to_string(),
+                        )
+                    }
+                };
+                output_pairs.push(OutputAmount {
+                    address: addr.clone(),
+                    amount_btc,
+                    amount_satoshis,
+                });
             }
         }
     } else {
@@ -3982,9 +4029,8 @@ fn handle_createrawtransaction(request: &JsonRpcRequest) -> JsonRpcResponse {
     // Output count
     unsigned_tx.push(num_outputs as u8);
     // Outputs
-    for (_addr, btc_amount) in &output_pairs {
-        let satoshis = (*btc_amount * 100_000_000.0) as u64;
-        unsigned_tx.extend_from_slice(&satoshis.to_le_bytes());
+    for output in &output_pairs {
+        unsigned_tx.extend_from_slice(&output.amount_satoshis.to_le_bytes());
         unsigned_tx.push(0x00); // empty scriptPubKey (will be populated by wallet)
     }
     // Locktime
@@ -3993,8 +4039,8 @@ fn handle_createrawtransaction(request: &JsonRpcRequest) -> JsonRpcResponse {
     // Also store the intent as a fallback for fundrawtransaction/signrawtransactionwithwallet
     // The bitinfinity intent is preserved in a comment-like prefix
     let intent = json!({
-        "outputs": output_pairs.iter().map(|(addr, amt)| {
-            json!({"address": addr, "amount": amt})
+        "outputs": output_pairs.iter().map(|output| {
+            json!({"address": &output.address, "amount": output.amount_btc})
         }).collect::<Vec<_>>()
     });
     let intent_hex = hex::encode(intent.to_string().as_bytes());
@@ -4026,23 +4072,54 @@ async fn handle_fundrawtransaction(state: &RpcState, request: &JsonRpcRequest) -
     let intent_bytes = hex::decode(raw_hex).unwrap_or_default();
     let intent_str = String::from_utf8(intent_bytes).unwrap_or_default();
 
-    let total_amount_sat: u64 =
-        if let Ok(intent_json) = serde_json::from_str::<serde_json::Value>(&intent_str) {
-            intent_json
-                .get("outputs")
-                .and_then(|o| o.as_array())
-                .map(|outs| {
-                    outs.iter()
-                        .filter_map(|o| o.get("amount").and_then(|v| v.as_f64()))
-                        .map(|btc| (btc * 100_000_000.0) as u64)
-                        .sum()
-                })
-                .unwrap_or(0)
-        } else if let Ok(parsed) = ParsedBitcoinTx::from_hex_with_hrp(raw_hex, state.bech32_hrp()) {
-            parsed.total_payment_satoshis()
-        } else {
+    let total_amount_sat: u64 = if let Ok(intent_json) =
+        serde_json::from_str::<serde_json::Value>(&intent_str)
+    {
+        let outputs = intent_json.get("outputs").and_then(|o| o.as_array());
+        let Some(outs) = outputs else {
             return err_response(&request.id, -22, "Invalid transaction format".to_string());
         };
+
+        let mut total_sat = 0u64;
+        for out in outs {
+            let amount_btc = match out.get("amount").and_then(|v| v.as_f64()) {
+                Some(amount) => amount,
+                None => {
+                    return err_response(
+                        &request.id,
+                        -22,
+                        "Invalid transaction format: output amount must be numeric".to_string(),
+                    )
+                }
+            };
+            let amount_sat = match btc_to_satoshis_checked(amount_btc) {
+                    Some(sats) => sats,
+                    None => {
+                        return err_response(
+                            &request.id,
+                            -22,
+                            "Invalid transaction format: output amount must be positive and satoshi-precise"
+                                .to_string(),
+                        )
+                    }
+                };
+            total_sat = match total_sat.checked_add(amount_sat) {
+                Some(next) => next,
+                None => {
+                    return err_response(
+                        &request.id,
+                        -22,
+                        "Invalid transaction format: total output amount overflow".to_string(),
+                    )
+                }
+            };
+        }
+        total_sat
+    } else if let Ok(parsed) = ParsedBitcoinTx::from_hex_with_hrp(raw_hex, state.bech32_hrp()) {
+        parsed.total_payment_satoshis()
+    } else {
+        return err_response(&request.id, -22, "Invalid transaction format".to_string());
+    };
 
     // Find a funded address from keystore
     let keystore = state.keystore.read().await;
@@ -6174,7 +6251,7 @@ fn parse_raw_tx_for_psbt(tx: &[u8]) -> (Vec<serde_json::Value>, Vec<serde_json::
 
 fn parse_psbt_output_pairs(
     outputs_param: Option<&serde_json::Value>,
-) -> Result<Vec<(String, f64)>, String> {
+) -> Result<Vec<(String, u64)>, String> {
     let outputs = match outputs_param {
         Some(outputs) => outputs,
         None => return Err("Missing outputs parameter".to_string()),
@@ -6193,10 +6270,18 @@ fn parse_psbt_output_pairs(
                         continue;
                     }
                     let amount = match amount_val.as_f64() {
-                        Some(amount) if amount.is_finite() && amount > 0.0 => amount,
+                        Some(amount) => amount,
                         _ => return Err("Output amounts must be positive numbers".to_string()),
                     };
-                    output_pairs.push((addr.clone(), amount));
+                    let satoshis = match btc_to_satoshis_checked(amount) {
+                        Some(value) => value,
+                        None => {
+                            return Err(
+                                "Output amounts must be positive and satoshi-precise".to_string()
+                            )
+                        }
+                    };
+                    output_pairs.push((addr.clone(), satoshis));
                 }
             }
         }
@@ -6206,10 +6291,18 @@ fn parse_psbt_output_pairs(
                     continue;
                 }
                 let amount = match amount_val.as_f64() {
-                    Some(amount) if amount.is_finite() && amount > 0.0 => amount,
+                    Some(amount) => amount,
                     _ => return Err("Output amounts must be positive numbers".to_string()),
                 };
-                output_pairs.push((addr.clone(), amount));
+                let satoshis = match btc_to_satoshis_checked(amount) {
+                    Some(value) => value,
+                    None => {
+                        return Err(
+                            "Output amounts must be positive and satoshi-precise".to_string()
+                        )
+                    }
+                };
+                output_pairs.push((addr.clone(), satoshis));
             }
         }
         _ => return Err("Invalid outputs format".to_string()),
@@ -6250,8 +6343,8 @@ async fn handle_walletcreatefundedpsbt(
         Err(msg) => return err_response(&request.id, -32602, msg),
     };
 
-    let total_output: f64 = output_pairs.iter().map(|(_, a)| a).sum();
-    let fee_btc = 0.00001_f64;
+    let total_output_sat: u64 = output_pairs.iter().map(|(_, sat)| *sat).sum();
+    let fee_sat: u64 = 1_000; // 0.00001 BTC
 
     // Auto-select inputs if none provided
     let use_inputs: Vec<(String, u32)> = if inputs.map(|i| i.is_empty()).unwrap_or(true) {
@@ -6271,8 +6364,8 @@ async fn handle_walletcreatefundedpsbt(
                 continue;
             }
             if let Ok(account) = state.near_client.view_account(addr).await {
-                let btc = account.balance_as_btc();
-                if btc >= total_output + fee_btc {
+                let balance_sat = account.balance_as_satoshis();
+                if balance_sat >= total_output_sat.saturating_add(fee_sat) {
                     selected.push((txid, 0u32));
                     break;
                 }
@@ -6319,8 +6412,7 @@ async fn handle_walletcreatefundedpsbt(
     }
     write_compact_size(&mut unsigned_tx, num_outputs as u64);
     let hrp = state.bech32_hrp();
-    for (addr, btc_amount) in &output_pairs {
-        let satoshis = (*btc_amount * 100_000_000.0) as u64;
+    for (addr, satoshis) in &output_pairs {
         unsigned_tx.extend_from_slice(&satoshis.to_le_bytes());
         let script_hex = derive_script_pub_key_hex(addr, hrp);
         if script_hex.is_empty() {
@@ -6353,6 +6445,7 @@ async fn handle_walletcreatefundedpsbt(
     }
 
     let psbt_b64 = base64_encode(&psbt);
+    let fee_btc = fee_sat as f64 / 100_000_000.0;
 
     ok_response(
         &request.id,
@@ -9532,8 +9625,7 @@ fn handle_createpsbt(request: &JsonRpcRequest) -> JsonRpcResponse {
     }
     // output count (varint)
     write_compact_size(&mut unsigned_tx, num_outputs as u64);
-    for (addr, btc_amount) in &output_pairs {
-        let satoshis = (*btc_amount * 100_000_000.0) as u64;
+    for (addr, satoshis) in &output_pairs {
         unsigned_tx.extend_from_slice(&satoshis.to_le_bytes());
         let hrp_guess = addr
             .split_once('1')
@@ -12092,6 +12184,33 @@ mod tests {
     }
 
     #[test]
+    fn test_createpsbt_rejects_sub_satoshi_output_amount() {
+        let dummy_txid = "df".repeat(32);
+        let create_request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(403),
+            method: "createpsbt".to_string(),
+            params: json!([
+                [{"txid": dummy_txid, "vout": 0}],
+                {"1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa": 0.000000001},
+                0,
+                true
+            ]),
+        };
+
+        let create_response = handle_createpsbt(&create_request);
+        assert!(
+            create_response.result.is_none(),
+            "sub-satoshi output amount should not produce PSBT"
+        );
+        assert_eq!(
+            create_response.error.as_ref().map(|e| e.code),
+            Some(-32602),
+            "sub-satoshi output amount should return invalid-params"
+        );
+    }
+
+    #[test]
     fn test_createpsbt_rejects_outputs_without_destination_amounts() {
         let dummy_txid = "ef".repeat(32);
         let create_request = JsonRpcRequest {
@@ -12145,6 +12264,32 @@ mod tests {
     }
 
     #[test]
+    fn test_createrawtransaction_rejects_sub_satoshi_output_amount() {
+        let request = JsonRpcRequest {
+            jsonrpc: "2.0".to_string(),
+            id: json!(412),
+            method: "createrawtransaction".to_string(),
+            params: json!([
+                [],
+                {"1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa": 0.000000001},
+                0,
+                true
+            ]),
+        };
+
+        let response = handle_createrawtransaction(&request);
+        assert!(
+            response.result.is_none(),
+            "sub-satoshi output amount should fail"
+        );
+        assert_eq!(
+            response.error.as_ref().map(|e| e.code),
+            Some(-32602),
+            "sub-satoshi output amount should return invalid-params"
+        );
+    }
+
+    #[test]
     fn test_createrawtransaction_rejects_outputs_without_destination_amounts() {
         let request = JsonRpcRequest {
             jsonrpc: "2.0".to_string(),
@@ -12168,6 +12313,48 @@ mod tests {
             Some(-32602),
             "missing destination outputs should return invalid-params"
         );
+    }
+
+    #[test]
+    fn test_fundrawtransaction_rejects_sub_satoshi_intent_output() {
+        let runtime = tokio::runtime::Runtime::new().expect("tokio runtime should initialize");
+        let state = RpcState::new(
+            "bitinfinity-testnet".to_string(),
+            "test".to_string(),
+            "http://127.0.0.1:3030".to_string(),
+        );
+        let intent_hex = hex::encode(
+            json!({
+                "outputs": [
+                    {
+                        "address": "1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa",
+                        "amount": 0.000000001
+                    }
+                ]
+            })
+            .to_string()
+            .as_bytes(),
+        );
+
+        runtime.block_on(async {
+            let request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(413),
+                method: "fundrawtransaction".to_string(),
+                params: json!([intent_hex]),
+            };
+
+            let response = handle_fundrawtransaction(&state, &request).await;
+            assert!(
+                response.result.is_none(),
+                "fundrawtransaction should reject invalid sub-satoshi intent amounts"
+            );
+            assert_eq!(
+                response.error.as_ref().map(|e| e.code),
+                Some(-22),
+                "fundrawtransaction should return deserialize-style error for invalid intent"
+            );
+        });
     }
 
     #[test]
