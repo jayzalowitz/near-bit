@@ -2103,6 +2103,20 @@ Verification reruns:
   - result: `70 passed`, `0 failed`.
   - includes both sendneartx/addnearkey fail-fast ordering assertions plus prior amount-math hardening coverage.
 
+## Continuation (2026-02-22): mempool fee satoshi conversion cleanup
+
+Implemented:
+- Removed the final direct BTC float-to-satoshi cast in btcrpc (`getmempoolentry`).
+- `getmempoolentry` fee now derives satoshis from `fee_yocto / YOCTO_PER_SATOSHI` with:
+  - explicit `u64` bounds handling;
+  - minimum fee floor alignment (`1000 sats`, matching `0.00001 BTC` fallback floor).
+- This completes the in-file elimination of lossy `* 100_000_000.0 as u64` amount conversions in `bitinfinity-btcrpc/src/main.rs`.
+
+Verification reruns:
+- `cargo test -p bitinfinity-btcrpc -- --nocapture`
+  - result: `70 passed`, `0 failed`.
+  - confirms no regression after fee conversion cleanup.
+
 ## Issue #11 remaining high-priority gaps (not completed here)
 
 Still open and required for full #11 closure:
