@@ -2009,6 +2009,27 @@ Verification reruns:
   - result: `60 passed`, `0 failed`.
   - includes new nonce normalization test plus all prior wallet/mempool/PSBT/fuzz-hardening coverage.
 
+## Continuation (2026-02-22): NEAR convenience RPC amount-validation hardening
+
+Implemented:
+- Replaced lossy BTC→satoshi casts with checked conversion in NEAR-native convenience RPC methods:
+  - `stakenearsatoshis`
+  - `createnearaccount` (initial transfer amount validation)
+  - `fundgaskey`
+  - `withdrawgaskey`
+- Added strict validation behavior aligned with hardened send paths:
+  - rejects non-finite/negative/sub-satoshi/invalid amounts with deterministic `-3` errors instead of silent truncation.
+- Added regression tests:
+  - `test_stake_rejects_sub_satoshi_amount`
+  - `test_createnearaccount_rejects_negative_initial_balance`
+  - `test_fundgaskey_rejects_sub_satoshi_amount`
+  - `test_withdrawgaskey_rejects_sub_satoshi_amount`
+
+Verification reruns:
+- `cargo test -p bitinfinity-btcrpc -- --nocapture`
+  - result: `64 passed`, `0 failed`.
+  - includes new NEAR convenience amount-validation tests plus prior nonce-floor/sendmany/sendtoaddress hardening coverage.
+
 ## Issue #11 remaining high-priority gaps (not completed here)
 
 Still open and required for full #11 closure:
