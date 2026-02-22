@@ -21,7 +21,7 @@ mod near_tx_builder;
 mod tx_translator;
 mod utxo_synth;
 
-use amounts::btc_to_satoshis_checked;
+use amounts::{btc_to_satoshis_checked, btc_to_satoshis_non_negative_checked};
 use keystore::{KeyEntry, Keystore};
 use near_client::NearClient;
 use near_tx_builder::{
@@ -7982,12 +7982,24 @@ async fn handle_addnearkey(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
         } else {
             methods_str.split(',').collect()
         };
-        let allowance = request
-            .params
-            .as_array()
-            .and_then(|arr| arr.get(5))
-            .and_then(|v| v.as_f64())
-            .map(|btc| ParsedBitcoinTx::satoshis_to_yocto((btc * 100_000_000.0) as u64));
+        let allowance =
+            match request
+                .params
+                .as_array()
+                .and_then(|arr| arr.get(5))
+                .and_then(|v| v.as_f64())
+            {
+                Some(btc) => match btc_to_satoshis_non_negative_checked(btc) {
+                    Some(satoshis) => Some(ParsedBitcoinTx::satoshis_to_yocto(satoshis)),
+                    None => return err_response(
+                        &request.id,
+                        -3,
+                        "Invalid allowance_btc: must be non-negative, finite, and satoshi-precise"
+                            .to_string(),
+                    ),
+                },
+                None => None,
+            };
         NearAction::add_function_call_key(&new_pk_bytes, allowance, receiver_id, &methods)
     } else {
         NearAction::add_full_access_key(&new_pk_bytes)
@@ -8253,7 +8265,17 @@ async fn handle_sendneartx(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
                     .get("amount_btc")
                     .and_then(|v| v.as_f64())
                     .unwrap_or(0.0);
-                let sat = (btc * 100_000_000.0) as u64;
+                let sat = match btc_to_satoshis_checked(btc) {
+                    Some(value) => value,
+                    None => {
+                        return err_response(
+                            &request.id,
+                            -3,
+                            "Invalid transfer amount_btc: must be positive, finite, and satoshi-precise"
+                                .to_string(),
+                        )
+                    }
+                };
                 NearAction::transfer(ParsedBitcoinTx::satoshis_to_yocto(sat))
             }
             "function_call" => {
@@ -8273,8 +8295,18 @@ async fn handle_sendneartx(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
                     .get("deposit_btc")
                     .and_then(|v| v.as_f64())
                     .unwrap_or(0.0);
-                let deposit_yocto =
-                    ParsedBitcoinTx::satoshis_to_yocto((deposit_btc * 100_000_000.0) as u64);
+                let deposit_sat = match btc_to_satoshis_non_negative_checked(deposit_btc) {
+                    Some(value) => value,
+                    None => {
+                        return err_response(
+                            &request.id,
+                            -3,
+                            "Invalid function_call deposit_btc: must be non-negative, finite, and satoshi-precise"
+                                .to_string(),
+                        )
+                    }
+                };
+                let deposit_yocto = ParsedBitcoinTx::satoshis_to_yocto(deposit_sat);
                 NearAction::function_call(method, args_str.as_bytes(), gas, deposit_yocto)
             }
             "create_account" => NearAction::create_account(),
@@ -8345,7 +8377,15 @@ async fn handle_sendneartx(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
                     .get("amount_btc")
                     .and_then(|v| v.as_f64())
                     .unwrap_or(0.0);
-                let sat = (btc * 100_000_000.0) as u64;
+                let sat = match btc_to_satoshis_checked(btc) {
+                    Some(value) => value,
+                    None => return err_response(
+                        &request.id,
+                        -3,
+                        "Invalid stake amount_btc: must be positive, finite, and satoshi-precise"
+                            .to_string(),
+                    ),
+                };
                 NearAction::stake(ParsedBitcoinTx::satoshis_to_yocto(sat), &pk_uncompressed)
             }
             "add_function_call_key" => {
@@ -8366,10 +8406,20 @@ async fn handle_sendneartx(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
                 } else {
                     methods_str.split(',').collect()
                 };
-                let allowance = action_obj
-                    .get("allowance_btc")
-                    .and_then(|v| v.as_f64())
-                    .map(|btc| ParsedBitcoinTx::satoshis_to_yocto((btc * 100_000_000.0) as u64));
+                let allowance = match action_obj.get("allowance_btc").and_then(|v| v.as_f64()) {
+                    Some(btc) => match btc_to_satoshis_non_negative_checked(btc) {
+                        Some(satoshis) => Some(ParsedBitcoinTx::satoshis_to_yocto(satoshis)),
+                        None => {
+                            return err_response(
+                                &request.id,
+                                -3,
+                                "Invalid allowance_btc: must be non-negative, finite, and satoshi-precise"
+                                    .to_string(),
+                            )
+                        }
+                    },
+                    None => None,
+                };
                 match hex::decode(pk_hex) {
                     Ok(b) if b.len() == 64 => {
                         let mut arr = [0u8; 64];
@@ -8439,7 +8489,18 @@ async fn handle_sendneartx(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
                     .get("amount_btc")
                     .and_then(|v| v.as_f64())
                     .unwrap_or(0.0);
-                let deposit = ParsedBitcoinTx::satoshis_to_yocto((btc * 100_000_000.0) as u64);
+                let deposit_sat = match btc_to_satoshis_checked(btc) {
+                    Some(value) => value,
+                    None => {
+                        return err_response(
+                            &request.id,
+                            -3,
+                            "Invalid transfer_to_gas_key amount_btc: must be positive, finite, and satoshi-precise"
+                                .to_string(),
+                        )
+                    }
+                };
+                let deposit = ParsedBitcoinTx::satoshis_to_yocto(deposit_sat);
                 match hex::decode(pk_hex) {
                     Ok(b) if b.len() == 64 => {
                         let mut arr = [0u8; 64];
@@ -8464,7 +8525,18 @@ async fn handle_sendneartx(state: &RpcState, request: &JsonRpcRequest) -> JsonRp
                     .get("amount_btc")
                     .and_then(|v| v.as_f64())
                     .unwrap_or(0.0);
-                let amount = ParsedBitcoinTx::satoshis_to_yocto((btc * 100_000_000.0) as u64);
+                let withdraw_sat = match btc_to_satoshis_checked(btc) {
+                    Some(value) => value,
+                    None => {
+                        return err_response(
+                            &request.id,
+                            -3,
+                            "Invalid withdraw_from_gas_key amount_btc: must be positive, finite, and satoshi-precise"
+                                .to_string(),
+                        )
+                    }
+                };
+                let amount = ParsedBitcoinTx::satoshis_to_yocto(withdraw_sat);
                 match hex::decode(pk_hex) {
                     Ok(b) if b.len() == 64 => {
                         let mut arr = [0u8; 64];
@@ -11683,9 +11755,9 @@ async fn main() {
 #[cfg(test)]
 mod tests {
     use super::{
-        btc_to_satoshis_checked, derive_script_pub_key_hex, encode_bitcoin_varint,
-        extract_unsigned_tx_hex, handle_addquantumkey, handle_analyzepsbt, handle_backupwallet,
-        handle_combinepsbt, handle_createnearaccount, handle_createpsbt,
+        btc_to_satoshis_checked, btc_to_satoshis_non_negative_checked, derive_script_pub_key_hex,
+        encode_bitcoin_varint, extract_unsigned_tx_hex, handle_addquantumkey, handle_analyzepsbt,
+        handle_backupwallet, handle_combinepsbt, handle_createnearaccount, handle_createpsbt,
         handle_createrawtransaction, handle_decodepsbt, handle_encryptwallet, handle_finalizepsbt,
         handle_fundgaskey, handle_fundrawtransaction, handle_getbalance,
         handle_getmempoolancestors, handle_getmempooldescendants, handle_getmempoolentry,
@@ -11821,6 +11893,19 @@ mod tests {
         assert_eq!(btc_to_satoshis_checked(-1.0), None);
         assert_eq!(btc_to_satoshis_checked(f64::INFINITY), None);
         assert_eq!(btc_to_satoshis_checked(0.000000001), None); // sub-satoshi precision
+    }
+
+    #[test]
+    fn test_btc_to_satoshis_non_negative_checked_validation() {
+        assert_eq!(btc_to_satoshis_non_negative_checked(1.0), Some(100_000_000));
+        assert_eq!(btc_to_satoshis_non_negative_checked(0.00000001), Some(1));
+        assert_eq!(btc_to_satoshis_non_negative_checked(0.0), Some(0));
+        assert_eq!(btc_to_satoshis_non_negative_checked(-1.0), None);
+        assert_eq!(
+            btc_to_satoshis_non_negative_checked(f64::NEG_INFINITY),
+            None
+        );
+        assert_eq!(btc_to_satoshis_non_negative_checked(0.000000001), None);
     }
 
     #[test]
