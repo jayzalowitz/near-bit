@@ -52,7 +52,7 @@ fn secret_key_to_wif(secret_key: &SecretKey) -> String {
     let hash1 = hasher.finalize();
 
     let mut hasher = Sha256::new();
-    hasher.update(&hash1);
+    hasher.update(hash1);
     let hash2 = hasher.finalize();
 
     let checksum = &hash2[0..4];
@@ -71,12 +71,12 @@ fn derive_p2pkh_address(
 
     // Step 1: SHA256(compressed_pubkey)
     let mut hasher = Sha256::new();
-    hasher.update(&compressed_pubkey);
+    hasher.update(compressed_pubkey);
     let sha256_hash = hasher.finalize();
 
     // Step 2: RIPEMD160(SHA256(pubkey))
     let mut hasher = Ripemd160::new();
-    hasher.update(&sha256_hash);
+    hasher.update(sha256_hash);
     let pubkey_hash = hasher.finalize();
 
     // Step 3: Create versioned payload
@@ -89,7 +89,7 @@ fn derive_p2pkh_address(
     let hash1 = hasher.finalize();
 
     let mut hasher = Sha256::new();
-    hasher.update(&hash1);
+    hasher.update(hash1);
     let hash2 = hasher.finalize();
 
     let checksum = &hash2[0..4];
