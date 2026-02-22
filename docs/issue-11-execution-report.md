@@ -1976,6 +1976,19 @@ Verification reruns:
 - `ruby -e 'require "yaml"; YAML.load_file(".github/workflows/ci.yml"); YAML.load_file(".github/workflows/nightly-fuzz.yml")'`
   - result: workflow YAML remains valid.
 
+## Continuation (2026-02-22): RPC error-code reference documentation
+
+Implemented:
+- Added dedicated RPC error-code reference:
+  - `docs/rpc-error-codes.md`
+  - documents emitted JSON-RPC codes currently used by `bitinfinity-btcrpc`, grouped by common protocol vs wallet/transaction semantics.
+- Linked reference from the main docs landing page:
+  - `docs/index.html` now links benchmark methodology, RPC compatibility matrix, and RPC error code reference together.
+
+Verification reruns:
+- `rg -n "rpc-error-codes.md|RPC error code reference|-32700|-32602|-18|-3" docs/index.html docs/rpc-error-codes.md -S`
+  - confirms navigation link + core code table entries are present.
+
 ## Issue #11 remaining high-priority gaps (not completed here)
 
 Still open and required for full #11 closure:
