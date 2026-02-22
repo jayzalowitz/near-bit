@@ -6,7 +6,3 @@ ignore = [
     "RUSTSEC-2020-0168", # mach - unmaintained (nearcore dep)
     "RUSTSEC-2023-0071", # rsa - marvin attack (nearcore dep, not used for signing)
 ]
-
-[output]
-deny = ["vulnerability"]
-warn = ["unmaintained", "unsound"]

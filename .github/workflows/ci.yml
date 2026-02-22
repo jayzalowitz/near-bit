@@ -139,7 +139,7 @@ jobs:
         run: cargo audit
 
       - name: Audit near-account-id dependencies
-        run: cargo audit --manifest-path near-account-id/Cargo.toml
+        run: cargo audit --file near-account-id/Cargo.lock
 
   # ─────────────────────────────────────────────
   # Fuzz (short run on CI — full runs are nightly)
