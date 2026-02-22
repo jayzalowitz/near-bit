@@ -35,3 +35,16 @@ pub(crate) fn btc_to_satoshis_non_negative_checked(amount_btc: f64) -> Option<u6
     }
     btc_to_satoshis_checked(amount_btc)
 }
+
+/// Sum satoshi-denominated values with overflow checks.
+/// Returns `None` on `u64` overflow.
+pub(crate) fn checked_sum_satoshis<I>(values: I) -> Option<u64>
+where
+    I: IntoIterator<Item = u64>,
+{
+    let mut total = 0u64;
+    for value in values {
+        total = total.checked_add(value)?;
+    }
+    Some(total)
+}

@@ -21,7 +21,9 @@ mod near_tx_builder;
 mod tx_translator;
 mod utxo_synth;
 
-use amounts::{btc_to_satoshis_checked, btc_to_satoshis_non_negative_checked};
+use amounts::{
+    btc_to_satoshis_checked, btc_to_satoshis_non_negative_checked, checked_sum_satoshis,
+};
 use keystore::{KeyEntry, Keystore};
 use near_client::NearClient;
 use near_tx_builder::{
@@ -2262,7 +2264,16 @@ async fn handle_sendrawtransaction(state: &RpcState, request: &JsonRpcRequest) -
         return err_response(&request.id, -25, "No payment output found".to_string());
     }
 
-    let total_sat: u64 = payment_outputs.iter().map(|o| o.amount_satoshis).sum();
+    let total_sat = match checked_sum_satoshis(payment_outputs.iter().map(|o| o.amount_satoshis)) {
+        Some(total) => total,
+        None => {
+            return err_response(
+                &request.id,
+                -22,
+                "Transaction output total overflow".to_string(),
+            )
+        }
+    };
     log::info!(
         "sendrawtransaction: {} -> {} outputs ({} sat total)",
         sender,
@@ -3384,7 +3395,17 @@ async fn handle_signrawtransactionwithwallet(
                     });
                 }
 
-                let total_sat: u64 = parsed_outputs.iter().map(|o| o.amount_satoshis).sum();
+                let total_sat =
+                    match checked_sum_satoshis(parsed_outputs.iter().map(|o| o.amount_satoshis)) {
+                        Some(total) => total,
+                        None => {
+                            return err_response(
+                                &request.id,
+                                -22,
+                                "Invalid intent format: total output amount overflow".to_string(),
+                            )
+                        }
+                    };
 
                 // Find a funded sender from keystore
                 let keystore = state.keystore.read().await;
@@ -3498,11 +3519,29 @@ async fn handle_signrawtransactionwithwallet(
     };
 
     let mut near_txs = Vec::new();
-    let total_sat: u64 = all_outputs.iter().map(|o| o.amount_satoshis).sum();
+    let total_sat = match checked_sum_satoshis(all_outputs.iter().map(|o| o.amount_satoshis)) {
+        Some(total) => total,
+        None => {
+            return err_response(
+                &request.id,
+                -22,
+                "Transaction output total overflow".to_string(),
+            )
+        }
+    };
 
     for (i, output) in all_outputs.iter().enumerate() {
         let amount_yocto = ParsedBitcoinTx::satoshis_to_yocto(output.amount_satoshis);
-        let nonce = base_nonce + i as u64;
+        let nonce = match base_nonce.checked_add(i as u64) {
+            Some(value) => value,
+            None => {
+                return err_response(
+                    &request.id,
+                    -32000,
+                    "Nonce overflow while preparing output transactions".to_string(),
+                )
+            }
+        };
 
         let params = NearTransferParams {
             signer_id: sender_addr.clone(),
@@ -6346,7 +6385,16 @@ async fn handle_walletcreatefundedpsbt(
         Err(msg) => return err_response(&request.id, -32602, msg),
     };
 
-    let total_output_sat: u64 = output_pairs.iter().map(|(_, sat)| *sat).sum();
+    let total_output_sat = match checked_sum_satoshis(output_pairs.iter().map(|(_, sat)| *sat)) {
+        Some(total) => total,
+        None => {
+            return err_response(
+                &request.id,
+                -32602,
+                "Output amounts overflow total satoshi range".to_string(),
+            )
+        }
+    };
     let fee_sat: u64 = 1_000; // 0.00001 BTC
 
     // Auto-select inputs if none provided
@@ -11801,11 +11849,12 @@ async fn main() {
 #[cfg(test)]
 mod tests {
     use super::{
-        btc_to_satoshis_checked, btc_to_satoshis_non_negative_checked, derive_script_pub_key_hex,
-        encode_bitcoin_varint, extract_unsigned_tx_hex, handle_addnearkey, handle_addquantumkey,
-        handle_analyzepsbt, handle_backupwallet, handle_combinepsbt, handle_createnearaccount,
-        handle_createpsbt, handle_createrawtransaction, handle_decodepsbt, handle_encryptwallet,
-        handle_finalizepsbt, handle_fundgaskey, handle_fundrawtransaction, handle_getbalance,
+        btc_to_satoshis_checked, btc_to_satoshis_non_negative_checked, checked_sum_satoshis,
+        derive_script_pub_key_hex, encode_bitcoin_varint, extract_unsigned_tx_hex,
+        handle_addnearkey, handle_addquantumkey, handle_analyzepsbt, handle_backupwallet,
+        handle_combinepsbt, handle_createnearaccount, handle_createpsbt,
+        handle_createrawtransaction, handle_decodepsbt, handle_encryptwallet, handle_finalizepsbt,
+        handle_fundgaskey, handle_fundrawtransaction, handle_getbalance,
         handle_getmempoolancestors, handle_getmempooldescendants, handle_getmempoolentry,
         handle_getunconfirmedbalance, handle_getwalletinfo, handle_importaddress, handle_joinpsbts,
         handle_keypoolrefill, handle_listquantumkeys, handle_listreceivedbylabel,
@@ -11953,6 +12002,12 @@ mod tests {
             None
         );
         assert_eq!(btc_to_satoshis_non_negative_checked(0.000000001), None);
+    }
+
+    #[test]
+    fn test_checked_sum_satoshis_overflow_protection() {
+        assert_eq!(checked_sum_satoshis([1, 2, 3]), Some(6));
+        assert_eq!(checked_sum_satoshis([u64::MAX, 1]), None);
     }
 
     #[test]
