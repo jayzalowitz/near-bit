@@ -410,6 +410,12 @@ main() {
       if [[ "${schedule_started}" -eq 0 ]] && grep -q 'started schedule=' "${log_file}"; then
         schedule_started=1
       fi
+      if [[ "${schedule_started}" -eq 0 ]] && [[ "${ENABLE_CONTROLLER}" -eq 0 ]] && grep -E -q 'ready to produce block, has enough approvals|RUST_LOG=.*--home .* run$' "${log_file}"; then
+        # Controller-disabled runs may not emit tx-generator schedule logs.
+        # Accept either active block-production readiness (info logs) or
+        # run-localnet launch marker (works even when --loglevel=warn).
+        schedule_started=1
+      fi
 
       if [[ "${schedule_started}" -eq 0 ]]; then
         startup_elapsed_s="$((startup_elapsed_s + 1))"
@@ -523,6 +529,7 @@ main() {
       --arg end_ts "${end_ts}" \
       --argjson target_tps "${tps}" \
       --argjson target_duration_s "${duration}" \
+      --argjson controller_enabled "${ENABLE_CONTROLLER}" \
       --argjson run_status "${run_status}" \
       --argjson effective_run_status "${effective_run_status}" \
       --argjson timed_out "${timed_out}" \
@@ -540,6 +547,7 @@ main() {
         end_ts_utc: $end_ts,
         target_tps: $target_tps,
         target_duration_s: $target_duration_s,
+        controller_enabled: ($controller_enabled == 1),
         run_status: $run_status,
         effective_run_status: $effective_run_status,
         timed_out: $timed_out,
@@ -584,9 +592,9 @@ main() {
     "${summary_files[@]}" >"${RUN_DIR}/summary.json"
 
   {
-    echo "profile,target_tps,target_duration_s,run_status,effective_run_status,avg_tps_from_log,peak_tps_from_log,final_success_metric,final_failed_metric,schedule_completed_from_log,signal_11_from_log"
+    echo "profile,target_tps,target_duration_s,controller_enabled,run_status,effective_run_status,avg_tps_from_log,peak_tps_from_log,final_success_metric,final_failed_metric,schedule_completed_from_log,signal_11_from_log"
     find "${RUN_DIR}" -mindepth 2 -maxdepth 2 -name summary.json -type f | sort | while read -r summary_file; do
-      jq -r '[.profile, .target_tps, .target_duration_s, .run_status, .effective_run_status, .observed.avg_tps_from_log, .observed.peak_tps_from_log, .observed.final_success_metric, .observed.final_failed_metric, .observed.schedule_completed_from_log, .observed.signal_11_from_log] | @csv' "${summary_file}"
+      jq -r '[.profile, .target_tps, .target_duration_s, .controller_enabled, .run_status, .effective_run_status, .observed.avg_tps_from_log, .observed.peak_tps_from_log, .observed.final_success_metric, .observed.final_failed_metric, .observed.schedule_completed_from_log, .observed.signal_11_from_log] | @csv' "${summary_file}"
     done
   } >"${RUN_DIR}/summary.csv"
 
@@ -601,10 +609,10 @@ main() {
     echo
     echo "## Profiles"
     echo
-    echo "| profile | target TPS | duration (s) | run status | effective status | avg TPS (log) | peak TPS (log) | final success metric | final failed metric | schedule completed | signal 11 |"
-    echo "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|"
+    echo "| profile | target TPS | duration (s) | controller enabled | run status | effective status | avg TPS (log) | peak TPS (log) | final success metric | final failed metric | schedule completed | signal 11 |"
+    echo "|---|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|"
     find "${RUN_DIR}" -mindepth 2 -maxdepth 2 -name summary.json -type f | sort | while read -r summary_file; do
-      jq -r '"| \(.profile) | \(.target_tps) | \(.target_duration_s) | \(.run_status) | \(.effective_run_status) | \(.observed.avg_tps_from_log // "n/a") | \(.observed.peak_tps_from_log // "n/a") | \(.observed.final_success_metric // "n/a") | \(.observed.final_failed_metric // "n/a") | \(.observed.schedule_completed_from_log // "n/a") | \(.observed.signal_11_from_log // "n/a") |"' "${summary_file}"
+      jq -r '"| \(.profile) | \(.target_tps) | \(.target_duration_s) | \(.controller_enabled) | \(.run_status) | \(.effective_run_status) | \(.observed.avg_tps_from_log // "n/a") | \(.observed.peak_tps_from_log // "n/a") | \(.observed.final_success_metric // "n/a") | \(.observed.final_failed_metric // "n/a") | \(.observed.schedule_completed_from_log // "n/a") | \(.observed.signal_11_from_log // "n/a") |"' "${summary_file}"
     done
     echo
     echo "Raw artifacts:"
