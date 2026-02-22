@@ -94,6 +94,25 @@ json_number_or_null() {
   fi
 }
 
+metric_delta_or_empty() {
+  local final="$1"
+  local baseline="$2"
+  local baseline_num delta
+  if ! [[ "${final}" =~ ^[0-9]+$ ]]; then
+    echo ""
+    return
+  fi
+  baseline_num=0
+  if [[ "${baseline}" =~ ^[0-9]+$ ]]; then
+    baseline_num="${baseline}"
+  fi
+  delta="$((final - baseline_num))"
+  if [[ "${delta}" -lt 0 ]]; then
+    delta=0
+  fi
+  echo "${delta}"
+}
+
 run_cmd() {
   if [[ "${DRY_RUN}" -eq 1 ]]; then
     echo "[dry-run] $*"
@@ -368,7 +387,9 @@ main() {
 
   for profile in "${profiles[@]}"; do
     local tps duration profile_dir log_file metrics_file start_ts end_ts
-    local avg_rate peak_rate final_processed final_failed final_success_metric final_failed_metric
+    local avg_rate peak_rate final_processed final_failed
+    local final_success_metric final_failed_metric final_success_metric_raw final_failed_metric_raw
+    local metrics_baseline_success metrics_baseline_failed metrics_baseline_captured
     local schedule_completed signal_11 effective_run_status
     local run_status
 
@@ -417,6 +438,9 @@ main() {
     startup_elapsed_s=0
     timed_out=0
     timeout_phase=""
+    metrics_baseline_success=""
+    metrics_baseline_failed=""
+    metrics_baseline_captured=0
     schedule_stop_requested=0
     schedule_started=0
     run_localnet_started=0
@@ -424,6 +448,11 @@ main() {
       if [[ -f "${log_file}" ]]; then
         if [[ "${run_localnet_started}" -eq 0 ]] && grep -E -q 'RUST_LOG=.*--home .* run$' "${log_file}"; then
           run_localnet_started=1
+        fi
+        if [[ "${run_localnet_started}" -eq 1 ]] && [[ "${metrics_baseline_captured}" -eq 0 ]] && [[ -f "${metrics_file}" ]]; then
+          metrics_baseline_success="$(awk -F, 'NR>1 && $2!="" {v=$2} END {print v}' "${metrics_file}")"
+          metrics_baseline_failed="$(awk -F, 'NR>1 && $3!="" {v=$3} END {print v}' "${metrics_file}")"
+          metrics_baseline_captured=1
         fi
 
         if [[ "${run_localnet_started}" -eq 1 ]]; then
@@ -534,8 +563,10 @@ main() {
         }
       }
     ' "${log_file}")"
-    final_success_metric="$(awk -F, 'NR>1 && $2!="" {v=$2} END {print v}' "${metrics_file}")"
-    final_failed_metric="$(awk -F, 'NR>1 && $3!="" {v=$3} END {print v}' "${metrics_file}")"
+    final_success_metric_raw="$(awk -F, 'NR>1 && $2!="" {v=$2} END {print v}' "${metrics_file}")"
+    final_failed_metric_raw="$(awk -F, 'NR>1 && $3!="" {v=$3} END {print v}' "${metrics_file}")"
+    final_success_metric="$(metric_delta_or_empty "${final_success_metric_raw}" "${metrics_baseline_success}")"
+    final_failed_metric="$(metric_delta_or_empty "${final_failed_metric_raw}" "${metrics_baseline_failed}")"
     schedule_completed=0
     signal_11=0
     if grep -q 'completed running the schedule' "${log_file}"; then
@@ -566,6 +597,10 @@ main() {
       --argjson peak_tps "$(json_number_or_null "${peak_rate}")" \
       --argjson final_processed_log "$(json_number_or_null "${final_processed}")" \
       --argjson final_failed_log "$(json_number_or_null "${final_failed}")" \
+      --argjson baseline_success_metric "$(json_number_or_null "${metrics_baseline_success}")" \
+      --argjson baseline_failed_metric "$(json_number_or_null "${metrics_baseline_failed}")" \
+      --argjson final_success_metric_raw "$(json_number_or_null "${final_success_metric_raw}")" \
+      --argjson final_failed_metric_raw "$(json_number_or_null "${final_failed_metric_raw}")" \
       --argjson final_success_metric "$(json_number_or_null "${final_success_metric}")" \
       --argjson final_failed_metric "$(json_number_or_null "${final_failed_metric}")" \
       --argjson schedule_completed "${schedule_completed}" \
@@ -588,6 +623,10 @@ main() {
           peak_tps_from_log: $peak_tps,
           final_processed_from_log: $final_processed_log,
           final_failed_from_log: $final_failed_log,
+          pre_run_success_metric_baseline: $baseline_success_metric,
+          pre_run_failed_metric_baseline: $baseline_failed_metric,
+          final_success_metric_raw: $final_success_metric_raw,
+          final_failed_metric_raw: $final_failed_metric_raw,
           final_success_metric: $final_success_metric,
           final_failed_metric: $final_failed_metric,
           schedule_completed_from_log: $schedule_completed,
