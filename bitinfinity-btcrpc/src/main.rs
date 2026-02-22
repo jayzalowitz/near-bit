@@ -12069,6 +12069,85 @@ mod tests {
     }
 
     #[test]
+    fn test_sendneartx_rejects_negative_function_call_deposit_before_key_lookup() {
+        let runtime = tokio::runtime::Runtime::new().expect("tokio runtime should initialize");
+        let state = RpcState::new(
+            "bitinfinity-testnet".to_string(),
+            "test".to_string(),
+            "http://127.0.0.1:3030".to_string(),
+        );
+
+        runtime.block_on(async {
+            let request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(71009),
+                method: "sendneartx".to_string(),
+                params: json!([
+                    "sender.near",
+                    "receiver.near",
+                    [
+                        {
+                            "type": "function_call",
+                            "method": "ping",
+                            "args": "{}",
+                            "gas": 1000000000000u64,
+                            "deposit_btc": -0.01
+                        }
+                    ]
+                ]),
+            };
+            let response = handle_sendneartx(&state, &request).await;
+
+            assert!(response.result.is_none());
+            assert_eq!(
+                response.error.as_ref().map(|e| e.code),
+                Some(-3),
+                "sendneartx should reject negative function_call deposits before key/network lookups"
+            );
+        });
+    }
+
+    #[test]
+    fn test_sendneartx_rejects_negative_function_call_key_allowance_before_key_lookup() {
+        let runtime = tokio::runtime::Runtime::new().expect("tokio runtime should initialize");
+        let state = RpcState::new(
+            "bitinfinity-testnet".to_string(),
+            "test".to_string(),
+            "http://127.0.0.1:3030".to_string(),
+        );
+        let key_hex = "44".repeat(64);
+
+        runtime.block_on(async {
+            let request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(71010),
+                method: "sendneartx".to_string(),
+                params: json!([
+                    "sender.near",
+                    "receiver.near",
+                    [
+                        {
+                            "type": "add_function_call_key",
+                            "pubkey_hex": key_hex,
+                            "receiver_id": "receiver.near",
+                            "method_names": "m1,m2",
+                            "allowance_btc": -0.5
+                        }
+                    ]
+                ]),
+            };
+            let response = handle_sendneartx(&state, &request).await;
+
+            assert!(response.result.is_none());
+            assert_eq!(
+                response.error.as_ref().map(|e| e.code),
+                Some(-3),
+                "sendneartx should reject negative add_function_call_key allowance before key/network lookups"
+            );
+        });
+    }
+
+    #[test]
     fn test_addnearkey_rejects_negative_allowance_before_key_lookup() {
         let runtime = tokio::runtime::Runtime::new().expect("tokio runtime should initialize");
         let state = RpcState::new(
