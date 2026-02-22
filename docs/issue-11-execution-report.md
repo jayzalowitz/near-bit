@@ -2073,6 +2073,23 @@ Verification reruns:
   - result: `68 passed`, `0 failed`.
   - includes new non-negative conversion helper assertions plus prior send/raw/PSBT/NEAR hardening tests.
 
+## Continuation (2026-02-22): sendneartx fail-fast action validation ordering
+
+Implemented:
+- Refactored `sendneartx` action handling into a two-phase flow:
+  - phase 1: parse and validate action payloads (including amount checks) into a validated action list;
+  - phase 2: load sender key / fetch nonce+block hash / build and submit transaction.
+- Added internal validated-action representation so `stake` can be finalized with sender pubkey after key lookup while all malformed amount/action payloads are rejected earlier.
+- Behavioral improvement:
+  - invalid/sub-satoshi action payloads now fail deterministically before wallet-key lookup and NEAR RPC calls.
+- Added regression test:
+  - `test_sendneartx_rejects_sub_satoshi_transfer_before_key_lookup`
+
+Verification reruns:
+- `cargo test -p bitinfinity-btcrpc -- --nocapture`
+  - result: `69 passed`, `0 failed`.
+  - includes the new sendneartx fail-fast validation-ordering assertion plus prior hardening coverage.
+
 ## Issue #11 remaining high-priority gaps (not completed here)
 
 Still open and required for full #11 closure:
