@@ -1944,6 +1944,54 @@ if [[ "$AUTH_IMPORTPRIVKEY_OK_ID" != "auth-importprivkey" ]]; then
   exit 1
 fi
 
+AUTH_IMPORTADDRESS_PAYLOAD='{"jsonrpc":"2.0","id":"auth-importaddress","method":"importaddress","params":[]}'
+AUTH_IMPORTADDRESS_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_IMPORTADDRESS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_IMPORTADDRESS_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for importaddress without auth, got: $AUTH_IMPORTADDRESS_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_IMPORTADDRESS_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_IMPORTADDRESS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_IMPORTADDRESS_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for importaddress with wrong auth, got: $AUTH_IMPORTADDRESS_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_IMPORTADDRESS_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_importaddress_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_IMPORTADDRESS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_IMPORTADDRESS_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated importaddress, got: $AUTH_IMPORTADDRESS_OK_CODE" >&2
+  exit 1
+fi
+AUTH_IMPORTADDRESS_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_importaddress_success_response.json")"
+if [[ "$AUTH_IMPORTADDRESS_OK_ID" != "auth-importaddress" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated importaddress" >&2
+  exit 1
+fi
+
+AUTH_BACKUPWALLET_PAYLOAD='{"jsonrpc":"2.0","id":"auth-backupwallet","method":"backupwallet","params":[]}'
+AUTH_BACKUPWALLET_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_BACKUPWALLET_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_BACKUPWALLET_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for backupwallet without auth, got: $AUTH_BACKUPWALLET_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_BACKUPWALLET_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_BACKUPWALLET_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_BACKUPWALLET_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for backupwallet with wrong auth, got: $AUTH_BACKUPWALLET_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_BACKUPWALLET_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_backupwallet_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_BACKUPWALLET_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_BACKUPWALLET_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated backupwallet, got: $AUTH_BACKUPWALLET_OK_CODE" >&2
+  exit 1
+fi
+AUTH_BACKUPWALLET_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_backupwallet_success_response.json")"
+if [[ "$AUTH_BACKUPWALLET_OK_ID" != "auth-backupwallet" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated backupwallet" >&2
+  exit 1
+fi
+
 AUTH_WALLETPROCESS_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-walletprocesspsbt\",\"method\":\"walletprocesspsbt\",\"params\":[\"$FUNDED_PSBT\"]}"
 AUTH_WALLETPROCESS_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_WALLETPROCESS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
 if [[ "$AUTH_WALLETPROCESS_NOAUTH_CODE" != "401" ]]; then
@@ -2227,6 +2275,12 @@ auth_dumpprivkey_ok_http_code=$AUTH_DUMPPRIVKEY_OK_CODE
 auth_importprivkey_noauth_http_code=$AUTH_IMPORTPRIVKEY_NOAUTH_CODE
 auth_importprivkey_wrong_http_code=$AUTH_IMPORTPRIVKEY_WRONG_CODE
 auth_importprivkey_ok_http_code=$AUTH_IMPORTPRIVKEY_OK_CODE
+auth_importaddress_noauth_http_code=$AUTH_IMPORTADDRESS_NOAUTH_CODE
+auth_importaddress_wrong_http_code=$AUTH_IMPORTADDRESS_WRONG_CODE
+auth_importaddress_ok_http_code=$AUTH_IMPORTADDRESS_OK_CODE
+auth_backupwallet_noauth_http_code=$AUTH_BACKUPWALLET_NOAUTH_CODE
+auth_backupwallet_wrong_http_code=$AUTH_BACKUPWALLET_WRONG_CODE
+auth_backupwallet_ok_http_code=$AUTH_BACKUPWALLET_OK_CODE
 auth_walletprocesspsbt_noauth_http_code=$AUTH_WALLETPROCESS_NOAUTH_CODE
 auth_walletprocesspsbt_wrong_http_code=$AUTH_WALLETPROCESS_WRONG_CODE
 auth_walletprocesspsbt_ok_http_code=$AUTH_WALLETPROCESS_OK_CODE
