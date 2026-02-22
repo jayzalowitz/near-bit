@@ -1,3 +1,11 @@
+#![allow(
+    clippy::doc_lazy_continuation,
+    clippy::len_without_is_empty,
+    clippy::needless_lifetimes,
+    clippy::sliced_string_as_bytes,
+    clippy::unnecessary_map_or
+)]
+
 //! NEAR Account ID with Bitcoin address support (Bitcoin Infinity fork).
 //!
 //! This is a fork of `near-account-id` v2.0.0 that adds Bitcoin address detection.

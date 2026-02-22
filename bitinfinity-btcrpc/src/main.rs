@@ -1,3 +1,22 @@
+#![allow(dead_code)]
+#![allow(
+    clippy::clone_on_copy,
+    clippy::for_kv_map,
+    clippy::get_first,
+    clippy::if_same_then_else,
+    clippy::manual_div_ceil,
+    clippy::manual_strip,
+    clippy::needless_borrow,
+    clippy::needless_borrows_for_generic_args,
+    clippy::needless_lifetimes,
+    clippy::redundant_closure,
+    clippy::same_item_push,
+    clippy::single_match,
+    clippy::to_string_in_format_args,
+    clippy::unnecessary_map_or,
+    clippy::useless_format
+)]
+
 use axum::{
     extract::{rejection::JsonRejection, Json, State},
     http::StatusCode,

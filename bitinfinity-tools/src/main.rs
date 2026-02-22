@@ -3,12 +3,15 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::str::FromStr;
 
+#[allow(dead_code)]
 mod account_manager;
 mod genesis_builder;
 mod keygen;
 mod patoshi;
+#[allow(dead_code)]
 mod signature_recovery;
 mod testnet;
+#[allow(dead_code)]
 mod transaction;
 mod utxo_parser;
 
@@ -156,6 +159,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                         patoshi::reassign_patoshi(&mut utxos, &patoshi_addrs, &target_address);
 
                     if reassignment.total_satoshis > 0 {
+                        println!(
+                            "  Patoshi addresses removed: {}",
+                            reassignment.addresses_removed
+                        );
                         let genesis_floor_yocto =
                             reassignment.total_satoshis as u128 * 10u128.pow(16);
                         patoshi_registry

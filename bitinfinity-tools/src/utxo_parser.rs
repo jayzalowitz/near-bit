@@ -73,7 +73,7 @@ impl UtxoParser {
         for item in dump {
             total_utxos += 1;
 
-            if total_utxos % 1_000_000 == 0 {
+            if total_utxos.is_multiple_of(1_000_000) {
                 println!(
                     "  Processed {} UTXOs ({} addresses, {} skipped, elapsed: {:.1}s)...",
                     total_utxos,
@@ -160,7 +160,7 @@ mod tests {
 
         let mut n = amount;
         let mut e = 0;
-        while (n % 10) == 0 && e < 9 {
+        while n.is_multiple_of(10) && e < 9 {
             n /= 10;
             e += 1;
         }
