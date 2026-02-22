@@ -1394,6 +1394,36 @@ Verification rerun:
 - `./scripts/e2e_testnet.sh`
 - `cargo test -q -p bitinfinity-btcrpc`
 
+## Continuation (2026-02-22): mempool-entry auth-gating coverage
+
+Implemented:
+- Extended auth-depth E2E checks to include additional Tier-3 mempool entry methods:
+  - `getmempoolentry`
+  - `getmempoolancestors`
+  - `getmempooldescendants`
+- For each method, added explicit auth triad assertions:
+  - unauthenticated request returns HTTP `401`,
+  - wrong-credential request returns HTTP `401`,
+  - authenticated request returns HTTP `200` with matching JSON-RPC `id`.
+- Added summary exports:
+  - `auth_getmempoolentry_noauth_http_code`
+  - `auth_getmempoolentry_wrong_http_code`
+  - `auth_getmempoolentry_ok_http_code`
+  - `auth_getmempoolancestors_noauth_http_code`
+  - `auth_getmempoolancestors_wrong_http_code`
+  - `auth_getmempoolancestors_ok_http_code`
+  - `auth_getmempooldescendants_noauth_http_code`
+  - `auth_getmempooldescendants_wrong_http_code`
+  - `auth_getmempooldescendants_ok_http_code`
+
+Primary file:
+- `scripts/e2e_testnet.sh`
+
+Verification rerun:
+- `bash -n scripts/e2e_testnet.sh`
+- `./scripts/e2e_testnet.sh`
+- `cargo test -q -p bitinfinity-btcrpc`
+
 ## Issue #1 goal check
 
 Status:
