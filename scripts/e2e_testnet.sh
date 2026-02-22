@@ -2184,6 +2184,54 @@ if [[ "$AUTH_LISTLABELS_OK_ID" != "auth-listlabels" ]]; then
   exit 1
 fi
 
+AUTH_GETADDRBYLABEL_PAYLOAD='{"jsonrpc":"2.0","id":"auth-getaddressesbylabel","method":"getaddressesbylabel","params":["auth-label"]}'
+AUTH_GETADDRBYLABEL_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_GETADDRBYLABEL_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETADDRBYLABEL_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for getaddressesbylabel without auth, got: $AUTH_GETADDRBYLABEL_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_GETADDRBYLABEL_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_GETADDRBYLABEL_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETADDRBYLABEL_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for getaddressesbylabel with wrong auth, got: $AUTH_GETADDRBYLABEL_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_GETADDRBYLABEL_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_getaddressesbylabel_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_GETADDRBYLABEL_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETADDRBYLABEL_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated getaddressesbylabel, got: $AUTH_GETADDRBYLABEL_OK_CODE" >&2
+  exit 1
+fi
+AUTH_GETADDRBYLABEL_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_getaddressesbylabel_success_response.json")"
+if [[ "$AUTH_GETADDRBYLABEL_OK_ID" != "auth-getaddressesbylabel" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated getaddressesbylabel" >&2
+  exit 1
+fi
+
+AUTH_GETRECVBYLABEL_PAYLOAD='{"jsonrpc":"2.0","id":"auth-getreceivedbylabel","method":"getreceivedbylabel","params":["auth-label"]}'
+AUTH_GETRECVBYLABEL_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_GETRECVBYLABEL_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETRECVBYLABEL_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for getreceivedbylabel without auth, got: $AUTH_GETRECVBYLABEL_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_GETRECVBYLABEL_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_GETRECVBYLABEL_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETRECVBYLABEL_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for getreceivedbylabel with wrong auth, got: $AUTH_GETRECVBYLABEL_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_GETRECVBYLABEL_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_getreceivedbylabel_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_GETRECVBYLABEL_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETRECVBYLABEL_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated getreceivedbylabel, got: $AUTH_GETRECVBYLABEL_OK_CODE" >&2
+  exit 1
+fi
+AUTH_GETRECVBYLABEL_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_getreceivedbylabel_success_response.json")"
+if [[ "$AUTH_GETRECVBYLABEL_OK_ID" != "auth-getreceivedbylabel" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated getreceivedbylabel" >&2
+  exit 1
+fi
+
 AUTH_WALLETPROCESS_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-walletprocesspsbt\",\"method\":\"walletprocesspsbt\",\"params\":[\"$FUNDED_PSBT\"]}"
 AUTH_WALLETPROCESS_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_WALLETPROCESS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
 if [[ "$AUTH_WALLETPROCESS_NOAUTH_CODE" != "401" ]]; then
@@ -2497,6 +2545,12 @@ auth_getrawchangeaddress_ok_http_code=$AUTH_GETRAWCHANGEADDR_OK_CODE
 auth_listlabels_noauth_http_code=$AUTH_LISTLABELS_NOAUTH_CODE
 auth_listlabels_wrong_http_code=$AUTH_LISTLABELS_WRONG_CODE
 auth_listlabels_ok_http_code=$AUTH_LISTLABELS_OK_CODE
+auth_getaddressesbylabel_noauth_http_code=$AUTH_GETADDRBYLABEL_NOAUTH_CODE
+auth_getaddressesbylabel_wrong_http_code=$AUTH_GETADDRBYLABEL_WRONG_CODE
+auth_getaddressesbylabel_ok_http_code=$AUTH_GETADDRBYLABEL_OK_CODE
+auth_getreceivedbylabel_noauth_http_code=$AUTH_GETRECVBYLABEL_NOAUTH_CODE
+auth_getreceivedbylabel_wrong_http_code=$AUTH_GETRECVBYLABEL_WRONG_CODE
+auth_getreceivedbylabel_ok_http_code=$AUTH_GETRECVBYLABEL_OK_CODE
 auth_walletprocesspsbt_noauth_http_code=$AUTH_WALLETPROCESS_NOAUTH_CODE
 auth_walletprocesspsbt_wrong_http_code=$AUTH_WALLETPROCESS_WRONG_CODE
 auth_walletprocesspsbt_ok_http_code=$AUTH_WALLETPROCESS_OK_CODE
