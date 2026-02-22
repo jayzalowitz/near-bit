@@ -1689,6 +1689,126 @@ if [[ "$AUTH_GETBLOCKCHAININFO_OK_ID" != "auth-getblockchaininfo" ]]; then
   exit 1
 fi
 
+AUTH_GETMININGINFO_PAYLOAD='{"jsonrpc":"2.0","id":"auth-getmininginfo","method":"getmininginfo","params":[]}'
+AUTH_GETMININGINFO_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_GETMININGINFO_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETMININGINFO_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for getmininginfo without auth, got: $AUTH_GETMININGINFO_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_GETMININGINFO_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_GETMININGINFO_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETMININGINFO_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for getmininginfo with wrong auth, got: $AUTH_GETMININGINFO_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_GETMININGINFO_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_getmininginfo_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_GETMININGINFO_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETMININGINFO_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated getmininginfo, got: $AUTH_GETMININGINFO_OK_CODE" >&2
+  exit 1
+fi
+AUTH_GETMININGINFO_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_getmininginfo_success_response.json")"
+if [[ "$AUTH_GETMININGINFO_OK_ID" != "auth-getmininginfo" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated getmininginfo" >&2
+  exit 1
+fi
+
+AUTH_GETBLOCKTEMPLATE_PAYLOAD='{"jsonrpc":"2.0","id":"auth-getblocktemplate","method":"getblocktemplate","params":[]}'
+AUTH_GETBLOCKTEMPLATE_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_GETBLOCKTEMPLATE_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETBLOCKTEMPLATE_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for getblocktemplate without auth, got: $AUTH_GETBLOCKTEMPLATE_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_GETBLOCKTEMPLATE_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_GETBLOCKTEMPLATE_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETBLOCKTEMPLATE_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for getblocktemplate with wrong auth, got: $AUTH_GETBLOCKTEMPLATE_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_GETBLOCKTEMPLATE_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_getblocktemplate_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_GETBLOCKTEMPLATE_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETBLOCKTEMPLATE_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated getblocktemplate, got: $AUTH_GETBLOCKTEMPLATE_OK_CODE" >&2
+  exit 1
+fi
+AUTH_GETBLOCKTEMPLATE_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_getblocktemplate_success_response.json")"
+if [[ "$AUTH_GETBLOCKTEMPLATE_OK_ID" != "auth-getblocktemplate" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated getblocktemplate" >&2
+  exit 1
+fi
+
+AUTH_GENERATE_PAYLOAD='{"jsonrpc":"2.0","id":"auth-generate","method":"generate","params":[1]}'
+AUTH_GENERATE_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_GENERATE_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GENERATE_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for generate without auth, got: $AUTH_GENERATE_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_GENERATE_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_GENERATE_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GENERATE_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for generate with wrong auth, got: $AUTH_GENERATE_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_GENERATE_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_generate_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_GENERATE_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GENERATE_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated generate, got: $AUTH_GENERATE_OK_CODE" >&2
+  exit 1
+fi
+AUTH_GENERATE_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_generate_success_response.json")"
+if [[ "$AUTH_GENERATE_OK_ID" != "auth-generate" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated generate" >&2
+  exit 1
+fi
+
+AUTH_GENERATETOADDRESS_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-generatetoaddress\",\"method\":\"generatetoaddress\",\"params\":[1,\"$FUNDED_ADDR\"]}"
+AUTH_GENERATETOADDRESS_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_GENERATETOADDRESS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GENERATETOADDRESS_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for generatetoaddress without auth, got: $AUTH_GENERATETOADDRESS_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_GENERATETOADDRESS_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_GENERATETOADDRESS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GENERATETOADDRESS_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for generatetoaddress with wrong auth, got: $AUTH_GENERATETOADDRESS_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_GENERATETOADDRESS_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_generatetoaddress_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_GENERATETOADDRESS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GENERATETOADDRESS_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated generatetoaddress, got: $AUTH_GENERATETOADDRESS_OK_CODE" >&2
+  exit 1
+fi
+AUTH_GENERATETOADDRESS_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_generatetoaddress_success_response.json")"
+if [[ "$AUTH_GENERATETOADDRESS_OK_ID" != "auth-generatetoaddress" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated generatetoaddress" >&2
+  exit 1
+fi
+
+AUTH_GENERATETODESCRIPTOR_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-generatetodescriptor\",\"method\":\"generatetodescriptor\",\"params\":[1,\"addr($FUNDED_ADDR)\"]}"
+AUTH_GENERATETODESCRIPTOR_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_GENERATETODESCRIPTOR_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GENERATETODESCRIPTOR_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for generatetodescriptor without auth, got: $AUTH_GENERATETODESCRIPTOR_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_GENERATETODESCRIPTOR_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_GENERATETODESCRIPTOR_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GENERATETODESCRIPTOR_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for generatetodescriptor with wrong auth, got: $AUTH_GENERATETODESCRIPTOR_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_GENERATETODESCRIPTOR_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_generatetodescriptor_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_GENERATETODESCRIPTOR_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GENERATETODESCRIPTOR_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated generatetodescriptor, got: $AUTH_GENERATETODESCRIPTOR_OK_CODE" >&2
+  exit 1
+fi
+AUTH_GENERATETODESCRIPTOR_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_generatetodescriptor_success_response.json")"
+if [[ "$AUTH_GENERATETODESCRIPTOR_OK_ID" != "auth-generatetodescriptor" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated generatetodescriptor" >&2
+  exit 1
+fi
+
 AUTH_GETBLOCK_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-getblock\",\"method\":\"getblock\",\"params\":[\"$BEST_BLOCK_HASH\",1]}"
 AUTH_GETBLOCK_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_GETBLOCK_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
 if [[ "$AUTH_GETBLOCK_NOAUTH_CODE" != "401" ]]; then
@@ -3178,6 +3298,21 @@ auth_getblockhash_ok_http_code=$AUTH_GETBLOCKHASH_OK_CODE
 auth_getblockchaininfo_noauth_http_code=$AUTH_GETBLOCKCHAININFO_NOAUTH_CODE
 auth_getblockchaininfo_wrong_http_code=$AUTH_GETBLOCKCHAININFO_WRONG_CODE
 auth_getblockchaininfo_ok_http_code=$AUTH_GETBLOCKCHAININFO_OK_CODE
+auth_getmininginfo_noauth_http_code=$AUTH_GETMININGINFO_NOAUTH_CODE
+auth_getmininginfo_wrong_http_code=$AUTH_GETMININGINFO_WRONG_CODE
+auth_getmininginfo_ok_http_code=$AUTH_GETMININGINFO_OK_CODE
+auth_getblocktemplate_noauth_http_code=$AUTH_GETBLOCKTEMPLATE_NOAUTH_CODE
+auth_getblocktemplate_wrong_http_code=$AUTH_GETBLOCKTEMPLATE_WRONG_CODE
+auth_getblocktemplate_ok_http_code=$AUTH_GETBLOCKTEMPLATE_OK_CODE
+auth_generate_noauth_http_code=$AUTH_GENERATE_NOAUTH_CODE
+auth_generate_wrong_http_code=$AUTH_GENERATE_WRONG_CODE
+auth_generate_ok_http_code=$AUTH_GENERATE_OK_CODE
+auth_generatetoaddress_noauth_http_code=$AUTH_GENERATETOADDRESS_NOAUTH_CODE
+auth_generatetoaddress_wrong_http_code=$AUTH_GENERATETOADDRESS_WRONG_CODE
+auth_generatetoaddress_ok_http_code=$AUTH_GENERATETOADDRESS_OK_CODE
+auth_generatetodescriptor_noauth_http_code=$AUTH_GENERATETODESCRIPTOR_NOAUTH_CODE
+auth_generatetodescriptor_wrong_http_code=$AUTH_GENERATETODESCRIPTOR_WRONG_CODE
+auth_generatetodescriptor_ok_http_code=$AUTH_GENERATETODESCRIPTOR_OK_CODE
 auth_getblock_noauth_http_code=$AUTH_GETBLOCK_NOAUTH_CODE
 auth_getblock_wrong_http_code=$AUTH_GETBLOCK_WRONG_CODE
 auth_getblock_ok_http_code=$AUTH_GETBLOCK_OK_CODE
