@@ -1615,6 +1615,28 @@ Verification reruns:
     - `does not appear to include tx_generator benchmark markers`
     - guidance to rerun without `--skip-build`
 
+## Continuation (2026-02-22): full rebuild tx-generator benchmark validation
+
+Validated:
+- Executed benchmark runner without `--skip-build` to force fresh release build with tx-generator support:
+  - `./scripts/benchmark/run_tps_profiles.sh --profile baseline --tps-override 60 --duration-override 4 --run-grace 8 --startup-timeout 60 --num-accounts 20 --metrics-interval 1 --allow-nonzero-run-status --out-dir artifacts/benchmarks/post-build-txgen-verify-20260222T080207Z`
+- Build result:
+  - `Finished release profile [optimized]` for `neard` with `tx_generator` feature.
+- Runtime evidence in `neard.log`:
+  - `starting the static load schedule`
+  - `completed running the schedule`
+  - transaction-generator `diff=StatsLocal ... rate=...` lines present.
+- Summary evidence:
+  - `artifacts/benchmarks/post-build-txgen-verify-20260222T080207Z/baseline/summary.json`
+  - observed:
+    - `controller_enabled=true`
+    - `schedule_started_from_log=1`
+    - `schedule_completed_from_log=1`
+    - `timed_out=0`
+    - `effective_run_status=0`
+    - `signal_11_from_log=0`
+    - non-null throughput fields (`avg_tps_from_log`, `peak_tps_from_log`).
+
 ## Issue #1 goal check
 
 Status:
