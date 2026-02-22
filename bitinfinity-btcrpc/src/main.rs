@@ -506,6 +506,10 @@ impl RpcState {
             .saturating_add(1)
     }
 
+    fn normalize_nonce_for_first_bitcoin_tx(nonce: u64, latest_block_height: u64) -> u64 {
+        nonce.max(Self::bitcoin_first_tx_nonce_floor(latest_block_height))
+    }
+
     /// Get the next nonce for an address: max(local_cache, on-chain) + 1
     async fn next_nonce(&self, address: &str, near_pubkey_str: &str) -> u64 {
         let local_nonce = {
@@ -2306,14 +2310,10 @@ async fn handle_sendrawtransaction(state: &RpcState, request: &JsonRpcRequest) -
         Err(e) => return err_response(&request.id, -32000, format!("Invalid public key: {}", e)),
     };
 
-    let mut nonce = state.next_nonce(&sender, &near_pubkey_str).await;
-    // First-use Bitcoin keys may be auto-registered at a height-based nonce floor.
-    // Keep nonce at or above the latest observed block-height floor to avoid races
-    // when view_access_key is temporarily unavailable.
-    let nonce_floor = RpcState::bitcoin_first_tx_nonce_floor(status.latest_block_height);
-    if nonce < nonce_floor {
-        nonce = nonce_floor;
-    }
+    let nonce = RpcState::normalize_nonce_for_first_bitcoin_tx(
+        state.next_nonce(&sender, &near_pubkey_str).await,
+        status.latest_block_height,
+    );
 
     // Get private key and public key bytes
     let sk_bytes = match key_entry.private_key_bytes() {
@@ -3465,7 +3465,10 @@ async fn handle_signrawtransactionwithwallet(
         Ok(s) => s,
         Err(e) => return err_response(&request.id, -32000, format!("Key error: {}", e)),
     };
-    let base_nonce = state.next_nonce(&sender_addr, &near_pubkey_str).await;
+    let base_nonce = RpcState::normalize_nonce_for_first_bitcoin_tx(
+        state.next_nonce(&sender_addr, &near_pubkey_str).await,
+        status.latest_block_height,
+    );
 
     // Build and sign NEAR transaction for EACH output
     let sk_bytes = match key_entry.private_key_bytes() {
@@ -3666,14 +3669,10 @@ async fn handle_sendtoaddress(state: &RpcState, request: &JsonRpcRequest) -> Jso
         Err(e) => return err_response(&request.id, -32000, format!("Key error: {}", e)),
     };
 
-    let mut nonce = state.next_nonce(&sender, &near_pubkey_str).await;
-    // First-use Bitcoin keys may be auto-registered at a height-based nonce floor.
-    // Keep nonce at or above the latest observed block-height floor to avoid races
-    // when view_access_key is temporarily unavailable.
-    let nonce_floor = RpcState::bitcoin_first_tx_nonce_floor(status.latest_block_height);
-    if nonce < nonce_floor {
-        nonce = nonce_floor;
-    }
+    let nonce = RpcState::normalize_nonce_for_first_bitcoin_tx(
+        state.next_nonce(&sender, &near_pubkey_str).await,
+        status.latest_block_height,
+    );
 
     // Build and sign NEAR transaction
     let sk_bytes = match key_entry.private_key_bytes() {
@@ -5550,7 +5549,10 @@ async fn handle_sendmany(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcR
             Ok(s) => s,
             Err(e) => return err_response(&request.id, -32000, format!("Key error: {}", e)),
         };
-        let nonce = state.next_nonce(&sender, &near_pubkey_str).await;
+        let nonce = RpcState::normalize_nonce_for_first_bitcoin_tx(
+            state.next_nonce(&sender, &near_pubkey_str).await,
+            status.latest_block_height,
+        );
         let sk_bytes = match key_entry.private_key_bytes() {
             Ok(b) => b,
             Err(e) => return err_response(&request.id, -32000, format!("Key error: {}", e)),
@@ -9039,7 +9041,10 @@ async fn get_block_and_nonce(
         .map_err(|e| err_response(_id, -32000, format!("Node error: {}", e)))?;
     let block_hash = decode_block_hash(&status.latest_block_hash)
         .map_err(|e| err_response(_id, -32000, format!("Block hash error: {}", e)))?;
-    let nonce = state.next_nonce(addr, near_pubkey_str).await;
+    let nonce = RpcState::normalize_nonce_for_first_bitcoin_tx(
+        state.next_nonce(addr, near_pubkey_str).await,
+        status.latest_block_height,
+    );
     Ok((block_hash, nonce))
 }
 
@@ -11678,6 +11683,23 @@ mod tests {
         assert_eq!(btc_to_satoshis_checked(-1.0), None);
         assert_eq!(btc_to_satoshis_checked(f64::INFINITY), None);
         assert_eq!(btc_to_satoshis_checked(0.000000001), None); // sub-satoshi precision
+    }
+
+    #[test]
+    fn test_nonce_floor_normalization_for_first_bitcoin_tx() {
+        let latest_block_height = 12345;
+        let floor = RpcState::bitcoin_first_tx_nonce_floor(latest_block_height);
+
+        assert_eq!(
+            RpcState::normalize_nonce_for_first_bitcoin_tx(1, latest_block_height),
+            floor,
+            "normalization should raise small nonces to first-tx floor"
+        );
+        assert_eq!(
+            RpcState::normalize_nonce_for_first_bitcoin_tx(floor + 7, latest_block_height),
+            floor + 7,
+            "normalization should preserve nonces already above the floor"
+        );
     }
 
     #[test]
