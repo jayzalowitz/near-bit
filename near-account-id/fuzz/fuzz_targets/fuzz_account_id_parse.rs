@@ -3,6 +3,18 @@
 use libfuzzer_sys::fuzz_target;
 use std::str::FromStr;
 
+fn truncate_to_char_boundary(input: &mut String, max_len: usize) {
+    if input.len() <= max_len {
+        return;
+    }
+
+    let mut end = max_len;
+    while end > 0 && !input.is_char_boundary(end) {
+        end -= 1;
+    }
+    input.truncate(end);
+}
+
 fn exercise_candidate(candidate: &str) {
     let _ = near_account_id::AccountId::validate(candidate);
     let parsed = near_account_id::AccountId::from_str(candidate);
@@ -18,9 +30,7 @@ fn exercise_candidate(candidate: &str) {
 fuzz_target!(|data: &[u8]| {
     // Keep candidate size bounded so mutational growth does not explode memory.
     let mut candidate = String::from_utf8_lossy(data).into_owned();
-    if candidate.len() > 4096 {
-        candidate.truncate(4096);
-    }
+    truncate_to_char_boundary(&mut candidate, 4096);
 
     exercise_candidate(&candidate);
     exercise_candidate(candidate.trim());
@@ -50,9 +60,7 @@ fuzz_target!(|data: &[u8]| {
                 break;
             }
         }
-        if long.len() > 4096 {
-            long.truncate(4096);
-        }
+        truncate_to_char_boundary(&mut long, 4096);
         exercise_candidate(&long);
     }
 });
