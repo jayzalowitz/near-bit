@@ -412,7 +412,7 @@ main() {
       echo "[dry-run] profile=${profile} tps=${tps} duration_s=${duration}"
       run_cmd "cd \"${TX_GEN_DIR}\" && just init-localnet"
       apply_unlimit_tuning
-      run_cmd "cd \"${TX_GEN_DIR}\" && just create-accounts \"${NUM_ACCOUNTS}\""
+      run_cmd "cd \"${TX_GEN_DIR}\" && RUST_LOG=\"info,transaction-generator=off\" just create-accounts \"${NUM_ACCOUNTS}\""
       enable_tx_generator
       run_cmd "cd \"${TX_GEN_DIR}\" && just run-localnet \"${LOGLEVEL}\""
       continue
@@ -423,7 +423,7 @@ main() {
       cd "${TX_GEN_DIR}"
       just init-localnet
       apply_unlimit_tuning
-      just create-accounts "${NUM_ACCOUNTS}"
+      RUST_LOG="info,transaction-generator=off" just create-accounts "${NUM_ACCOUNTS}"
       enable_tx_generator
       just run-localnet "${LOGLEVEL}"
     ) > >(tee "${log_file}") 2>&1 &
