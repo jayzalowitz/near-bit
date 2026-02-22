@@ -1454,6 +1454,34 @@ Verification rerun:
 - `./scripts/e2e_testnet.sh`
 - `cargo test -q -p bitinfinity-btcrpc`
 
+## Continuation (2026-02-22): mining/stub auth-gating coverage
+
+Implemented:
+- Extended auth-depth E2E checks to include PoS/mining-stub endpoints:
+  - `getmininginfo`
+  - `getblocktemplate`
+  - `generate`
+  - `generatetoaddress`
+  - `generatetodescriptor`
+- For each method, added explicit auth triad assertions:
+  - unauthenticated request returns HTTP `401`,
+  - wrong-credential request returns HTTP `401`,
+  - authenticated request returns HTTP `200` with matching JSON-RPC `id`.
+- Added summary exports:
+  - `auth_getmininginfo_*`
+  - `auth_getblocktemplate_*`
+  - `auth_generate_*`
+  - `auth_generatetoaddress_*`
+  - `auth_generatetodescriptor_*`
+
+Primary file:
+- `scripts/e2e_testnet.sh`
+
+Verification rerun:
+- `bash -n scripts/e2e_testnet.sh`
+- `./scripts/e2e_testnet.sh`
+- `cargo test -q -p bitinfinity-btcrpc`
+
 ## Issue #1 goal check
 
 Status:
