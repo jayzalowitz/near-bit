@@ -1593,6 +1593,54 @@ if [[ -z "$AUTH_OK_RESULT" ]]; then
   exit 1
 fi
 
+AUTH_GETBLOCKHEADER_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-getblockheader\",\"method\":\"getblockheader\",\"params\":[\"$BEST_BLOCK_HASH\",true]}"
+AUTH_GETBLOCKHEADER_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_GETBLOCKHEADER_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETBLOCKHEADER_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for getblockheader without auth, got: $AUTH_GETBLOCKHEADER_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_GETBLOCKHEADER_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_GETBLOCKHEADER_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETBLOCKHEADER_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for getblockheader with wrong auth, got: $AUTH_GETBLOCKHEADER_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_GETBLOCKHEADER_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_getblockheader_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_GETBLOCKHEADER_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETBLOCKHEADER_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated getblockheader, got: $AUTH_GETBLOCKHEADER_OK_CODE" >&2
+  exit 1
+fi
+AUTH_GETBLOCKHEADER_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_getblockheader_success_response.json")"
+if [[ "$AUTH_GETBLOCKHEADER_OK_ID" != "auth-getblockheader" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated getblockheader" >&2
+  exit 1
+fi
+
+AUTH_GETADDRESSINFO_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-getaddressinfo\",\"method\":\"getaddressinfo\",\"params\":[\"$FUNDED_ADDR\"]}"
+AUTH_GETADDRESSINFO_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_GETADDRESSINFO_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETADDRESSINFO_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for getaddressinfo without auth, got: $AUTH_GETADDRESSINFO_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_GETADDRESSINFO_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_GETADDRESSINFO_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETADDRESSINFO_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for getaddressinfo with wrong auth, got: $AUTH_GETADDRESSINFO_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_GETADDRESSINFO_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_getaddressinfo_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_GETADDRESSINFO_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETADDRESSINFO_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated getaddressinfo, got: $AUTH_GETADDRESSINFO_OK_CODE" >&2
+  exit 1
+fi
+AUTH_GETADDRESSINFO_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_getaddressinfo_success_response.json")"
+if [[ "$AUTH_GETADDRESSINFO_OK_ID" != "auth-getaddressinfo" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated getaddressinfo" >&2
+  exit 1
+fi
+
 AUTH_GETBALANCE_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-getbalance\",\"method\":\"getbalance\",\"params\":[\"$FUNDED_ADDR\"]}"
 AUTH_GETBALANCE_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_GETBALANCE_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
 if [[ "$AUTH_GETBALANCE_NOAUTH_CODE" != "401" ]]; then
@@ -2830,6 +2878,12 @@ lockunspent_invalid_txid_error_code=$LOCK_INVALID_TXID_ERROR_CODE
 auth_noauth_http_code=$AUTH_NOAUTH_CODE
 auth_wrong_http_code=$AUTH_WRONG_CODE
 auth_ok_result=$AUTH_OK_RESULT
+auth_getblockheader_noauth_http_code=$AUTH_GETBLOCKHEADER_NOAUTH_CODE
+auth_getblockheader_wrong_http_code=$AUTH_GETBLOCKHEADER_WRONG_CODE
+auth_getblockheader_ok_http_code=$AUTH_GETBLOCKHEADER_OK_CODE
+auth_getaddressinfo_noauth_http_code=$AUTH_GETADDRESSINFO_NOAUTH_CODE
+auth_getaddressinfo_wrong_http_code=$AUTH_GETADDRESSINFO_WRONG_CODE
+auth_getaddressinfo_ok_http_code=$AUTH_GETADDRESSINFO_OK_CODE
 auth_getbalance_noauth_http_code=$AUTH_GETBALANCE_NOAUTH_CODE
 auth_getbalance_wrong_http_code=$AUTH_GETBALANCE_WRONG_CODE
 auth_getbalance_ok_http_code=$AUTH_GETBALANCE_OK_CODE
