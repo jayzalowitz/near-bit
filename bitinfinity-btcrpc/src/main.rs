@@ -649,6 +649,31 @@ fn get_bool_param(params: &serde_json::Value, index: usize) -> Option<bool> {
         })
 }
 
+/// Convert a BTC-denominated decimal amount to satoshis with bounds/precision checks.
+/// Returns `None` for non-finite, non-positive, overflow, or sub-satoshi-precision values.
+fn btc_to_satoshis_checked(amount_btc: f64) -> Option<u64> {
+    if !amount_btc.is_finite() || amount_btc <= 0.0 {
+        return None;
+    }
+
+    let satoshis_float = amount_btc * 100_000_000.0;
+    if !satoshis_float.is_finite() || satoshis_float > u64::MAX as f64 {
+        return None;
+    }
+
+    let satoshis_rounded = satoshis_float.round();
+    if satoshis_rounded <= 0.0 {
+        return None;
+    }
+
+    // Enforce satoshi precision (<= 8 decimal places in BTC).
+    if (satoshis_float - satoshis_rounded).abs() > 1e-6 {
+        return None;
+    }
+
+    Some(satoshis_rounded as u64)
+}
+
 async fn ensure_wallet_loaded(
     state: &RpcState,
     request: &JsonRpcRequest,
@@ -3576,9 +3601,16 @@ async fn handle_sendtoaddress(state: &RpcState, request: &JsonRpcRequest) -> Jso
         .and_then(|v| v.as_f64())
         .unwrap_or(0.0);
 
-    if amount_btc <= 0.0 {
-        return err_response(&request.id, -3, "Invalid amount".to_string());
-    }
+    let amount_satoshis = match btc_to_satoshis_checked(amount_btc) {
+        Some(sats) => sats,
+        None => {
+            return err_response(
+                &request.id,
+                -3,
+                "Invalid amount: must be positive, finite, and satoshi-precise".to_string(),
+            )
+        }
+    };
 
     // Bitcoin Core param 5 (index 5): subtractfeefromamount (bool)
     // When true, the fee is deducted from the send amount rather than added on top
@@ -3591,8 +3623,16 @@ async fn handle_sendtoaddress(state: &RpcState, request: &JsonRpcRequest) -> Jso
 
     // NEAR fees are paid in gas, so subtractfeefromamount reduces the sent amount by a nominal fee
     let fee_satoshis: u64 = if subtract_fee { 1000 } else { 0 }; // ~0.00001 BTC nominal fee
-    let send_satoshis = (amount_btc * 100_000_000.0) as u64 - fee_satoshis;
-    let amount_satoshis = (amount_btc * 100_000_000.0) as u64;
+    let send_satoshis = match amount_satoshis.checked_sub(fee_satoshis) {
+        Some(sats) if sats > 0 => sats,
+        _ => {
+            return err_response(
+                &request.id,
+                -3,
+                "Invalid amount: too small after fee subtraction".to_string(),
+            )
+        }
+    };
     let amount_yocto = ParsedBitcoinTx::satoshis_to_yocto(send_satoshis);
 
     // Find the first address in our keystore with sufficient balance
@@ -5475,12 +5515,21 @@ async fn handle_sendmany(state: &RpcState, request: &JsonRpcRequest) -> JsonRpcR
 
     let mut txids = Vec::new();
     for (recipient, amount_val) in amounts {
-        let amount_btc = amount_val.as_f64().unwrap_or(0.0);
-        if amount_btc <= 0.0 {
-            continue;
-        }
+        let amount_btc = amount_val.as_f64().unwrap_or(f64::NAN);
+        let amount_satoshis = match btc_to_satoshis_checked(amount_btc) {
+            Some(sats) => sats,
+            None => {
+                return err_response(
+                    &request.id,
+                    -3,
+                    format!(
+                        "Invalid amount for {}: must be positive, finite, and satoshi-precise",
+                        recipient
+                    ),
+                )
+            }
+        };
 
-        let amount_satoshis = (amount_btc * 100_000_000.0) as u64;
         let amount_yocto = ParsedBitcoinTx::satoshis_to_yocto(amount_satoshis);
 
         // Find funded sender
@@ -11515,18 +11564,19 @@ async fn main() {
 #[cfg(test)]
 mod tests {
     use super::{
-        derive_script_pub_key_hex, encode_bitcoin_varint, extract_unsigned_tx_hex,
-        handle_addquantumkey, handle_analyzepsbt, handle_backupwallet, handle_combinepsbt,
-        handle_createpsbt, handle_createrawtransaction, handle_decodepsbt, handle_encryptwallet,
-        handle_finalizepsbt, handle_fundrawtransaction, handle_getbalance,
+        btc_to_satoshis_checked, derive_script_pub_key_hex, encode_bitcoin_varint,
+        extract_unsigned_tx_hex, handle_addquantumkey, handle_analyzepsbt, handle_backupwallet,
+        handle_combinepsbt, handle_createpsbt, handle_createrawtransaction, handle_decodepsbt,
+        handle_encryptwallet, handle_finalizepsbt, handle_fundrawtransaction, handle_getbalance,
         handle_getmempoolancestors, handle_getmempooldescendants, handle_getmempoolentry,
         handle_getunconfirmedbalance, handle_getwalletinfo, handle_importaddress, handle_joinpsbts,
         handle_keypoolrefill, handle_listquantumkeys, handle_listreceivedbylabel,
         handle_listunspent, handle_listwalletdir, handle_listwallets, handle_loadwallet,
-        handle_lockunspent, handle_removequantumkey, handle_setlabel, handle_unloadwallet,
-        handle_utxoupdatepsbt, handle_walletcreatefundedpsbt, handle_walletpassphrasechange,
-        handle_walletprocesspsbt, parse_patoshi_record_bytes, verify_bitcoin_message_signature,
-        write_compact_size, JsonRpcRequest, RpcState, TxCacheEntry,
+        handle_lockunspent, handle_removequantumkey, handle_sendmany, handle_sendtoaddress,
+        handle_setlabel, handle_unloadwallet, handle_utxoupdatepsbt, handle_walletcreatefundedpsbt,
+        handle_walletpassphrasechange, handle_walletprocesspsbt, parse_patoshi_record_bytes,
+        verify_bitcoin_message_signature, write_compact_size, JsonRpcRequest, RpcState,
+        TxCacheEntry,
     };
     use base64::Engine;
     use secp256k1::{Message, Secp256k1, SecretKey};
@@ -11641,6 +11691,76 @@ mod tests {
             "message-a",
             "bc",
         ));
+    }
+
+    #[test]
+    fn test_btc_to_satoshis_checked_validation() {
+        assert_eq!(btc_to_satoshis_checked(1.0), Some(100_000_000));
+        assert_eq!(btc_to_satoshis_checked(0.00000001), Some(1));
+        assert_eq!(btc_to_satoshis_checked(0.0), None);
+        assert_eq!(btc_to_satoshis_checked(-1.0), None);
+        assert_eq!(btc_to_satoshis_checked(f64::INFINITY), None);
+        assert_eq!(btc_to_satoshis_checked(0.000000001), None); // sub-satoshi precision
+    }
+
+    #[test]
+    fn test_sendtoaddress_rejects_too_small_amount_after_subtract_fee() {
+        let runtime = tokio::runtime::Runtime::new().expect("tokio runtime should initialize");
+        let state = RpcState::new(
+            "bitinfinity-testnet".to_string(),
+            "test".to_string(),
+            "http://127.0.0.1:3030".to_string(),
+        );
+
+        runtime.block_on(async {
+            *state.wallet_unlock_until.write().await =
+                Some(std::time::Instant::now() + std::time::Duration::from_secs(60));
+
+            let request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(71001),
+                method: "sendtoaddress".to_string(),
+                params: json!(["bc1qrecipient", 0.00000050, "", "", false, true]),
+            };
+            let response = handle_sendtoaddress(&state, &request).await;
+
+            assert!(response.result.is_none());
+            assert_eq!(
+                response.error.as_ref().map(|e| e.code),
+                Some(-3),
+                "sendtoaddress should reject values that underflow after subtracting fee"
+            );
+        });
+    }
+
+    #[test]
+    fn test_sendmany_rejects_sub_satoshi_amount() {
+        let runtime = tokio::runtime::Runtime::new().expect("tokio runtime should initialize");
+        let state = RpcState::new(
+            "bitinfinity-testnet".to_string(),
+            "test".to_string(),
+            "http://127.0.0.1:3030".to_string(),
+        );
+
+        runtime.block_on(async {
+            *state.wallet_unlock_until.write().await =
+                Some(std::time::Instant::now() + std::time::Duration::from_secs(60));
+
+            let request = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                id: json!(71002),
+                method: "sendmany".to_string(),
+                params: json!(["", {"bc1qrecipient": 0.000000001}]),
+            };
+            let response = handle_sendmany(&state, &request).await;
+
+            assert!(response.result.is_none());
+            assert_eq!(
+                response.error.as_ref().map(|e| e.code),
+                Some(-3),
+                "sendmany should reject sub-satoshi decimal precision"
+            );
+        });
     }
 
     #[test]
