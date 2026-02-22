@@ -2090,6 +2090,19 @@ Verification reruns:
   - result: `69 passed`, `0 failed`.
   - includes the new sendneartx fail-fast validation-ordering assertion plus prior hardening coverage.
 
+## Continuation (2026-02-22): addnearkey fail-fast allowance validation ordering
+
+Implemented:
+- Reordered `addnearkey` function-call key path so allowance parsing/validation happens before sender key lookup and block/nonce RPC calls.
+- This keeps behavior consistent with other hardened flows: malformed allowance amounts now fail deterministically without requiring wallet key presence or network availability.
+- Added regression test:
+  - `test_addnearkey_rejects_negative_allowance_before_key_lookup`
+
+Verification reruns:
+- `cargo test -p bitinfinity-btcrpc -- --nocapture`
+  - result: `70 passed`, `0 failed`.
+  - includes both sendneartx/addnearkey fail-fast ordering assertions plus prior amount-math hardening coverage.
+
 ## Issue #11 remaining high-priority gaps (not completed here)
 
 Still open and required for full #11 closure:
