@@ -34,6 +34,17 @@ Status legend:
 | `combinepsbt` | Adapted | Implemented merge and mismatch guards. |
 | `utxoupdatepsbt` | Adapted | Implemented update/roundtrip handling. |
 
+## Wallet lifecycle/control
+
+| Method | Status | Notes |
+| --- | --- | --- |
+| `listwallets` | Adapted | Implemented with active loaded-wallet visibility. |
+| `loadwallet` | Adapted | Implemented alias load semantics in single-keystore mode. |
+| `unloadwallet` | Adapted | Implemented unload semantics with lock/passphrase clearing. |
+| `createwallet` | Adapted | Implemented alias create/load semantics (virtual wallet aliases). |
+| `listwalletdir` | Adapted | Implemented active alias listing. |
+| `getwalletinfo` | Adapted | Implemented wallet-loaded gating and dynamic wallet name. |
+
 ## Tier 3 (explorer/monitoring)
 
 | Method | Status | Notes |
@@ -58,5 +69,6 @@ Status legend:
 ## Current caveats
 
 - Mempool methods are backed by pending tx cache semantics, not a native Bitcoin mempool.
+- Wallet aliases are virtual and map to a single underlying keystore backend.
 - Several wallet/UTXO responses are synthetic adapters over account-based state.
 - Compatibility is continuously enforced through auth-coverage checks, targeted unit tests, and CI/nightly fuzz pipelines.
