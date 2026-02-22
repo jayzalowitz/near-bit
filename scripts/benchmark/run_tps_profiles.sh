@@ -399,15 +399,16 @@ main() {
     collect_metrics_loop "${run_pid}" "${metrics_file}" &
     local metrics_pid="$!"
 
-    local max_wait_s runtime_elapsed_s startup_elapsed_s timed_out schedule_stop_requested schedule_started
+    local max_wait_s runtime_elapsed_s startup_elapsed_s timed_out timeout_phase schedule_stop_requested schedule_started
     max_wait_s="$((duration + RUN_GRACE_S))"
     runtime_elapsed_s=0
     startup_elapsed_s=0
     timed_out=0
+    timeout_phase=""
     schedule_stop_requested=0
     schedule_started=0
     while kill -0 "${run_pid}" >/dev/null 2>&1; do
-      if [[ "${schedule_started}" -eq 0 ]] && grep -q 'started schedule=' "${log_file}"; then
+      if [[ "${schedule_started}" -eq 0 ]] && grep -E -q 'started schedule=|starting the static load schedule' "${log_file}"; then
         schedule_started=1
       fi
       if [[ "${schedule_started}" -eq 0 ]] && [[ "${ENABLE_CONTROLLER}" -eq 0 ]] && grep -E -q 'ready to produce block, has enough approvals|RUST_LOG=.*--home .* run$' "${log_file}"; then
@@ -421,6 +422,7 @@ main() {
         startup_elapsed_s="$((startup_elapsed_s + 1))"
         if [[ "${startup_elapsed_s}" -ge "${STARTUP_TIMEOUT_S}" ]]; then
           timed_out=1
+          timeout_phase="startup"
           break
         fi
       else
@@ -432,6 +434,7 @@ main() {
         runtime_elapsed_s="$((runtime_elapsed_s + 1))"
         if [[ "${runtime_elapsed_s}" -ge "${max_wait_s}" ]]; then
           timed_out=1
+          timeout_phase="runtime"
           break
         fi
       fi
@@ -439,6 +442,9 @@ main() {
     done
     if kill -0 "${run_pid}" >/dev/null 2>&1; then
       timed_out=1
+      if [[ -z "${timeout_phase}" ]]; then
+        timeout_phase="unknown"
+      fi
       terminate_run_process "${run_pid}" "TERM"
       sleep 2
     fi
@@ -533,6 +539,8 @@ main() {
       --argjson run_status "${run_status}" \
       --argjson effective_run_status "${effective_run_status}" \
       --argjson timed_out "${timed_out}" \
+      --arg timeout_phase "${timeout_phase}" \
+      --argjson schedule_started "${schedule_started}" \
       --argjson avg_tps "$(json_number_or_null "${avg_rate}")" \
       --argjson peak_tps "$(json_number_or_null "${peak_rate}")" \
       --argjson final_processed_log "$(json_number_or_null "${final_processed}")" \
@@ -551,6 +559,8 @@ main() {
         run_status: $run_status,
         effective_run_status: $effective_run_status,
         timed_out: $timed_out,
+        timeout_phase: (if $timed_out == 1 then $timeout_phase else null end),
+        schedule_started_from_log: $schedule_started,
         observed: {
           avg_tps_from_log: $avg_tps,
           peak_tps_from_log: $peak_tps,
@@ -592,9 +602,9 @@ main() {
     "${summary_files[@]}" >"${RUN_DIR}/summary.json"
 
   {
-    echo "profile,target_tps,target_duration_s,controller_enabled,run_status,effective_run_status,avg_tps_from_log,peak_tps_from_log,final_success_metric,final_failed_metric,schedule_completed_from_log,signal_11_from_log"
+    echo "profile,target_tps,target_duration_s,controller_enabled,run_status,effective_run_status,timed_out,timeout_phase,schedule_started_from_log,avg_tps_from_log,peak_tps_from_log,final_success_metric,final_failed_metric,schedule_completed_from_log,signal_11_from_log"
     find "${RUN_DIR}" -mindepth 2 -maxdepth 2 -name summary.json -type f | sort | while read -r summary_file; do
-      jq -r '[.profile, .target_tps, .target_duration_s, .controller_enabled, .run_status, .effective_run_status, .observed.avg_tps_from_log, .observed.peak_tps_from_log, .observed.final_success_metric, .observed.final_failed_metric, .observed.schedule_completed_from_log, .observed.signal_11_from_log] | @csv' "${summary_file}"
+      jq -r '[.profile, .target_tps, .target_duration_s, .controller_enabled, .run_status, .effective_run_status, .timed_out, (.timeout_phase // "n/a"), .schedule_started_from_log, .observed.avg_tps_from_log, .observed.peak_tps_from_log, .observed.final_success_metric, .observed.final_failed_metric, .observed.schedule_completed_from_log, .observed.signal_11_from_log] | @csv' "${summary_file}"
     done
   } >"${RUN_DIR}/summary.csv"
 
@@ -609,10 +619,10 @@ main() {
     echo
     echo "## Profiles"
     echo
-    echo "| profile | target TPS | duration (s) | controller enabled | run status | effective status | avg TPS (log) | peak TPS (log) | final success metric | final failed metric | schedule completed | signal 11 |"
-    echo "|---|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|"
+    echo "| profile | target TPS | duration (s) | controller enabled | run status | effective status | timed out | timeout phase | schedule started | avg TPS (log) | peak TPS (log) | final success metric | final failed metric | schedule completed | signal 11 |"
+    echo "|---|---:|---:|---|---:|---:|---:|---|---:|---:|---:|---:|---:|---:|---:|"
     find "${RUN_DIR}" -mindepth 2 -maxdepth 2 -name summary.json -type f | sort | while read -r summary_file; do
-      jq -r '"| \(.profile) | \(.target_tps) | \(.target_duration_s) | \(.controller_enabled) | \(.run_status) | \(.effective_run_status) | \(.observed.avg_tps_from_log // "n/a") | \(.observed.peak_tps_from_log // "n/a") | \(.observed.final_success_metric // "n/a") | \(.observed.final_failed_metric // "n/a") | \(.observed.schedule_completed_from_log // "n/a") | \(.observed.signal_11_from_log // "n/a") |"' "${summary_file}"
+      jq -r '"| \(.profile) | \(.target_tps) | \(.target_duration_s) | \(.controller_enabled) | \(.run_status) | \(.effective_run_status) | \(.timed_out) | \(.timeout_phase // "n/a") | \(.schedule_started_from_log) | \(.observed.avg_tps_from_log // "n/a") | \(.observed.peak_tps_from_log // "n/a") | \(.observed.final_success_metric // "n/a") | \(.observed.final_failed_metric // "n/a") | \(.observed.schedule_completed_from_log // "n/a") | \(.observed.signal_11_from_log // "n/a") |"' "${summary_file}"
     done
     echo
     echo "Raw artifacts:"
