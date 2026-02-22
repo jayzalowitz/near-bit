@@ -1847,6 +1847,17 @@ Validated:
   - `53 passed`, `0 failed`, `0 ignored`.
 - This includes newly added mempool relationship tests, mempoolentry pending-only tests, and walletprocesspsbt lock-state tests alongside existing PSBT/quantum/signature coverage.
 
+## Continuation (2026-02-22): Issue #1 core-goal verification test sweep
+
+Validated:
+- Executed targeted Issue #1-aligned crate suites:
+  - `cargo test --manifest-path near-account-id/Cargo.toml`
+    - result: `10 passed`, `0 failed`.
+    - includes Bitcoin account-ID acceptance and BTC implicit-account detection tests.
+  - `cargo test -p bitinfinity-tools`
+    - result: `21 passed`, `0 failed`, `1 ignored`.
+    - includes Patoshi reassignment, signature recovery/address derivation, and genesis-builder registry tests.
+
 ## Issue #1 goal check
 
 Status:
