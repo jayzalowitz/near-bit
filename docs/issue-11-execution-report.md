@@ -1572,6 +1572,27 @@ Verification reruns:
   - produced `artifacts/benchmarks/controller-null-warn-fallback-20260222T075409Z/summary.json`
   - observed `controller_enabled=false`, `signal_11_from_log=0`
 
+## Continuation (2026-02-22): benchmark timeout-phase and start-marker diagnostics
+
+Implemented:
+- Updated benchmark startup marker compatibility:
+  - startup detection now recognizes both legacy `started schedule=` and current `starting the static load schedule`.
+- Added explicit timeout and startup-detection diagnostics to per-profile summaries:
+  - `timeout_phase` (`startup`, `runtime`, or `unknown` when timed out),
+  - `schedule_started_from_log` (`0/1`).
+- Extended aggregate outputs:
+  - `summary.csv` now includes `timed_out`, `timeout_phase`, and `schedule_started_from_log`,
+  - `summary.md` profile table now includes matching columns.
+
+Primary file:
+- `scripts/benchmark/run_tps_profiles.sh`
+
+Verification reruns:
+- `bash -n scripts/benchmark/run_tps_profiles.sh`
+- `./scripts/benchmark/run_tps_profiles.sh --profile baseline --tps-override 60 --duration-override 4 --run-grace 8 --startup-timeout 15 --num-accounts 20 --metrics-interval 1 --skip-build --disable-controller --allow-nonzero-run-status --loglevel warn --out-dir artifacts/benchmarks/controller-null-timeout-diagnostics-20260222T075716Z`
+  - produced `artifacts/benchmarks/controller-null-timeout-diagnostics-20260222T075716Z/summary.json`
+  - observed `timed_out=1`, `timeout_phase=\"runtime\"`, `schedule_started_from_log=1`, `signal_11_from_log=0`
+
 ## Issue #1 goal check
 
 Status:
