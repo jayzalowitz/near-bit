@@ -1637,6 +1637,41 @@ Validated:
     - `signal_11_from_log=0`
     - non-null throughput fields (`avg_tps_from_log`, `peak_tps_from_log`).
 
+## Continuation (2026-02-22): run-localnet phase gating for benchmark timing
+
+Implemented:
+- Hardened benchmark timing loop in `scripts/benchmark/run_tps_profiles.sh` to prevent setup-phase false positives:
+  - introduced `run_localnet_started` detection based on `RUST_LOG=.*--home .* run` launch line,
+  - schedule-start detection now runs only after run-localnet launch is observed,
+  - controller-disabled path now treats run-localnet launch as runtime start fallback.
+- Added per-profile diagnostics:
+  - `run_localnet_started_from_log` (`0/1`) in `summary.json`,
+  - corresponding `run_localnet_started_from_log` column in `summary.csv`,
+  - matching `run launched` column in `summary.md`.
+- Eliminated transient startup noise by guarding early log greps behind `[[ -f "$log_file" ]]`.
+
+Primary file:
+- `scripts/benchmark/run_tps_profiles.sh`
+
+Verification reruns:
+- `bash -n scripts/benchmark/run_tps_profiles.sh`
+- `./scripts/benchmark/run_tps_profiles.sh --profile baseline --tps-override 60 --duration-override 4 --run-grace 8 --startup-timeout 15 --num-accounts 20 --metrics-interval 1 --skip-build --disable-controller --allow-nonzero-run-status --loglevel warn --out-dir artifacts/benchmarks/phase-gate-controller-null-20260222T081610Z`
+  - observed in `artifacts/benchmarks/phase-gate-controller-null-20260222T081610Z/baseline/summary.json`:
+    - `run_localnet_started_from_log=1`
+    - `schedule_started_from_log=1`
+    - `timed_out=0`
+    - `run_status=0`
+    - `signal_11_from_log=0`
+- `./scripts/benchmark/run_tps_profiles.sh --profile baseline --tps-override 60 --duration-override 4 --run-grace 8 --startup-timeout 30 --num-accounts 20 --metrics-interval 1 --skip-build --allow-nonzero-run-status --out-dir artifacts/benchmarks/phase-gate-controller-enabled-20260222T081850Z`
+  - observed in `artifacts/benchmarks/phase-gate-controller-enabled-20260222T081850Z/baseline/summary.json`:
+    - `run_localnet_started_from_log=1`
+    - `schedule_started_from_log=1`
+    - `schedule_completed_from_log=1`
+    - `effective_run_status=0`
+    - `signal_11_from_log=0`
+- `./scripts/benchmark/run_tps_profiles.sh --profile baseline --tps-override 40 --duration-override 3 --run-grace 5 --startup-timeout 15 --num-accounts 10 --metrics-interval 1 --skip-build --disable-controller --allow-nonzero-run-status --loglevel warn --out-dir artifacts/benchmarks/logfile-guard-smoke-20260222T082027Z`
+  - confirmed no transient `grep ... No such file or directory` log noise during startup.
+
 ## Issue #1 goal check
 
 Status:
