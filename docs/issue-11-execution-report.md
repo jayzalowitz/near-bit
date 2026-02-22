@@ -744,6 +744,28 @@ Verification rerun:
 - `./scripts/e2e_testnet.sh` (one initial preflight-fail on occupied port `3030`; clean rerun passed)
 - `cargo test -q -p bitinfinity-btcrpc`
 
+## Continuation (2026-02-21): reliable E2E daemon cleanup (no stale listeners)
+
+Implemented:
+- Removed subshell-wrapped daemon launches in `scripts/e2e_testnet.sh` for:
+  - `bitinfinity-neard`
+  - `bitinfinity-btcrpc` (initial + restart)
+  - auth-mode `bitinfinity-btcrpc`
+- Daemons now launch directly in background so tracked PIDs correspond to actual long-lived processes, allowing `cleanup()` to terminate them reliably.
+- This eliminates stale process leakage that previously left ports (`3030/24567/18332/18333`) occupied across runs.
+
+Primary file:
+- `scripts/e2e_testnet.sh`
+
+Verification rerun:
+- `bash -n scripts/e2e_testnet.sh`
+- `./scripts/e2e_testnet.sh`
+- `lsof -iTCP:3030 -sTCP:LISTEN -n -P || true`
+- `lsof -iTCP:24567 -sTCP:LISTEN -n -P || true`
+- `lsof -iTCP:18332 -sTCP:LISTEN -n -P || true`
+- `lsof -iTCP:18333 -sTCP:LISTEN -n -P || true`
+- `cargo test -q -p bitinfinity-btcrpc`
+
 ## Issue #1 goal check
 
 Status:
