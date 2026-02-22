@@ -70,6 +70,9 @@ jobs:
       - name: Run tests (near-account-id)
         run: cargo test --manifest-path near-account-id/Cargo.toml
 
+      - name: Verify E2E auth coverage matrix
+        run: ./scripts/check_auth_coverage.sh
+
   # ─────────────────────────────────────────────
   # Clippy lint (no warnings allowed)
   # ─────────────────────────────────────────────
