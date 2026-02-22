@@ -1549,6 +1549,29 @@ Verification rerun:
 - `./scripts/check_auth_coverage.sh`
 - `ruby -e 'require \"yaml\"; YAML.load_file(\".github/workflows/ci.yml\")'`
 
+## Continuation (2026-02-22): controller-null benchmark startup fallback
+
+Implemented:
+- Hardened controller-disabled benchmark startup detection in:
+  - `scripts/benchmark/run_tps_profiles.sh`
+- Runtime-start detection now uses:
+  - `started schedule=` (controller-enabled path),
+  - `ready to produce block, has enough approvals` (controller-disabled info-log path),
+  - `RUST_LOG=.*--home .* run` launch marker (controller-disabled warn-log path).
+- This prevents `--disable-controller --loglevel warn` runs from waiting until `--startup-timeout` when info-level readiness lines are suppressed.
+- Added explicit controller-mode visibility in benchmark outputs:
+  - per-profile `summary.json` now includes `controller_enabled` (boolean),
+  - aggregate `summary.csv` and `summary.md` now include a `controller_enabled` column.
+
+Primary file:
+- `scripts/benchmark/run_tps_profiles.sh`
+
+Verification reruns:
+- `bash -n scripts/benchmark/run_tps_profiles.sh`
+- `./scripts/benchmark/run_tps_profiles.sh --profile baseline --tps-override 60 --duration-override 4 --run-grace 8 --startup-timeout 15 --num-accounts 20 --metrics-interval 1 --skip-build --disable-controller --allow-nonzero-run-status --loglevel warn --out-dir artifacts/benchmarks/controller-null-warn-fallback-20260222T075409Z`
+  - produced `artifacts/benchmarks/controller-null-warn-fallback-20260222T075409Z/summary.json`
+  - observed `controller_enabled=false`, `signal_11_from_log=0`
+
 ## Issue #1 goal check
 
 Status:
@@ -1560,7 +1583,7 @@ Status:
 ## Issue #11 remaining high-priority gaps (not completed here)
 
 Still open and required for full #11 closure:
-- Optional upstream follow-up: investigate the self-exit (`controller: null`) shutdown path that previously produced `signal 11` in pre-mitigation pilots.
+- Optional upstream follow-up: deeper `controller: null` tx-generator behavior analysis beyond startup-timeout mitigation (latest warn-mode controller-null rerun showed `signal_11_from_log=0`).
 - External audit/bounty/legal/governance/infra phases.
 - Full launch-gate completion across all #11 phases.
 
