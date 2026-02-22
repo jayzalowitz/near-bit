@@ -1641,6 +1641,54 @@ if [[ "$AUTH_GETBALANCES_OK_ID" != "auth-getbalances" ]]; then
   exit 1
 fi
 
+AUTH_GETTRANSACTION_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-gettransaction\",\"method\":\"gettransaction\",\"params\":[\"$TXID1\"]}"
+AUTH_GETTRANSACTION_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_GETTRANSACTION_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETTRANSACTION_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for gettransaction without auth, got: $AUTH_GETTRANSACTION_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_GETTRANSACTION_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_GETTRANSACTION_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETTRANSACTION_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for gettransaction with wrong auth, got: $AUTH_GETTRANSACTION_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_GETTRANSACTION_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_gettransaction_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_GETTRANSACTION_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETTRANSACTION_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated gettransaction, got: $AUTH_GETTRANSACTION_OK_CODE" >&2
+  exit 1
+fi
+AUTH_GETTRANSACTION_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_gettransaction_success_response.json")"
+if [[ "$AUTH_GETTRANSACTION_OK_ID" != "auth-gettransaction" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated gettransaction" >&2
+  exit 1
+fi
+
+AUTH_GETRAWTRANSACTION_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-getrawtransaction\",\"method\":\"getrawtransaction\",\"params\":[\"$TXID1\",true]}"
+AUTH_GETRAWTRANSACTION_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_GETRAWTRANSACTION_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETRAWTRANSACTION_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for getrawtransaction without auth, got: $AUTH_GETRAWTRANSACTION_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_GETRAWTRANSACTION_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_GETRAWTRANSACTION_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETRAWTRANSACTION_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for getrawtransaction with wrong auth, got: $AUTH_GETRAWTRANSACTION_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_GETRAWTRANSACTION_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_getrawtransaction_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_GETRAWTRANSACTION_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETRAWTRANSACTION_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated getrawtransaction, got: $AUTH_GETRAWTRANSACTION_OK_CODE" >&2
+  exit 1
+fi
+AUTH_GETRAWTRANSACTION_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_getrawtransaction_success_response.json")"
+if [[ "$AUTH_GETRAWTRANSACTION_OK_ID" != "auth-getrawtransaction" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated getrawtransaction" >&2
+  exit 1
+fi
+
 AUTH_PSBT_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-psbt\",\"method\":\"createpsbt\",\"params\":[[{\"txid\":\"$LOCK_TXID\",\"vout\":$LOCK_VOUT}],[{\"$SATOSHI_ADDR\":0.0001}],0,true]}"
 AUTH_PSBT_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_PSBT_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
 if [[ "$AUTH_PSBT_NOAUTH_CODE" != "401" ]]; then
@@ -2620,6 +2668,12 @@ auth_getbalance_ok_http_code=$AUTH_GETBALANCE_OK_CODE
 auth_getbalances_noauth_http_code=$AUTH_GETBALANCES_NOAUTH_CODE
 auth_getbalances_wrong_http_code=$AUTH_GETBALANCES_WRONG_CODE
 auth_getbalances_ok_http_code=$AUTH_GETBALANCES_OK_CODE
+auth_gettransaction_noauth_http_code=$AUTH_GETTRANSACTION_NOAUTH_CODE
+auth_gettransaction_wrong_http_code=$AUTH_GETTRANSACTION_WRONG_CODE
+auth_gettransaction_ok_http_code=$AUTH_GETTRANSACTION_OK_CODE
+auth_getrawtransaction_noauth_http_code=$AUTH_GETRAWTRANSACTION_NOAUTH_CODE
+auth_getrawtransaction_wrong_http_code=$AUTH_GETRAWTRANSACTION_WRONG_CODE
+auth_getrawtransaction_ok_http_code=$AUTH_GETRAWTRANSACTION_OK_CODE
 auth_psbt_noauth_http_code=$AUTH_PSBT_NOAUTH_CODE
 auth_psbt_wrong_http_code=$AUTH_PSBT_WRONG_CODE
 auth_psbt_ok_result_len=${#AUTH_PSBT_OK_RESULT}
