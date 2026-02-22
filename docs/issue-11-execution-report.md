@@ -1726,6 +1726,29 @@ Verification reruns:
   - observed in `artifacts/benchmarks/bootstrap-log-cleanup-20260222T082433Z/baseline/neard.log`:
     - no matches for `tx generator idle` / `no schedule provided` during bootstrap.
 
+## Continuation (2026-02-22): mempool ancestor/descendant RPC graph completion
+
+Implemented:
+- Replaced placeholder responses for `getmempoolancestors` and `getmempooldescendants` in `bitinfinity-btcrpc/src/main.rs`.
+- Added pending-mempool graph construction from cached raw transaction inputs:
+  - parses input `txid` references from pending raw tx hex,
+  - computes transitive ancestor/descendant relationships among pending transactions.
+- Added Bitcoin Core-compatible behavior improvements:
+  - required `txid` parameter validation,
+  - `-5` error when requested tx is not in pending mempool,
+  - optional `verbose=true` object response with per-entry mempool metadata and dependency fields.
+
+Primary file:
+- `bitinfinity-btcrpc/src/main.rs`
+
+Verification reruns:
+- `cargo test -p bitinfinity-btcrpc test_getmempool_relations -- --nocapture`
+  - `test_getmempool_relations_track_transitive_pending_graph` passed:
+    - validates transitive ancestors (`grandchild -> child -> parent`) and descendants (`parent -> child -> grandchild`) resolution.
+    - validates verbose descendants object includes both direct and transitive children.
+  - `test_getmempool_relations_reject_non_pending_txid` passed:
+    - validates confirmed/non-pending txids return `-5` for both relation methods.
+
 ## Issue #1 goal check
 
 Status:
