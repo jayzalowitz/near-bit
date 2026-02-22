@@ -1838,6 +1838,15 @@ Verification reruns:
 - `rg -n "rpc-compatibility-matrix.md|Tier 1|Intentional PoS" docs/index.html docs/rpc-compatibility-matrix.md -S`
   - confirms matrix content headings and site link are present.
 
+## Continuation (2026-02-22): full btcrpc regression pass after mempool/PSBT hardening
+
+Validated:
+- Executed full crate test suite:
+  - `cargo test -p bitinfinity-btcrpc -- --nocapture`
+- Result:
+  - `53 passed`, `0 failed`, `0 ignored`.
+- This includes newly added mempool relationship tests, mempoolentry pending-only tests, and walletprocesspsbt lock-state tests alongside existing PSBT/quantum/signature coverage.
+
 ## Issue #1 goal check
 
 Status:
