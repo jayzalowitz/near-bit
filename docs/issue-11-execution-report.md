@@ -2130,6 +2130,17 @@ Verification reruns:
   - result: `72 passed`, `0 failed`.
   - confirms expanded fail-fast coverage without regressions.
 
+## Continuation (2026-02-22): Issue #1 core-goal verification rerun after btcrpc hardening
+
+Validated:
+- Re-ran Issue #1-aligned suites to ensure core goals remained intact after recent btcrpc hardening:
+  - `cargo test --manifest-path near-account-id/Cargo.toml -- --nocapture`
+    - result: `10 passed`, `0 failed`.
+    - confirms Bitcoin account-ID acceptance and BTC implicit account detection coverage remains green.
+  - `cargo test -p bitinfinity-tools -- --nocapture`
+    - result: `22 passed`, `0 failed`, `1 ignored`.
+    - confirms Patoshi reassignment, signature recovery/address derivation, and genesis registry paths remain green.
+
 ## Issue #11 remaining high-priority gaps (not completed here)
 
 Still open and required for full #11 closure:
