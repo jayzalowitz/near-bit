@@ -1713,6 +1713,78 @@ if [[ "$AUTH_GETRAWMEMPOOL_OK_ID" != "auth-getrawmempool" ]]; then
   exit 1
 fi
 
+AUTH_GETMEMPOOLENTRY_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-getmempoolentry\",\"method\":\"getmempoolentry\",\"params\":[\"$MEMPOOL_UNKNOWN_TXID\"]}"
+AUTH_GETMEMPOOLENTRY_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_GETMEMPOOLENTRY_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETMEMPOOLENTRY_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for getmempoolentry without auth, got: $AUTH_GETMEMPOOLENTRY_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_GETMEMPOOLENTRY_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_GETMEMPOOLENTRY_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETMEMPOOLENTRY_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for getmempoolentry with wrong auth, got: $AUTH_GETMEMPOOLENTRY_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_GETMEMPOOLENTRY_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_getmempoolentry_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_GETMEMPOOLENTRY_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETMEMPOOLENTRY_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated getmempoolentry, got: $AUTH_GETMEMPOOLENTRY_OK_CODE" >&2
+  exit 1
+fi
+AUTH_GETMEMPOOLENTRY_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_getmempoolentry_success_response.json")"
+if [[ "$AUTH_GETMEMPOOLENTRY_OK_ID" != "auth-getmempoolentry" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated getmempoolentry" >&2
+  exit 1
+fi
+
+AUTH_GETMEMPOOLANCESTORS_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-getmempoolancestors\",\"method\":\"getmempoolancestors\",\"params\":[\"$MEMPOOL_UNKNOWN_TXID\"]}"
+AUTH_GETMEMPOOLANCESTORS_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_GETMEMPOOLANCESTORS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETMEMPOOLANCESTORS_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for getmempoolancestors without auth, got: $AUTH_GETMEMPOOLANCESTORS_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_GETMEMPOOLANCESTORS_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_GETMEMPOOLANCESTORS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETMEMPOOLANCESTORS_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for getmempoolancestors with wrong auth, got: $AUTH_GETMEMPOOLANCESTORS_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_GETMEMPOOLANCESTORS_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_getmempoolancestors_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_GETMEMPOOLANCESTORS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETMEMPOOLANCESTORS_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated getmempoolancestors, got: $AUTH_GETMEMPOOLANCESTORS_OK_CODE" >&2
+  exit 1
+fi
+AUTH_GETMEMPOOLANCESTORS_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_getmempoolancestors_success_response.json")"
+if [[ "$AUTH_GETMEMPOOLANCESTORS_OK_ID" != "auth-getmempoolancestors" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated getmempoolancestors" >&2
+  exit 1
+fi
+
+AUTH_GETMEMPOOLDESCENDANTS_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-getmempooldescendants\",\"method\":\"getmempooldescendants\",\"params\":[\"$MEMPOOL_UNKNOWN_TXID\"]}"
+AUTH_GETMEMPOOLDESCENDANTS_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_GETMEMPOOLDESCENDANTS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETMEMPOOLDESCENDANTS_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for getmempooldescendants without auth, got: $AUTH_GETMEMPOOLDESCENDANTS_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_GETMEMPOOLDESCENDANTS_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_GETMEMPOOLDESCENDANTS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETMEMPOOLDESCENDANTS_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for getmempooldescendants with wrong auth, got: $AUTH_GETMEMPOOLDESCENDANTS_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_GETMEMPOOLDESCENDANTS_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_getmempooldescendants_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_GETMEMPOOLDESCENDANTS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETMEMPOOLDESCENDANTS_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated getmempooldescendants, got: $AUTH_GETMEMPOOLDESCENDANTS_OK_CODE" >&2
+  exit 1
+fi
+AUTH_GETMEMPOOLDESCENDANTS_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_getmempooldescendants_success_response.json")"
+if [[ "$AUTH_GETMEMPOOLDESCENDANTS_OK_ID" != "auth-getmempooldescendants" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated getmempooldescendants" >&2
+  exit 1
+fi
+
 AUTH_GETADDRESSINFO_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-getaddressinfo\",\"method\":\"getaddressinfo\",\"params\":[\"$FUNDED_ADDR\"]}"
 AUTH_GETADDRESSINFO_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_GETADDRESSINFO_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
 if [[ "$AUTH_GETADDRESSINFO_NOAUTH_CODE" != "401" ]]; then
@@ -3037,6 +3109,15 @@ auth_getchaintips_ok_http_code=$AUTH_GETCHAINTIPS_OK_CODE
 auth_getrawmempool_noauth_http_code=$AUTH_GETRAWMEMPOOL_NOAUTH_CODE
 auth_getrawmempool_wrong_http_code=$AUTH_GETRAWMEMPOOL_WRONG_CODE
 auth_getrawmempool_ok_http_code=$AUTH_GETRAWMEMPOOL_OK_CODE
+auth_getmempoolentry_noauth_http_code=$AUTH_GETMEMPOOLENTRY_NOAUTH_CODE
+auth_getmempoolentry_wrong_http_code=$AUTH_GETMEMPOOLENTRY_WRONG_CODE
+auth_getmempoolentry_ok_http_code=$AUTH_GETMEMPOOLENTRY_OK_CODE
+auth_getmempoolancestors_noauth_http_code=$AUTH_GETMEMPOOLANCESTORS_NOAUTH_CODE
+auth_getmempoolancestors_wrong_http_code=$AUTH_GETMEMPOOLANCESTORS_WRONG_CODE
+auth_getmempoolancestors_ok_http_code=$AUTH_GETMEMPOOLANCESTORS_OK_CODE
+auth_getmempooldescendants_noauth_http_code=$AUTH_GETMEMPOOLDESCENDANTS_NOAUTH_CODE
+auth_getmempooldescendants_wrong_http_code=$AUTH_GETMEMPOOLDESCENDANTS_WRONG_CODE
+auth_getmempooldescendants_ok_http_code=$AUTH_GETMEMPOOLDESCENDANTS_OK_CODE
 auth_getaddressinfo_noauth_http_code=$AUTH_GETADDRESSINFO_NOAUTH_CODE
 auth_getaddressinfo_wrong_http_code=$AUTH_GETADDRESSINFO_WRONG_CODE
 auth_getaddressinfo_ok_http_code=$AUTH_GETADDRESSINFO_OK_CODE
