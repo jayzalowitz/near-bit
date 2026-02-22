@@ -1665,6 +1665,54 @@ if [[ "$AUTH_GETBLOCKSTATS_OK_ID" != "auth-getblockstats" ]]; then
   exit 1
 fi
 
+AUTH_GETCHAINTIPS_PAYLOAD='{"jsonrpc":"2.0","id":"auth-getchaintips","method":"getchaintips","params":[]}'
+AUTH_GETCHAINTIPS_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_GETCHAINTIPS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETCHAINTIPS_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for getchaintips without auth, got: $AUTH_GETCHAINTIPS_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_GETCHAINTIPS_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_GETCHAINTIPS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETCHAINTIPS_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for getchaintips with wrong auth, got: $AUTH_GETCHAINTIPS_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_GETCHAINTIPS_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_getchaintips_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_GETCHAINTIPS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETCHAINTIPS_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated getchaintips, got: $AUTH_GETCHAINTIPS_OK_CODE" >&2
+  exit 1
+fi
+AUTH_GETCHAINTIPS_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_getchaintips_success_response.json")"
+if [[ "$AUTH_GETCHAINTIPS_OK_ID" != "auth-getchaintips" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated getchaintips" >&2
+  exit 1
+fi
+
+AUTH_GETRAWMEMPOOL_PAYLOAD='{"jsonrpc":"2.0","id":"auth-getrawmempool","method":"getrawmempool","params":[false]}'
+AUTH_GETRAWMEMPOOL_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_GETRAWMEMPOOL_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETRAWMEMPOOL_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for getrawmempool without auth, got: $AUTH_GETRAWMEMPOOL_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_GETRAWMEMPOOL_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_GETRAWMEMPOOL_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETRAWMEMPOOL_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for getrawmempool with wrong auth, got: $AUTH_GETRAWMEMPOOL_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_GETRAWMEMPOOL_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_getrawmempool_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_GETRAWMEMPOOL_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_GETRAWMEMPOOL_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated getrawmempool, got: $AUTH_GETRAWMEMPOOL_OK_CODE" >&2
+  exit 1
+fi
+AUTH_GETRAWMEMPOOL_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_getrawmempool_success_response.json")"
+if [[ "$AUTH_GETRAWMEMPOOL_OK_ID" != "auth-getrawmempool" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated getrawmempool" >&2
+  exit 1
+fi
+
 AUTH_GETADDRESSINFO_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-getaddressinfo\",\"method\":\"getaddressinfo\",\"params\":[\"$FUNDED_ADDR\"]}"
 AUTH_GETADDRESSINFO_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_GETADDRESSINFO_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
 if [[ "$AUTH_GETADDRESSINFO_NOAUTH_CODE" != "401" ]]; then
@@ -2983,6 +3031,12 @@ auth_getblock_ok_http_code=$AUTH_GETBLOCK_OK_CODE
 auth_getblockstats_noauth_http_code=$AUTH_GETBLOCKSTATS_NOAUTH_CODE
 auth_getblockstats_wrong_http_code=$AUTH_GETBLOCKSTATS_WRONG_CODE
 auth_getblockstats_ok_http_code=$AUTH_GETBLOCKSTATS_OK_CODE
+auth_getchaintips_noauth_http_code=$AUTH_GETCHAINTIPS_NOAUTH_CODE
+auth_getchaintips_wrong_http_code=$AUTH_GETCHAINTIPS_WRONG_CODE
+auth_getchaintips_ok_http_code=$AUTH_GETCHAINTIPS_OK_CODE
+auth_getrawmempool_noauth_http_code=$AUTH_GETRAWMEMPOOL_NOAUTH_CODE
+auth_getrawmempool_wrong_http_code=$AUTH_GETRAWMEMPOOL_WRONG_CODE
+auth_getrawmempool_ok_http_code=$AUTH_GETRAWMEMPOOL_OK_CODE
 auth_getaddressinfo_noauth_http_code=$AUTH_GETADDRESSINFO_NOAUTH_CODE
 auth_getaddressinfo_wrong_http_code=$AUTH_GETADDRESSINFO_WRONG_CODE
 auth_getaddressinfo_ok_http_code=$AUTH_GETADDRESSINFO_OK_CODE
