@@ -1992,6 +1992,54 @@ if [[ "$AUTH_BACKUPWALLET_OK_ID" != "auth-backupwallet" ]]; then
   exit 1
 fi
 
+AUTH_SETTXFEE_PAYLOAD='{"jsonrpc":"2.0","id":"auth-settxfee","method":"settxfee","params":[0.00001]}'
+AUTH_SETTXFEE_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_SETTXFEE_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_SETTXFEE_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for settxfee without auth, got: $AUTH_SETTXFEE_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_SETTXFEE_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_SETTXFEE_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_SETTXFEE_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for settxfee with wrong auth, got: $AUTH_SETTXFEE_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_SETTXFEE_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_settxfee_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_SETTXFEE_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_SETTXFEE_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated settxfee, got: $AUTH_SETTXFEE_OK_CODE" >&2
+  exit 1
+fi
+AUTH_SETTXFEE_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_settxfee_success_response.json")"
+if [[ "$AUTH_SETTXFEE_OK_ID" != "auth-settxfee" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated settxfee" >&2
+  exit 1
+fi
+
+AUTH_KEYPOOLREFILL_PAYLOAD='{"jsonrpc":"2.0","id":"auth-keypoolrefill","method":"keypoolrefill","params":[100]}'
+AUTH_KEYPOOLREFILL_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_KEYPOOLREFILL_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_KEYPOOLREFILL_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for keypoolrefill without auth, got: $AUTH_KEYPOOLREFILL_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_KEYPOOLREFILL_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_KEYPOOLREFILL_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_KEYPOOLREFILL_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for keypoolrefill with wrong auth, got: $AUTH_KEYPOOLREFILL_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_KEYPOOLREFILL_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_keypoolrefill_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_KEYPOOLREFILL_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_KEYPOOLREFILL_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated keypoolrefill, got: $AUTH_KEYPOOLREFILL_OK_CODE" >&2
+  exit 1
+fi
+AUTH_KEYPOOLREFILL_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_keypoolrefill_success_response.json")"
+if [[ "$AUTH_KEYPOOLREFILL_OK_ID" != "auth-keypoolrefill" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated keypoolrefill" >&2
+  exit 1
+fi
+
 AUTH_WALLETPROCESS_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-walletprocesspsbt\",\"method\":\"walletprocesspsbt\",\"params\":[\"$FUNDED_PSBT\"]}"
 AUTH_WALLETPROCESS_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_WALLETPROCESS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
 if [[ "$AUTH_WALLETPROCESS_NOAUTH_CODE" != "401" ]]; then
@@ -2281,6 +2329,12 @@ auth_importaddress_ok_http_code=$AUTH_IMPORTADDRESS_OK_CODE
 auth_backupwallet_noauth_http_code=$AUTH_BACKUPWALLET_NOAUTH_CODE
 auth_backupwallet_wrong_http_code=$AUTH_BACKUPWALLET_WRONG_CODE
 auth_backupwallet_ok_http_code=$AUTH_BACKUPWALLET_OK_CODE
+auth_settxfee_noauth_http_code=$AUTH_SETTXFEE_NOAUTH_CODE
+auth_settxfee_wrong_http_code=$AUTH_SETTXFEE_WRONG_CODE
+auth_settxfee_ok_http_code=$AUTH_SETTXFEE_OK_CODE
+auth_keypoolrefill_noauth_http_code=$AUTH_KEYPOOLREFILL_NOAUTH_CODE
+auth_keypoolrefill_wrong_http_code=$AUTH_KEYPOOLREFILL_WRONG_CODE
+auth_keypoolrefill_ok_http_code=$AUTH_KEYPOOLREFILL_OK_CODE
 auth_walletprocesspsbt_noauth_http_code=$AUTH_WALLETPROCESS_NOAUTH_CODE
 auth_walletprocesspsbt_wrong_http_code=$AUTH_WALLETPROCESS_WRONG_CODE
 auth_walletprocesspsbt_ok_http_code=$AUTH_WALLETPROCESS_OK_CODE
