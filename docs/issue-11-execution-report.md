@@ -1954,6 +1954,28 @@ Verification reruns:
   - result: `59 passed`, `0 failed`.
   - includes all new arithmetic guard tests plus prior wallet/mempool/PSBT/quantum coverage.
 
+## Continuation (2026-02-22): dedicated fuzz target for BTC amount-math guard paths
+
+Implemented:
+- Extracted amount conversion guard into reusable module:
+  - `bitinfinity-btcrpc/src/amounts.rs`
+  - hosts `btc_to_satoshis_checked` for shared runtime + fuzz coverage.
+- Added btcrpc fuzz target:
+  - `bitinfinity-btcrpc/fuzz/fuzz_targets/fuzz_amount_math.rs`
+  - feeds arbitrary IEEE-754 values into BTC→satoshi conversion and checked arithmetic branches.
+- Registered target in fuzz tooling:
+  - `bitinfinity-btcrpc/fuzz/Cargo.toml` includes `fuzz_amount_math`.
+  - `.github/workflows/ci.yml` adds 30s smoke run for `fuzz_amount_math`.
+  - `.github/workflows/nightly-fuzz.yml` matrix now includes `bitinfinity-btcrpc` `fuzz_amount_math`.
+
+Verification reruns:
+- `cargo check --manifest-path bitinfinity-btcrpc/fuzz/Cargo.toml`
+  - result: fuzz crate with new amount target compiles.
+- `cargo test -p bitinfinity-btcrpc -- --nocapture`
+  - result: `59 passed`, `0 failed`.
+- `ruby -e 'require "yaml"; YAML.load_file(".github/workflows/ci.yml"); YAML.load_file(".github/workflows/nightly-fuzz.yml")'`
+  - result: workflow YAML remains valid.
+
 ## Issue #11 remaining high-priority gaps (not completed here)
 
 Still open and required for full #11 closure:
