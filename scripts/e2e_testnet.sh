@@ -2073,6 +2073,30 @@ if [[ "$AUTH_GETADDRESSINFO_OK_ID" != "auth-getaddressinfo" ]]; then
   exit 1
 fi
 
+AUTH_VALIDATEADDRESS_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-validateaddress\",\"method\":\"validateaddress\",\"params\":[\"$FUNDED_ADDR\"]}"
+AUTH_VALIDATEADDRESS_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_VALIDATEADDRESS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_VALIDATEADDRESS_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for validateaddress without auth, got: $AUTH_VALIDATEADDRESS_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_VALIDATEADDRESS_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_VALIDATEADDRESS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_VALIDATEADDRESS_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for validateaddress with wrong auth, got: $AUTH_VALIDATEADDRESS_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_VALIDATEADDRESS_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_validateaddress_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_VALIDATEADDRESS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_VALIDATEADDRESS_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated validateaddress, got: $AUTH_VALIDATEADDRESS_OK_CODE" >&2
+  exit 1
+fi
+AUTH_VALIDATEADDRESS_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_validateaddress_success_response.json")"
+if [[ "$AUTH_VALIDATEADDRESS_OK_ID" != "auth-validateaddress" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated validateaddress" >&2
+  exit 1
+fi
+
 AUTH_SCANTXOUTSET_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-scantxoutset\",\"method\":\"scantxoutset\",\"params\":[\"start\",[{\"desc\":\"addr($FUNDED_ADDR)\"}]]}"
 AUTH_SCANTXOUTSET_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_SCANTXOUTSET_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
 if [[ "$AUTH_SCANTXOUTSET_NOAUTH_CODE" != "401" ]]; then
@@ -3144,6 +3168,30 @@ if [[ "$AUTH_COMBINEPSBT_OK_ID" != "auth-combinepsbt" ]]; then
   exit 1
 fi
 
+AUTH_JOINPSBTS_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-joinpsbts\",\"method\":\"joinpsbts\",\"params\":[[\"$FUNDED_PSBT\",\"$SIGNED_PSBT\"]]}"
+AUTH_JOINPSBTS_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_JOINPSBTS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_JOINPSBTS_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for joinpsbts without auth, got: $AUTH_JOINPSBTS_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_JOINPSBTS_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_JOINPSBTS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_JOINPSBTS_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for joinpsbts with wrong auth, got: $AUTH_JOINPSBTS_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_JOINPSBTS_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_joinpsbts_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_JOINPSBTS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_JOINPSBTS_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated joinpsbts, got: $AUTH_JOINPSBTS_OK_CODE" >&2
+  exit 1
+fi
+AUTH_JOINPSBTS_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_joinpsbts_success_response.json")"
+if [[ "$AUTH_JOINPSBTS_OK_ID" != "auth-joinpsbts" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated joinpsbts" >&2
+  exit 1
+fi
+
 AUTH_WALLETCREATE_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-walletcreatefundedpsbt\",\"method\":\"walletcreatefundedpsbt\",\"params\":[[],[{\"$SATOSHI_ADDR\":0.0001}],0,{}]}"
 AUTH_WALLETCREATE_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_WALLETCREATE_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
 if [[ "$AUTH_WALLETCREATE_NOAUTH_CODE" != "401" ]]; then
@@ -3418,6 +3466,9 @@ auth_getmempooldescendants_ok_http_code=$AUTH_GETMEMPOOLDESCENDANTS_OK_CODE
 auth_getaddressinfo_noauth_http_code=$AUTH_GETADDRESSINFO_NOAUTH_CODE
 auth_getaddressinfo_wrong_http_code=$AUTH_GETADDRESSINFO_WRONG_CODE
 auth_getaddressinfo_ok_http_code=$AUTH_GETADDRESSINFO_OK_CODE
+auth_validateaddress_noauth_http_code=$AUTH_VALIDATEADDRESS_NOAUTH_CODE
+auth_validateaddress_wrong_http_code=$AUTH_VALIDATEADDRESS_WRONG_CODE
+auth_validateaddress_ok_http_code=$AUTH_VALIDATEADDRESS_OK_CODE
 auth_scantxoutset_noauth_http_code=$AUTH_SCANTXOUTSET_NOAUTH_CODE
 auth_scantxoutset_wrong_http_code=$AUTH_SCANTXOUTSET_WRONG_CODE
 auth_scantxoutset_ok_http_code=$AUTH_SCANTXOUTSET_OK_CODE
@@ -3553,6 +3604,9 @@ auth_utxoupdatepsbt_ok_http_code=$AUTH_UTXOUPDATEPSBT_OK_CODE
 auth_combinepsbt_noauth_http_code=$AUTH_COMBINEPSBT_NOAUTH_CODE
 auth_combinepsbt_wrong_http_code=$AUTH_COMBINEPSBT_WRONG_CODE
 auth_combinepsbt_ok_http_code=$AUTH_COMBINEPSBT_OK_CODE
+auth_joinpsbts_noauth_http_code=$AUTH_JOINPSBTS_NOAUTH_CODE
+auth_joinpsbts_wrong_http_code=$AUTH_JOINPSBTS_WRONG_CODE
+auth_joinpsbts_ok_http_code=$AUTH_JOINPSBTS_OK_CODE
 auth_walletcreatefundedpsbt_noauth_http_code=$AUTH_WALLETCREATE_NOAUTH_CODE
 auth_walletcreatefundedpsbt_wrong_http_code=$AUTH_WALLETCREATE_WRONG_CODE
 auth_walletcreatefundedpsbt_ok_http_code=$AUTH_WALLETCREATE_OK_CODE
