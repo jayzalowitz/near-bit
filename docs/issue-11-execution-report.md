@@ -724,6 +724,26 @@ Verification rerun:
 - `./scripts/e2e_testnet.sh` (clean rerun after removing stale process passed)
 - `cargo test -q -p bitinfinity-btcrpc`
 
+## Continuation (2026-02-21): walletlock auth-gating coverage
+
+Implemented:
+- Extended auth-depth checks in `scripts/e2e_testnet.sh` to cover `walletlock` with explicit:
+  - unauthenticated request returns HTTP `401`,
+  - wrong-credential request returns HTTP `401`,
+  - authenticated request returns HTTP `200` with matching JSON-RPC `id`.
+- Added summary exports:
+  - `auth_walletlock_noauth_http_code`
+  - `auth_walletlock_wrong_http_code`
+  - `auth_walletlock_ok_http_code`
+
+Primary file:
+- `scripts/e2e_testnet.sh`
+
+Verification rerun:
+- `bash -n scripts/e2e_testnet.sh`
+- `./scripts/e2e_testnet.sh` (one initial preflight-fail on occupied port `3030`; clean rerun passed)
+- `cargo test -q -p bitinfinity-btcrpc`
+
 ## Issue #1 goal check
 
 Status:
