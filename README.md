@@ -74,6 +74,25 @@ cargo test --workspace
 cargo test --manifest-path near-account-id/Cargo.toml
 ```
 
+## Run CI checks locally
+
+```bash
+# Lint / format parity with CI
+cargo clippy --workspace --all-targets -- -D warnings
+cargo clippy --manifest-path near-account-id/Cargo.toml --all-targets -- -D warnings
+cargo fmt --all -- --check
+cargo fmt --manifest-path near-account-id/Cargo.toml --all -- --check
+
+# Security audit parity with CI
+cargo audit
+cargo audit --file near-account-id/Cargo.lock
+
+# Extra CI smoke checks
+./scripts/check_auth_coverage.sh
+bash -n scripts/benchmark/run_tps_profiles.sh
+./scripts/benchmark/run_tps_profiles.sh --dry-run --skip-build --profile all --metrics-interval 1
+```
+
 ## Fuzzing
 
 ```bash
