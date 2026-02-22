@@ -2280,6 +2280,54 @@ if [[ "$AUTH_LISTADDRGROUPINGS_OK_ID" != "auth-listaddressgroupings" ]]; then
   exit 1
 fi
 
+AUTH_LISTRECVBYADDR_PAYLOAD='{"jsonrpc":"2.0","id":"auth-listreceivedbyaddress","method":"listreceivedbyaddress","params":[]}'
+AUTH_LISTRECVBYADDR_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_LISTRECVBYADDR_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_LISTRECVBYADDR_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for listreceivedbyaddress without auth, got: $AUTH_LISTRECVBYADDR_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_LISTRECVBYADDR_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_LISTRECVBYADDR_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_LISTRECVBYADDR_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for listreceivedbyaddress with wrong auth, got: $AUTH_LISTRECVBYADDR_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_LISTRECVBYADDR_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_listreceivedbyaddress_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_LISTRECVBYADDR_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_LISTRECVBYADDR_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated listreceivedbyaddress, got: $AUTH_LISTRECVBYADDR_OK_CODE" >&2
+  exit 1
+fi
+AUTH_LISTRECVBYADDR_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_listreceivedbyaddress_success_response.json")"
+if [[ "$AUTH_LISTRECVBYADDR_OK_ID" != "auth-listreceivedbyaddress" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated listreceivedbyaddress" >&2
+  exit 1
+fi
+
+AUTH_LISTUNSPENT_PAYLOAD='{"jsonrpc":"2.0","id":"auth-listunspent","method":"listunspent","params":[]}'
+AUTH_LISTUNSPENT_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_LISTUNSPENT_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_LISTUNSPENT_NOAUTH_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for listunspent without auth, got: $AUTH_LISTUNSPENT_NOAUTH_CODE" >&2
+  exit 1
+fi
+
+AUTH_LISTUNSPENT_WRONG_CODE="$(curl -s -o /dev/null -w '%{http_code}' -u "wrong:creds" -H 'content-type: application/json' --data "$AUTH_LISTUNSPENT_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_LISTUNSPENT_WRONG_CODE" != "401" ]]; then
+  echo "Expected HTTP 401 for listunspent with wrong auth, got: $AUTH_LISTUNSPENT_WRONG_CODE" >&2
+  exit 1
+fi
+
+AUTH_LISTUNSPENT_OK_CODE="$(curl -s -o "$ARTIFACT_DIR/btc_auth_listunspent_success_response.json" -w '%{http_code}' -u "$BTCRPC_AUTH_USER:$BTCRPC_AUTH_PASS" -H 'content-type: application/json' --data "$AUTH_LISTUNSPENT_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
+if [[ "$AUTH_LISTUNSPENT_OK_CODE" != "200" ]]; then
+  echo "Expected HTTP 200 for authenticated listunspent, got: $AUTH_LISTUNSPENT_OK_CODE" >&2
+  exit 1
+fi
+AUTH_LISTUNSPENT_OK_ID="$(jq -r '.id // empty' "$ARTIFACT_DIR/btc_auth_listunspent_success_response.json")"
+if [[ "$AUTH_LISTUNSPENT_OK_ID" != "auth-listunspent" ]]; then
+  echo "Expected structured JSON-RPC response for authenticated listunspent" >&2
+  exit 1
+fi
+
 AUTH_WALLETPROCESS_PAYLOAD="{\"jsonrpc\":\"2.0\",\"id\":\"auth-walletprocesspsbt\",\"method\":\"walletprocesspsbt\",\"params\":[\"$FUNDED_PSBT\"]}"
 AUTH_WALLETPROCESS_NOAUTH_CODE="$(curl -s -o /dev/null -w '%{http_code}' -H 'content-type: application/json' --data "$AUTH_WALLETPROCESS_PAYLOAD" "http://$BTC_RPC_AUTH_ADDR/")"
 if [[ "$AUTH_WALLETPROCESS_NOAUTH_CODE" != "401" ]]; then
@@ -2605,6 +2653,12 @@ auth_getwalletinfo_ok_http_code=$AUTH_GETWALLETINFO_OK_CODE
 auth_listaddressgroupings_noauth_http_code=$AUTH_LISTADDRGROUPINGS_NOAUTH_CODE
 auth_listaddressgroupings_wrong_http_code=$AUTH_LISTADDRGROUPINGS_WRONG_CODE
 auth_listaddressgroupings_ok_http_code=$AUTH_LISTADDRGROUPINGS_OK_CODE
+auth_listreceivedbyaddress_noauth_http_code=$AUTH_LISTRECVBYADDR_NOAUTH_CODE
+auth_listreceivedbyaddress_wrong_http_code=$AUTH_LISTRECVBYADDR_WRONG_CODE
+auth_listreceivedbyaddress_ok_http_code=$AUTH_LISTRECVBYADDR_OK_CODE
+auth_listunspent_noauth_http_code=$AUTH_LISTUNSPENT_NOAUTH_CODE
+auth_listunspent_wrong_http_code=$AUTH_LISTUNSPENT_WRONG_CODE
+auth_listunspent_ok_http_code=$AUTH_LISTUNSPENT_OK_CODE
 auth_walletprocesspsbt_noauth_http_code=$AUTH_WALLETPROCESS_NOAUTH_CODE
 auth_walletprocesspsbt_wrong_http_code=$AUTH_WALLETPROCESS_WRONG_CODE
 auth_walletprocesspsbt_ok_http_code=$AUTH_WALLETPROCESS_OK_CODE
