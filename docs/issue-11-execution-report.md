@@ -1883,6 +1883,31 @@ Verification reruns:
   - result: `56 passed`, `0 failed`.
   - confirms newly added unloaded-wallet guard test alongside all prior mempool/PSBT/lifecycle coverage.
 
+## Continuation (2026-02-22): secp256k1 recovery panic hardening + dedicated crypto fuzz target
+
+Implemented:
+- Hardened `nearcore/core/crypto/src/signature.rs` `Secp256K1Signature::recover` to remove panic paths:
+  - replaced `RecoveryId::from_i32(...).unwrap()` with error-mapped handling;
+  - replaced `Message::from_slice(...).unwrap()` with explicit error-mapped handling.
+- Added regression unit test:
+  - `test_secp256k1_recover_rejects_invalid_recovery_id`
+  - validates invalid recovery IDs return an error instead of panicking.
+- Added dedicated fuzz harness for crypto recovery paths:
+  - `nearcore/core/crypto/fuzz/Cargo.toml`
+  - `nearcore/core/crypto/fuzz/fuzz_targets/fuzz_secp256k1_recover.rs`
+  - exercises `Secp256K1Signature::recover`, signature value checks, and secp256k1 `Signature::from_parts`/verify pathways under arbitrary inputs.
+- Wired new fuzz target into CI pipelines:
+  - `.github/workflows/ci.yml` adds 30s smoke run;
+  - `.github/workflows/nightly-fuzz.yml` matrix now includes `nearcore/core/crypto` `fuzz_secp256k1_recover`.
+
+Verification reruns:
+- `cargo test --manifest-path nearcore/Cargo.toml -p near-crypto test_secp256k1_recover_rejects_invalid_recovery_id -- --nocapture`
+  - result: test passed.
+- `cargo check --manifest-path nearcore/core/crypto/fuzz/Cargo.toml`
+  - result: fuzz crate/target compiles successfully.
+- `ruby -e 'require "yaml"; YAML.load_file(".github/workflows/ci.yml"); YAML.load_file(".github/workflows/nightly-fuzz.yml")'`
+  - result: workflow YAML remains valid.
+
 ## Issue #11 remaining high-priority gaps (not completed here)
 
 Still open and required for full #11 closure:
