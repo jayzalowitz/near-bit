@@ -46,9 +46,13 @@ It executes readiness checks with checklist parsing disabled internally, then ru
   - `incident-communication-templates.md`
   - `ci.yml`
   - `nightly-fuzz.yml`
+  - `launch-evidence.yml`
+  - `launch-rehearsal.yml`
+  - `release-manifest.yml`
   - `run_readiness_gate.sh`
   - `check_go_no_go_checklist.sh`
   - `run_launch_rehearsal.sh`
+  - `generate_release_manifest.sh`
 
 ## Validate Go/No-Go Checklist
 
@@ -78,6 +82,7 @@ It executes readiness checks with checklist parsing disabled internally, then ru
 
 Use `--skip-gate` only for documentation snapshots, not for launch signoff evidence.
 For full end-to-end orchestration with a rehearsal summary wrapper, use `./scripts/launch/run_launch_rehearsal.sh`.
+For release binary checksum records, generate a separate artifact manifest via `./scripts/launch/generate_release_manifest.sh`.
 
 ## Generate in GitHub Actions
 

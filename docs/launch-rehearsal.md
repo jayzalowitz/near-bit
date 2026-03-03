@@ -51,3 +51,4 @@ Key files:
 ## GitHub Actions
 
 Use workflow `.github/workflows/launch-rehearsal.yml` (manual dispatch) to run and archive rehearsal artifacts in CI.
+For release-binary checksums and metadata, pair rehearsal output with `./scripts/launch/generate_release_manifest.sh`.

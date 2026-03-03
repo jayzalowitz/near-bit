@@ -37,6 +37,7 @@ Use one command path for repeatable local verification:
 | Go/no-go checklist validator script | complete | `scripts/launch/check_go_no_go_checklist.sh` |
 | Launch evidence bundle generator | complete | `scripts/launch/generate_evidence_bundle.sh`, `docs/launch-evidence-bundle.md` |
 | Launch rehearsal orchestration runner | complete | `scripts/launch/run_launch_rehearsal.sh`, `docs/launch-rehearsal.md` |
+| Release artifact checksum manifest generator | complete | `scripts/launch/generate_release_manifest.sh`, `docs/release-artifact-manifest.md` |
 | Documentation hub and technical guides | complete | `docs/documentation-hub.md` and linked docs |
 | Launch execution report for implementation phases | complete | `docs/issue-11-execution-report.md` |
 
@@ -59,5 +60,6 @@ Before each launch rehearsal, require all of:
 2. Latest benchmark artifact and summary are attached to the rehearsal record.
 3. Incident communication templates are pre-filled for current version/epoch window.
 4. A launch evidence bundle is generated for the target commit and attached to the rehearsal record.
-5. A launch rehearsal summary is generated and attached (`SUMMARY.md` + `summary.json`).
-6. This document is updated with rehearsal date, commit SHA, and operator signoff.
+5. A release artifact manifest is generated and attached (`SHA256SUMS.txt` + `metadata.json`).
+6. A launch rehearsal summary is generated and attached (`SUMMARY.md` + `summary.json`).
+7. This document is updated with rehearsal date, commit SHA, and operator signoff.
