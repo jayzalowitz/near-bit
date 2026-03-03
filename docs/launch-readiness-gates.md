@@ -34,6 +34,7 @@ Use one command path for repeatable local verification:
 | Operations runbook | complete | `docs/validator-operations-runbook.md` |
 | Incident communication templates | complete | `docs/incident-communication-templates.md` |
 | Mainnet go/no-go decision checklist template | complete | `docs/mainnet-go-no-go-checklist.md` |
+| Launch evidence bundle generator | complete | `scripts/launch/generate_evidence_bundle.sh`, `docs/launch-evidence-bundle.md` |
 | Documentation hub and technical guides | complete | `docs/documentation-hub.md` and linked docs |
 | Launch execution report for implementation phases | complete | `docs/issue-11-execution-report.md` |
 
@@ -55,4 +56,5 @@ Before each launch rehearsal, require all of:
 1. `./scripts/launch/run_readiness_gate.sh --full` passes on the target commit.
 2. Latest benchmark artifact and summary are attached to the rehearsal record.
 3. Incident communication templates are pre-filled for current version/epoch window.
-4. This document is updated with rehearsal date, commit SHA, and operator signoff.
+4. A launch evidence bundle is generated for the target commit and attached to the rehearsal record.
+5. This document is updated with rehearsal date, commit SHA, and operator signoff.

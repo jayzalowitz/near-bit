@@ -75,6 +75,7 @@ check_required_docs() {
   local required_files=(
     "docs/launch-readiness-gates.md"
     "docs/mainnet-go-no-go-checklist.md"
+    "docs/launch-evidence-bundle.md"
     "docs/incident-communication-templates.md"
     "docs/security-and-threat-model.md"
     "docs/validator-operations-runbook.md"
@@ -141,6 +142,7 @@ run_cmd "Validate launch required docs and placeholder-free state" check_require
 run_cmd "Auth coverage matrix" ./scripts/check_auth_coverage.sh
 run_cmd "Benchmark runner script syntax" bash -n scripts/benchmark/run_tps_profiles.sh
 run_cmd "Launch gate script syntax" bash -n scripts/launch/run_readiness_gate.sh
+run_cmd "Launch evidence bundle script syntax" bash -n scripts/launch/generate_evidence_bundle.sh
 run_cmd "Benchmark runner dry-run smoke" ./scripts/benchmark/run_tps_profiles.sh --dry-run --skip-build --profile all --metrics-interval 1
 
 if [[ "$MODE" == "full" ]]; then
