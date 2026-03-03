@@ -37,6 +37,7 @@ The script fails on a dirty worktree by default so signoff artifacts always map 
 - `SUMMARY.md`: human-readable summary for release review.
 - `readiness-gate.log`: full readiness gate output (unless `--skip-gate` is used).
 - `go-no-go-checklist-report.txt`: parsed checklist status report (and strict-go failure details when enabled).
+- `go-no-go-checklist-report.json`: machine-readable checklist summary for automation/reporting.
 - `SHA256SUMS.txt`: checksums for captured policy/workflow/script snapshots.
 - launch-critical snapshots:
   - `launch-readiness-gates.md`
