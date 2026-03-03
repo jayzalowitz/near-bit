@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/launch/run_readiness_gate.sh [--smoke|--full] [--include-fuzz] [--require-go]
+Usage: ./scripts/launch/run_readiness_gate.sh [--smoke|--full] [--include-fuzz] [--require-go] [--skip-checklist]
 
 Modes:
   --smoke         Fast readiness checks (docs + script + benchmark/auth smoke).
@@ -12,6 +12,7 @@ Modes:
 Options:
   --include-fuzz  Add nightly-toolchain fuzz smoke runs (slow).
   --require-go    Enforce GO criteria during checklist parse.
+  --skip-checklist  Skip checklist parse step (used by higher-level orchestration).
   -h, --help      Show this help text.
 EOF
 }
@@ -19,6 +20,7 @@ EOF
 MODE="full"
 INCLUDE_FUZZ=0
 REQUIRE_GO=0
+SKIP_CHECKLIST=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -36,6 +38,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --require-go)
       REQUIRE_GO=1
+      shift
+      ;;
+    --skip-checklist)
+      SKIP_CHECKLIST=1
       shift
       ;;
     -h|--help)
@@ -150,11 +156,13 @@ run_cmd "Benchmark runner script syntax" bash -n scripts/benchmark/run_tps_profi
 run_cmd "Launch gate script syntax" bash -n scripts/launch/run_readiness_gate.sh
 run_cmd "Launch evidence bundle script syntax" bash -n scripts/launch/generate_evidence_bundle.sh
 run_cmd "Go/no-go checklist script syntax" bash -n scripts/launch/check_go_no_go_checklist.sh
-checklist_cmd=(./scripts/launch/check_go_no_go_checklist.sh)
-if [[ "$REQUIRE_GO" -eq 1 ]]; then
-  checklist_cmd+=(--require-go)
+if [[ "$SKIP_CHECKLIST" -eq 0 ]]; then
+  checklist_cmd=(./scripts/launch/check_go_no_go_checklist.sh)
+  if [[ "$REQUIRE_GO" -eq 1 ]]; then
+    checklist_cmd+=(--require-go)
+  fi
+  run_cmd "Go/no-go checklist parse" "${checklist_cmd[@]}"
 fi
-run_cmd "Go/no-go checklist parse" "${checklist_cmd[@]}"
 run_cmd "Benchmark runner dry-run smoke" ./scripts/benchmark/run_tps_profiles.sh --dry-run --skip-build --profile all --metrics-interval 1
 
 if [[ "$MODE" == "full" ]]; then
@@ -174,4 +182,4 @@ if [[ "$INCLUDE_FUZZ" -eq 1 ]]; then
 fi
 
 echo
-echo "Launch readiness gate passed: mode=${MODE}, include_fuzz=${INCLUDE_FUZZ}, require_go=${REQUIRE_GO}, at=$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+echo "Launch readiness gate passed: mode=${MODE}, include_fuzz=${INCLUDE_FUZZ}, require_go=${REQUIRE_GO}, skip_checklist=${SKIP_CHECKLIST}, at=$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
