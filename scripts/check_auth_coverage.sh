@@ -8,13 +8,12 @@ if [[ ! -f "$SCRIPT_PATH" ]]; then
   exit 1
 fi
 
-if ! command -v rg >/dev/null 2>&1; then
-  echo "Required command not found: rg" >&2
-  exit 1
-fi
-
 extract_methods() {
-  rg -o '\\\"method\\\":\\\"[^\\\"]+\\\"|\"method\":\"[^\"]+\"' \
+  if command -v rg >/dev/null 2>&1; then
+    rg -o '\\\"method\\\":\\\"[^\\\"]+\\\"|\"method\":\"[^\"]+\"'
+  else
+    grep -Eo '\\\"method\\\":\\\"[^\\\"]+\\\"|\"method\":\"[^\"]+\"'
+  fi \
     | sed -E 's/^\\\"method\\\":\\\"([^\\\"]+)\\\"$/\1/; s/^\"method\":\"([^\"]+)\"$/\1/' \
     | sort -u
 }

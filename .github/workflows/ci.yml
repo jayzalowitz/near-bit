@@ -167,37 +167,37 @@ jobs:
       - name: Fuzz account-id parser (30s)
         run: |
           cd near-account-id
-          cargo fuzz run fuzz_account_id_parse -- -max_total_time=30 -timeout=5
+          cargo +nightly fuzz run fuzz_account_id_parse -- -max_total_time=30 -timeout=5
 
       - name: Fuzz RPC JSON parser (30s)
         run: |
           cd bitinfinity-btcrpc
-          cargo fuzz run fuzz_rpc_parse -- -max_total_time=30 -timeout=5
+          cargo +nightly fuzz run fuzz_rpc_parse -- -max_total_time=30 -timeout=5
 
       - name: Fuzz tx hex parser (30s)
         run: |
           cd bitinfinity-btcrpc
-          cargo fuzz run fuzz_tx_hex -- -max_total_time=30 -timeout=5
+          cargo +nightly fuzz run fuzz_tx_hex -- -max_total_time=30 -timeout=5
 
       - name: Fuzz tx translator (30s)
         run: |
           cd bitinfinity-btcrpc
-          cargo fuzz run fuzz_tx_translator -- -max_total_time=30 -timeout=5
+          cargo +nightly fuzz run fuzz_tx_translator -- -max_total_time=30 -timeout=5
 
       - name: Fuzz amount arithmetic (30s)
         run: |
           cd bitinfinity-btcrpc
-          cargo fuzz run fuzz_amount_math -- -max_total_time=30 -timeout=5
+          cargo +nightly fuzz run fuzz_amount_math -- -max_total_time=30 -timeout=5
 
       - name: Fuzz Patoshi CSV parser (30s)
         run: |
           cd bitinfinity-tools
-          cargo fuzz run fuzz_patoshi_csv -- -max_total_time=30 -timeout=5
+          cargo +nightly fuzz run fuzz_patoshi_csv -- -max_total_time=30 -timeout=5
 
       - name: Fuzz secp256k1 recover path (30s)
         run: |
           cd nearcore/core/crypto
-          cargo fuzz run fuzz_secp256k1_recover -- -max_total_time=30 -timeout=5
+          cargo +nightly fuzz run fuzz_secp256k1_recover -- -max_total_time=30 -timeout=5
 
   # ─────────────────────────────────────────────
   # Launch readiness smoke gate

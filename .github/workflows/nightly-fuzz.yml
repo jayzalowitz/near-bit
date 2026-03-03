@@ -69,4 +69,4 @@ jobs:
             DURATION="21600"
           fi
           cd "${{ matrix.crate_path }}"
-          cargo fuzz run "${{ matrix.target }}" -- -max_total_time="${DURATION}" -timeout=10
+          cargo +nightly fuzz run "${{ matrix.target }}" -- -max_total_time="${DURATION}" -timeout=10

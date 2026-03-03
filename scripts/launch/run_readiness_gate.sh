@@ -21,6 +21,7 @@ MODE="full"
 INCLUDE_FUZZ=0
 REQUIRE_GO=0
 SKIP_CHECKLIST=0
+HAS_RG=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -104,7 +105,13 @@ check_required_docs() {
     fi
   done
 
-  if rg -n "link TBD|\\bTBD\\b|TODO" docs/launch-readiness-gates.md docs/incident-communication-templates.md >/dev/null; then
+  if [[ "$HAS_RG" -eq 1 ]]; then
+    if rg -n "link TBD|\\bTBD\\b|TODO" docs/launch-readiness-gates.md docs/incident-communication-templates.md >/dev/null; then
+      echo "Launch docs still contain placeholder text (TBD/TODO)." >&2
+      echo "Resolve placeholders before marking readiness gates complete." >&2
+      exit 1
+    fi
+  elif grep -En "link TBD|\\bTBD\\b|TODO" docs/launch-readiness-gates.md docs/incident-communication-templates.md >/dev/null; then
     echo "Launch docs still contain placeholder text (TBD/TODO)." >&2
     echo "Resolve placeholders before marking readiness gates complete." >&2
     exit 1
@@ -148,8 +155,14 @@ run_fuzz_smoke() {
 
 require_cmd bash
 require_cmd cargo
-require_cmd rg
 require_cmd jq
+
+if command -v rg >/dev/null 2>&1; then
+  HAS_RG=1
+elif ! command -v grep >/dev/null 2>&1; then
+  echo "Required command not found: need either rg or grep" >&2
+  exit 1
+fi
 
 run_cmd "Validate launch required docs and placeholder-free state" check_required_docs
 run_cmd "Auth coverage matrix" ./scripts/check_auth_coverage.sh
