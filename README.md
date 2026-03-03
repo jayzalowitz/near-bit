@@ -145,7 +145,17 @@ bash -n scripts/benchmark/run_tps_profiles.sh
 ./scripts/launch/run_launch_rehearsal.sh --require-go
 ```
 
-See `docs/launch-readiness-gates.md` for gate status, `docs/mainnet-go-no-go-checklist.md` for decision signoff, `docs/incident-communication-templates.md` for incident messaging templates, and `docs/launch-evidence-bundle.md` for evidence packaging details.
+## Generate release artifact manifest
+
+```bash
+# Build binaries + emit checksummed manifest
+./scripts/launch/generate_release_manifest.sh
+
+# Reuse already-built binaries
+./scripts/launch/generate_release_manifest.sh --skip-build
+```
+
+See `docs/launch-readiness-gates.md` for gate status, `docs/mainnet-go-no-go-checklist.md` for decision signoff, `docs/incident-communication-templates.md` for incident messaging templates, `docs/launch-evidence-bundle.md` for evidence packaging details, and `docs/release-artifact-manifest.md` for release-binary checksum manifests.
 
 ## Fuzzing
 
