@@ -30,6 +30,7 @@ artifacts/launch-readiness/<timestamp>-<shortsha>/
 ```
 
 The script fails on a dirty worktree by default so signoff artifacts always map to a committed state.
+It executes readiness checks with checklist parsing disabled internally, then runs checklist validation once to emit both text and JSON reports.
 
 ## Bundle Contents
 

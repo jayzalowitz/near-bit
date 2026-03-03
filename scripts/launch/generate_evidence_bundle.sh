@@ -200,6 +200,7 @@ gate_exit_code=0
 if [[ "$SKIP_GATE" -eq 0 ]]; then
   gate_log="${bundle_dir}/readiness-gate.log"
   gate_cmd=(./scripts/launch/run_readiness_gate.sh "--${MODE}")
+  gate_cmd+=(--skip-checklist)
   if [[ "$REQUIRE_GO" -eq 1 ]]; then
     gate_cmd+=(--require-go)
   fi

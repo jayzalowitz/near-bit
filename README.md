@@ -107,6 +107,9 @@ bash -n scripts/benchmark/run_tps_profiles.sh
 
 # Strict launch gate (fails unless checklist is fully GO)
 ./scripts/launch/run_readiness_gate.sh --full --require-go
+
+# Optional for orchestration: run gate without checklist parse
+./scripts/launch/run_readiness_gate.sh --full --skip-checklist
 ```
 
 ## Generate launch evidence bundle
