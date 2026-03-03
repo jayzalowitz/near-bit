@@ -114,8 +114,20 @@ required_signoff_fields=(
 missing_signoff=0
 declare -a missing_signoff_lines
 for field in "${required_signoff_fields[@]}"; do
-  raw_line="$(awk -v needle="$field" 'index($0, needle)==1 {print; exit}' "$CHECKLIST_FILE")"
-  value="$(echo "$raw_line" | sed -E "s/^${field}[[:space:]]*//")"
+  raw_line="$(
+    awk -v needle="$field" '
+      {
+        line = $0
+        sub(/^[[:space:]]*-[[:space:]]*/, "", line)
+        if (index(line, needle) == 1) {
+          print line
+          exit
+        }
+      }
+    ' "$CHECKLIST_FILE"
+  )"
+  value="${raw_line#"$field"}"
+  value="$(echo "$value" | xargs)"
   if [[ -z "$raw_line" || -z "${value// }" ]]; then
     missing_signoff=$((missing_signoff + 1))
     missing_signoff_lines+=("$field")
