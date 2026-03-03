@@ -44,6 +44,17 @@ The script fails on a dirty worktree by default so signoff artifacts always map 
   - `ci.yml`
   - `nightly-fuzz.yml`
   - `run_readiness_gate.sh`
+  - `check_go_no_go_checklist.sh`
+
+## Validate Go/No-Go Checklist
+
+```bash
+# Parse and summarize checklist status
+./scripts/launch/check_go_no_go_checklist.sh
+
+# Enforce GO criteria (all gates done + signoff populated)
+./scripts/launch/check_go_no_go_checklist.sh --require-go
+```
 
 ## Optional Modes
 

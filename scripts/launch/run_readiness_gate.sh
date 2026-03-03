@@ -143,6 +143,8 @@ run_cmd "Auth coverage matrix" ./scripts/check_auth_coverage.sh
 run_cmd "Benchmark runner script syntax" bash -n scripts/benchmark/run_tps_profiles.sh
 run_cmd "Launch gate script syntax" bash -n scripts/launch/run_readiness_gate.sh
 run_cmd "Launch evidence bundle script syntax" bash -n scripts/launch/generate_evidence_bundle.sh
+run_cmd "Go/no-go checklist script syntax" bash -n scripts/launch/check_go_no_go_checklist.sh
+run_cmd "Go/no-go checklist parse" ./scripts/launch/check_go_no_go_checklist.sh
 run_cmd "Benchmark runner dry-run smoke" ./scripts/benchmark/run_tps_profiles.sh --dry-run --skip-build --profile all --metrics-interval 1
 
 if [[ "$MODE" == "full" ]]; then
