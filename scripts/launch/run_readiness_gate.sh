@@ -90,6 +90,7 @@ check_required_docs() {
     "docs/mainnet-go-no-go-checklist.md"
     "docs/launch-evidence-bundle.md"
     "docs/launch-rehearsal.md"
+    "docs/release-artifact-manifest.md"
     "docs/incident-communication-templates.md"
     "docs/security-and-threat-model.md"
     "docs/validator-operations-runbook.md"
@@ -170,6 +171,7 @@ run_cmd "Benchmark runner script syntax" bash -n scripts/benchmark/run_tps_profi
 run_cmd "Launch gate script syntax" bash -n scripts/launch/run_readiness_gate.sh
 run_cmd "Launch evidence bundle script syntax" bash -n scripts/launch/generate_evidence_bundle.sh
 run_cmd "Launch rehearsal script syntax" bash -n scripts/launch/run_launch_rehearsal.sh
+run_cmd "Release artifact manifest script syntax" bash -n scripts/launch/generate_release_manifest.sh
 run_cmd "Go/no-go checklist script syntax" bash -n scripts/launch/check_go_no_go_checklist.sh
 if [[ "$SKIP_CHECKLIST" -eq 0 ]]; then
   checklist_cmd=(./scripts/launch/check_go_no_go_checklist.sh)
