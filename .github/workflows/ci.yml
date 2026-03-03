@@ -200,16 +200,16 @@ jobs:
           cargo fuzz run fuzz_secp256k1_recover -- -max_total_time=30 -timeout=5
 
   # ─────────────────────────────────────────────
-  # Benchmark runner smoke (dry-run only)
+  # Launch readiness smoke gate
   # ─────────────────────────────────────────────
-  benchmark-runner-smoke:
-    name: Benchmark Runner (dry-run smoke)
+  launch-readiness-smoke:
+    name: Launch Readiness (smoke)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Validate benchmark runner syntax
-        run: bash -n scripts/benchmark/run_tps_profiles.sh
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
 
-      - name: Benchmark runner dry-run (all profiles)
-        run: ./scripts/benchmark/run_tps_profiles.sh --dry-run --skip-build --profile all --metrics-interval 1
+      - name: Run launch readiness smoke gate
+        run: ./scripts/launch/run_readiness_gate.sh --smoke
