@@ -93,6 +93,21 @@ bash -n scripts/benchmark/run_tps_profiles.sh
 ./scripts/benchmark/run_tps_profiles.sh --dry-run --skip-build --profile all --metrics-interval 1
 ```
 
+## Run launch-readiness gates locally
+
+```bash
+# Fast readiness checks
+./scripts/launch/run_readiness_gate.sh --smoke
+
+# Full launch gate (build/test/lint/fmt/audit + smoke checks)
+./scripts/launch/run_readiness_gate.sh --full
+
+# Add nightly fuzz smoke runs
+./scripts/launch/run_readiness_gate.sh --full --include-fuzz
+```
+
+See `docs/launch-readiness-gates.md` for gate status and `docs/incident-communication-templates.md` for incident messaging templates.
+
 ## Fuzzing
 
 ```bash
@@ -164,7 +179,8 @@ Latest measured pilot results (February 20, 2026):
 
 ## Security
 
-Found a vulnerability? Email security@bitcoininfinity.io or submit to the bug bounty program (link TBD). Do not open a public GitHub issue for security findings.
+Found a vulnerability? Email security@bitcoininfinity.io. Do not open a public GitHub issue for security findings.
+Launch and disclosure process tracking is documented in `docs/launch-readiness-gates.md`.
 
 ## Related issues
 

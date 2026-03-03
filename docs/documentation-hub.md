@@ -27,10 +27,12 @@ This hub links all major documentation for building, integrating, operating, and
 ## Operations
 
 - [Validator Operations Runbook](validator-operations-runbook.md): node lifecycle, health checks, and incident response.
+- [Incident Communication Templates](incident-communication-templates.md): copy-ready templates for investigating, security halt, resolution, and emergency upgrade notices.
 - [TPS Benchmark Methodology](benchmark-methodology.md): measurement standards and published benchmark profiles.
 
 ## Release Documentation
 
+- [Launch Readiness Gates](launch-readiness-gates.md): tracked launch blockers split into repository-verifiable and external dependencies.
 - [Issue #11 Execution Report](issue-11-execution-report.md): launch-plan execution details and completion artifacts.
 
 ## Recommended Reading Order
@@ -41,4 +43,6 @@ This hub links all major documentation for building, integrating, operating, and
 4. `rpc-integration-playbook.md`
 5. `security-and-threat-model.md`
 6. `validator-operations-runbook.md`
-7. `benchmark-methodology.md`
+7. `incident-communication-templates.md`
+8. `benchmark-methodology.md`
+9. `launch-readiness-gates.md`
