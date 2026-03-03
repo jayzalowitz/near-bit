@@ -115,6 +115,9 @@ bash -n scripts/benchmark/run_tps_profiles.sh
 # Faster evidence bundle for iteration
 ./scripts/launch/generate_evidence_bundle.sh --mode smoke
 
+# Strict signoff bundle (fails unless checklist is fully GO)
+./scripts/launch/generate_evidence_bundle.sh --mode full --require-go
+
 # Checklist status summary / strict GO check
 ./scripts/launch/check_go_no_go_checklist.sh
 ./scripts/launch/check_go_no_go_checklist.sh --require-go
