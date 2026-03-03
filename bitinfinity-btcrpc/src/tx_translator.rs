@@ -115,8 +115,9 @@ impl ParsedBitcoinTx {
         self.outputs
             .iter()
             .filter(|o| !o.is_op_return && o.address != self.sender_address)
-            .map(|o| o.amount_satoshis)
-            .sum()
+            // Saturate on malformed transactions with impossible output totals
+            // so translation/fuzz paths never panic on integer overflow.
+            .fold(0u64, |sum, o| sum.saturating_add(o.amount_satoshis))
     }
 
     /// Convert satoshis to yoctoBIT for NEAR transfer.
@@ -434,5 +435,35 @@ mod tests {
         // Should start with '1' and be all lowercase
         assert!(addr.starts_with('1'));
         assert_eq!(addr, addr.to_lowercase());
+    }
+
+    #[test]
+    fn test_total_payment_satoshis_saturates_on_overflow() {
+        let parsed = ParsedBitcoinTx {
+            txid: "deadbeef".to_string(),
+            sender_address: "sender".to_string(),
+            sender_pubkey: vec![2u8; 33],
+            inputs: vec![],
+            outputs: vec![
+                TxOutput {
+                    address: "alice".to_string(),
+                    amount_satoshis: u64::MAX,
+                    is_op_return: false,
+                    op_return_data: None,
+                },
+                TxOutput {
+                    address: "bob".to_string(),
+                    amount_satoshis: 1,
+                    is_op_return: false,
+                    op_return_data: None,
+                },
+            ],
+            raw_hex: String::new(),
+            version: 2,
+            locktime: 0,
+            weight: 0,
+        };
+
+        assert_eq!(parsed.total_payment_satoshis(), u64::MAX);
     }
 }
