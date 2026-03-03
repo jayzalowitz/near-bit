@@ -48,6 +48,7 @@ It executes readiness checks with checklist parsing disabled internally, then ru
   - `nightly-fuzz.yml`
   - `run_readiness_gate.sh`
   - `check_go_no_go_checklist.sh`
+  - `run_launch_rehearsal.sh`
 
 ## Validate Go/No-Go Checklist
 
@@ -76,6 +77,7 @@ It executes readiness checks with checklist parsing disabled internally, then ru
 ```
 
 Use `--skip-gate` only for documentation snapshots, not for launch signoff evidence.
+For full end-to-end orchestration with a rehearsal summary wrapper, use `./scripts/launch/run_launch_rehearsal.sh`.
 
 ## Generate in GitHub Actions
 

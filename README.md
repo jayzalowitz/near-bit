@@ -132,6 +132,19 @@ bash -n scripts/benchmark/run_tps_profiles.sh
 ./scripts/launch/check_go_no_go_checklist.sh --json-out /tmp/go-no-go-summary.json
 ```
 
+## Run launch rehearsal
+
+```bash
+# Full rehearsal orchestrator
+./scripts/launch/run_launch_rehearsal.sh
+
+# Fast rehearsal
+./scripts/launch/run_launch_rehearsal.sh --mode smoke
+
+# Strict signoff rehearsal
+./scripts/launch/run_launch_rehearsal.sh --require-go
+```
+
 See `docs/launch-readiness-gates.md` for gate status, `docs/mainnet-go-no-go-checklist.md` for decision signoff, `docs/incident-communication-templates.md` for incident messaging templates, and `docs/launch-evidence-bundle.md` for evidence packaging details.
 
 ## Fuzzing
