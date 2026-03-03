@@ -106,7 +106,17 @@ bash -n scripts/benchmark/run_tps_profiles.sh
 ./scripts/launch/run_readiness_gate.sh --full --include-fuzz
 ```
 
-See `docs/launch-readiness-gates.md` for gate status, `docs/mainnet-go-no-go-checklist.md` for decision signoff, and `docs/incident-communication-templates.md` for incident messaging templates.
+## Generate launch evidence bundle
+
+```bash
+# Full evidence bundle for go/no-go reviews
+./scripts/launch/generate_evidence_bundle.sh --mode full
+
+# Faster evidence bundle for iteration
+./scripts/launch/generate_evidence_bundle.sh --mode smoke
+```
+
+See `docs/launch-readiness-gates.md` for gate status, `docs/mainnet-go-no-go-checklist.md` for decision signoff, `docs/incident-communication-templates.md` for incident messaging templates, and `docs/launch-evidence-bundle.md` for evidence packaging details.
 
 ## Fuzzing
 
