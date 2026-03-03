@@ -35,6 +35,7 @@ This hub links all major documentation for building, integrating, operating, and
 - [Launch Readiness Gates](launch-readiness-gates.md): tracked launch blockers split into repository-verifiable and external dependencies.
 - [Mainnet Go / No-Go Checklist](mainnet-go-no-go-checklist.md): 16 required launch decision gates with owner/evidence fields.
 - [Launch Evidence Bundle](launch-evidence-bundle.md): reproducible artifact packaging for launch rehearsals and signoff.
+- [Launch Rehearsal Runner](launch-rehearsal.md): single-command orchestration for readiness, evidence, and checklist reporting.
 - [Issue #11 Execution Report](issue-11-execution-report.md): launch-plan execution details and completion artifacts.
 
 ## Recommended Reading Order
@@ -50,3 +51,4 @@ This hub links all major documentation for building, integrating, operating, and
 9. `launch-readiness-gates.md`
 10. `mainnet-go-no-go-checklist.md`
 11. `launch-evidence-bundle.md`
+12. `launch-rehearsal.md`
