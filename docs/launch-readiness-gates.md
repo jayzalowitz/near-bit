@@ -34,6 +34,7 @@ Use one command path for repeatable local verification:
 | Operations runbook | complete | `docs/validator-operations-runbook.md` |
 | Incident communication templates | complete | `docs/incident-communication-templates.md` |
 | Mainnet go/no-go decision checklist template | complete | `docs/mainnet-go-no-go-checklist.md` |
+| Go/no-go checklist validator script | complete | `scripts/launch/check_go_no_go_checklist.sh` |
 | Launch evidence bundle generator | complete | `scripts/launch/generate_evidence_bundle.sh`, `docs/launch-evidence-bundle.md` |
 | Documentation hub and technical guides | complete | `docs/documentation-hub.md` and linked docs |
 | Launch execution report for implementation phases | complete | `docs/issue-11-execution-report.md` |

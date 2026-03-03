@@ -164,6 +164,7 @@ copy_and_checksum "docs/incident-communication-templates.md" "${bundle_dir}/inci
 copy_and_checksum ".github/workflows/ci.yml" "${bundle_dir}/ci.yml"
 copy_and_checksum ".github/workflows/nightly-fuzz.yml" "${bundle_dir}/nightly-fuzz.yml"
 copy_and_checksum "scripts/launch/run_readiness_gate.sh" "${bundle_dir}/run_readiness_gate.sh"
+copy_and_checksum "scripts/launch/check_go_no_go_checklist.sh" "${bundle_dir}/check_go_no_go_checklist.sh"
 
 gate_status="skipped"
 gate_exit_code=0
@@ -220,6 +221,7 @@ cat > "${bundle_dir}/SUMMARY.md" <<EOF
 - ci.yml
 - nightly-fuzz.yml
 - run_readiness_gate.sh
+- check_go_no_go_checklist.sh
 EOF
 
 if [[ "$SKIP_GATE" -eq 0 ]]; then
