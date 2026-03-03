@@ -200,6 +200,9 @@ gate_exit_code=0
 if [[ "$SKIP_GATE" -eq 0 ]]; then
   gate_log="${bundle_dir}/readiness-gate.log"
   gate_cmd=(./scripts/launch/run_readiness_gate.sh "--${MODE}")
+  if [[ "$REQUIRE_GO" -eq 1 ]]; then
+    gate_cmd+=(--require-go)
+  fi
   if [[ "$INCLUDE_FUZZ" -eq 1 ]]; then
     gate_cmd+=(--include-fuzz)
   fi
@@ -221,7 +224,8 @@ fi
 checklist_status="passed"
 checklist_exit_code=0
 checklist_log="${bundle_dir}/go-no-go-checklist-report.txt"
-checklist_cmd=(bash ./scripts/launch/check_go_no_go_checklist.sh --file "$CHECKLIST_FILE")
+checklist_json="${bundle_dir}/go-no-go-checklist-report.json"
+checklist_cmd=(bash ./scripts/launch/check_go_no_go_checklist.sh --file "$CHECKLIST_FILE" --json-out "$checklist_json")
 if [[ "$REQUIRE_GO" -eq 1 ]]; then
   checklist_cmd+=(--require-go)
 fi
@@ -278,6 +282,7 @@ cat > "${bundle_dir}/SUMMARY.md" <<EOF
 - run_readiness_gate.sh
 - check_go_no_go_checklist.sh
 - go-no-go-checklist-report.txt
+- go-no-go-checklist-report.json
 EOF
 
 if [[ "$SKIP_GATE" -eq 0 ]]; then

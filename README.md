@@ -104,6 +104,9 @@ bash -n scripts/benchmark/run_tps_profiles.sh
 
 # Add nightly fuzz smoke runs
 ./scripts/launch/run_readiness_gate.sh --full --include-fuzz
+
+# Strict launch gate (fails unless checklist is fully GO)
+./scripts/launch/run_readiness_gate.sh --full --require-go
 ```
 
 ## Generate launch evidence bundle
@@ -121,6 +124,9 @@ bash -n scripts/benchmark/run_tps_profiles.sh
 # Checklist status summary / strict GO check
 ./scripts/launch/check_go_no_go_checklist.sh
 ./scripts/launch/check_go_no_go_checklist.sh --require-go
+
+# Emit machine-readable checklist summary
+./scripts/launch/check_go_no_go_checklist.sh --json-out /tmp/go-no-go-summary.json
 ```
 
 See `docs/launch-readiness-gates.md` for gate status, `docs/mainnet-go-no-go-checklist.md` for decision signoff, `docs/incident-communication-templates.md` for incident messaging templates, and `docs/launch-evidence-bundle.md` for evidence packaging details.

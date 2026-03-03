@@ -3,17 +3,19 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/launch/check_go_no_go_checklist.sh [--file <path>] [--require-go]
+Usage: ./scripts/launch/check_go_no_go_checklist.sh [--file <path>] [--require-go] [--json-out <path>]
 
 Options:
   --file <path>  Checklist file path. Default: docs/mainnet-go-no-go-checklist.md
   --require-go   Exit non-zero unless every gate status is "done" and signoff fields are populated.
+  --json-out     Write machine-readable summary JSON to the specified file path.
   -h, --help     Show this help text.
 EOF
 }
 
 CHECKLIST_FILE="docs/mainnet-go-no-go-checklist.md"
 REQUIRE_GO=0
+JSON_OUT=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -28,6 +30,14 @@ while [[ $# -gt 0 ]]; do
     --require-go)
       REQUIRE_GO=1
       shift
+      ;;
+    --json-out)
+      if [[ $# -lt 2 ]]; then
+        echo "--json-out requires a path value" >&2
+        exit 1
+      fi
+      JSON_OUT="$2"
+      shift 2
       ;;
     -h|--help)
       usage
@@ -48,6 +58,10 @@ fi
 
 if ! command -v awk >/dev/null 2>&1; then
   echo "Required command not found: awk" >&2
+  exit 1
+fi
+if ! command -v jq >/dev/null 2>&1; then
+  echo "Required command not found: jq" >&2
   exit 1
 fi
 
@@ -115,28 +129,69 @@ echo "Todo gates:    ${todo_gates}"
 echo "Invalid gates: ${invalid_status}"
 echo "Missing signoff fields: ${missing_signoff}"
 
-if [[ "${#pending_lines[@]}" -gt 0 ]]; then
+if [[ "$todo_gates" -gt 0 ]]; then
   echo
   echo "Pending gates:"
-  for line in "${pending_lines[@]}"; do
+  for line in "${pending_lines[@]-}"; do
+    if [[ -z "$line" ]]; then
+      continue
+    fi
     echo "  - ${line}"
   done
 fi
 
-if [[ "${#invalid_lines[@]}" -gt 0 ]]; then
+if [[ "$invalid_status" -gt 0 ]]; then
   echo
   echo "Invalid gate statuses:"
-  for line in "${invalid_lines[@]}"; do
+  for line in "${invalid_lines[@]-}"; do
+    if [[ -z "$line" ]]; then
+      continue
+    fi
     echo "  - ${line}"
   done
 fi
 
-if [[ "${#missing_signoff_lines[@]}" -gt 0 ]]; then
+if [[ "$missing_signoff" -gt 0 ]]; then
   echo
   echo "Missing signoff fields:"
-  for line in "${missing_signoff_lines[@]}"; do
+  for line in "${missing_signoff_lines[@]-}"; do
+    if [[ -z "$line" ]]; then
+      continue
+    fi
     echo "  - ${line}"
   done
+fi
+
+if [[ -n "$JSON_OUT" ]]; then
+  pending_json="$(printf '%s\n' "${pending_lines[@]-}" | jq -R -s 'split("\n") | map(select(length > 0))')"
+  invalid_json="$(printf '%s\n' "${invalid_lines[@]-}" | jq -R -s 'split("\n") | map(select(length > 0))')"
+  missing_json="$(printf '%s\n' "${missing_signoff_lines[@]-}" | jq -R -s 'split("\n") | map(select(length > 0))')"
+
+  jq -n \
+    --arg file "$CHECKLIST_FILE" \
+    --argjson require_go "$REQUIRE_GO" \
+    --argjson total_gates "$total_gates" \
+    --argjson done_gates "$done_gates" \
+    --argjson todo_gates "$todo_gates" \
+    --argjson invalid_gates "$invalid_status" \
+    --argjson missing_signoff_fields "$missing_signoff" \
+    --argjson pending "$pending_json" \
+    --argjson invalid "$invalid_json" \
+    --argjson missing "$missing_json" \
+    '{
+      checklist_file: $file,
+      require_go: $require_go,
+      totals: {
+        gates: $total_gates,
+        done: $done_gates,
+        todo: $todo_gates,
+        invalid: $invalid_gates,
+        missing_signoff_fields: $missing_signoff_fields
+      },
+      pending_gates: ($pending // []),
+      invalid_gates: ($invalid // []),
+      missing_signoff: ($missing // [])
+    }' > "$JSON_OUT"
 fi
 
 if [[ "$REQUIRE_GO" -eq 1 ]]; then
