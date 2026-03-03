@@ -33,6 +33,7 @@ This hub links all major documentation for building, integrating, operating, and
 ## Release Documentation
 
 - [Launch Readiness Gates](launch-readiness-gates.md): tracked launch blockers split into repository-verifiable and external dependencies.
+- [Mainnet Go / No-Go Checklist](mainnet-go-no-go-checklist.md): 16 required launch decision gates with owner/evidence fields.
 - [Issue #11 Execution Report](issue-11-execution-report.md): launch-plan execution details and completion artifacts.
 
 ## Recommended Reading Order
@@ -46,3 +47,4 @@ This hub links all major documentation for building, integrating, operating, and
 7. `incident-communication-templates.md`
 8. `benchmark-methodology.md`
 9. `launch-readiness-gates.md`
+10. `mainnet-go-no-go-checklist.md`
