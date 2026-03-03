@@ -47,6 +47,8 @@ cargo run -p bitinfinity-neard -- config --home ~/.bitinfinity
 
 ## Incident Categories
 
+Use standardized public/internal messaging templates from [Incident Communication Templates](incident-communication-templates.md).
+
 ### Backend unavailable
 
 Symptoms: repeated readiness errors (`-28`) from adapter clients.
