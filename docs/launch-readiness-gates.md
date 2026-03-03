@@ -33,6 +33,7 @@ Use one command path for repeatable local verification:
 | Benchmark methodology and artifact schema | complete | `docs/benchmark-methodology.md`, `scripts/benchmark/run_tps_profiles.sh` |
 | Operations runbook | complete | `docs/validator-operations-runbook.md` |
 | Incident communication templates | complete | `docs/incident-communication-templates.md` |
+| Mainnet go/no-go decision checklist template | complete | `docs/mainnet-go-no-go-checklist.md` |
 | Documentation hub and technical guides | complete | `docs/documentation-hub.md` and linked docs |
 | Launch execution report for implementation phases | complete | `docs/issue-11-execution-report.md` |
 

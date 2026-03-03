@@ -106,7 +106,7 @@ bash -n scripts/benchmark/run_tps_profiles.sh
 ./scripts/launch/run_readiness_gate.sh --full --include-fuzz
 ```
 
-See `docs/launch-readiness-gates.md` for gate status and `docs/incident-communication-templates.md` for incident messaging templates.
+See `docs/launch-readiness-gates.md` for gate status, `docs/mainnet-go-no-go-checklist.md` for decision signoff, and `docs/incident-communication-templates.md` for incident messaging templates.
 
 ## Fuzzing
 

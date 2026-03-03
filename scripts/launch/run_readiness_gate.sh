@@ -74,6 +74,7 @@ run_subshell_cmd() {
 check_required_docs() {
   local required_files=(
     "docs/launch-readiness-gates.md"
+    "docs/mainnet-go-no-go-checklist.md"
     "docs/incident-communication-templates.md"
     "docs/security-and-threat-model.md"
     "docs/validator-operations-runbook.md"
