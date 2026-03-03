@@ -1,0 +1,41 @@
+name: Release Manifest
+
+on:
+  workflow_dispatch:
+    inputs:
+      skip_build:
+        description: "Skip release build and use existing binaries"
+        required: true
+        default: false
+        type: boolean
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  manifest:
+    name: Generate release artifact manifest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Generate release manifest
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXTRA_ARGS=()
+          if [[ "${{ inputs.skip_build }}" == "true" ]]; then
+            EXTRA_ARGS+=(--skip-build)
+          fi
+          ./scripts/launch/generate_release_manifest.sh --out-dir "${RUNNER_TEMP}/release-manifests" "${EXTRA_ARGS[@]}"
+
+      - name: Upload release manifest artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-manifest-${{ github.sha }}
+          path: ${{ runner.temp }}/release-manifests
+          if-no-files-found: error

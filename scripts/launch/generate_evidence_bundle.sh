@@ -192,9 +192,13 @@ copy_and_checksum "$CHECKLIST_FILE" "${bundle_dir}/${checklist_basename}"
 copy_and_checksum "docs/incident-communication-templates.md" "${bundle_dir}/incident-communication-templates.md"
 copy_and_checksum ".github/workflows/ci.yml" "${bundle_dir}/ci.yml"
 copy_and_checksum ".github/workflows/nightly-fuzz.yml" "${bundle_dir}/nightly-fuzz.yml"
+copy_and_checksum ".github/workflows/launch-evidence.yml" "${bundle_dir}/launch-evidence.yml"
+copy_and_checksum ".github/workflows/launch-rehearsal.yml" "${bundle_dir}/launch-rehearsal.yml"
+copy_and_checksum ".github/workflows/release-manifest.yml" "${bundle_dir}/release-manifest.yml"
 copy_and_checksum "scripts/launch/run_readiness_gate.sh" "${bundle_dir}/run_readiness_gate.sh"
 copy_and_checksum "scripts/launch/check_go_no_go_checklist.sh" "${bundle_dir}/check_go_no_go_checklist.sh"
 copy_and_checksum "scripts/launch/run_launch_rehearsal.sh" "${bundle_dir}/run_launch_rehearsal.sh"
+copy_and_checksum "scripts/launch/generate_release_manifest.sh" "${bundle_dir}/generate_release_manifest.sh"
 
 gate_status="skipped"
 gate_exit_code=0
@@ -281,9 +285,13 @@ cat > "${bundle_dir}/SUMMARY.md" <<EOF
 - incident-communication-templates.md
 - ci.yml
 - nightly-fuzz.yml
+- launch-evidence.yml
+- launch-rehearsal.yml
+- release-manifest.yml
 - run_readiness_gate.sh
 - check_go_no_go_checklist.sh
 - run_launch_rehearsal.sh
+- generate_release_manifest.sh
 - go-no-go-checklist-report.txt
 - go-no-go-checklist-report.json
 EOF
