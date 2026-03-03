@@ -36,6 +36,7 @@ The script fails on a dirty worktree by default so signoff artifacts always map 
 - `metadata.json`: machine-readable run metadata (commit, branch, toolchain, gate status).
 - `SUMMARY.md`: human-readable summary for release review.
 - `readiness-gate.log`: full readiness gate output (unless `--skip-gate` is used).
+- `go-no-go-checklist-report.txt`: parsed checklist status report (and strict-go failure details when enabled).
 - `SHA256SUMS.txt`: checksums for captured policy/workflow/script snapshots.
 - launch-critical snapshots:
   - `launch-readiness-gates.md`
@@ -67,6 +68,9 @@ The script fails on a dirty worktree by default so signoff artifacts always map 
 
 # Allow dirty worktree for local drafting only (not for signoff evidence)
 ./scripts/launch/generate_evidence_bundle.sh --allow-dirty
+
+# Enforce strict GO criteria from checklist
+./scripts/launch/generate_evidence_bundle.sh --require-go
 ```
 
 Use `--skip-gate` only for documentation snapshots, not for launch signoff evidence.
@@ -77,4 +81,5 @@ Use workflow `.github/workflows/launch-evidence.yml` via manual dispatch:
 
 1. choose `mode` (`smoke` or `full`)
 2. optionally set `include_fuzz=true`
-3. download the uploaded `launch-evidence-*` artifact for signoff records
+3. set `require_go=true` for final signoff runs (will fail until checklist is fully complete)
+4. download the uploaded `launch-evidence-*` artifact for signoff records

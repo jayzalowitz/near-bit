@@ -16,6 +16,11 @@ on:
         required: true
         default: false
         type: boolean
+      require_go:
+        description: "Require GO criteria from checklist"
+        required: true
+        default: false
+        type: boolean
 
 env:
   CARGO_TERM_COLOR: always
@@ -48,6 +53,9 @@ jobs:
           EXTRA_ARGS=()
           if [[ "${{ inputs.include_fuzz }}" == "true" ]]; then
             EXTRA_ARGS+=(--include-fuzz)
+          fi
+          if [[ "${{ inputs.require_go }}" == "true" ]]; then
+            EXTRA_ARGS+=(--require-go)
           fi
           ./scripts/launch/generate_evidence_bundle.sh --mode "${{ inputs.mode }}" --out-dir "${RUNNER_TEMP}/launch-readiness" "${EXTRA_ARGS[@]}"
 
