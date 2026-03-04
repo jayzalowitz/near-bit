@@ -64,6 +64,7 @@ GENESIS_FIXTURE_EXPECTED_HASH=<new_sha256> ./scripts/launch/run_readiness_gate.s
 | Launch evidence bundle generator | complete | `scripts/launch/generate_evidence_bundle.sh`, `docs/launch-evidence-bundle.md` |
 | Launch rehearsal orchestration runner | complete | `scripts/launch/run_launch_rehearsal.sh`, `docs/launch-rehearsal.md` |
 | Release artifact checksum manifest generator | complete | `scripts/launch/generate_release_manifest.sh`, `docs/release-artifact-manifest.md` |
+| Technical whitepaper baseline document | complete | `docs/technical-whitepaper.md` |
 | Documentation hub and technical guides | complete | `docs/documentation-hub.md` and linked docs |
 | Launch execution report for implementation phases | complete | `docs/issue-11-execution-report.md` |
 
@@ -91,6 +92,9 @@ GENESIS_FIXTURE_EXPECTED_HASH=<new_sha256> ./scripts/launch/run_readiness_gate.s
 - `2026-03-04`: `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist --check-snapshot-supply --snapshot-genesis <generated genesis> --snapshot-txoutsetinfo <generated gettxoutsetinfo.json> --snapshot-tolerance-sats 0 --snapshot-json-out <summary>` passed locally (`difference_satoshis=0`, `within_tolerance=true`).
 - `2026-03-04`: `./scripts/launch/generate_evidence_bundle.sh --mode smoke --allow-dirty --check-snapshot-supply --snapshot-genesis <generated genesis> --snapshot-txoutsetinfo <generated gettxoutsetinfo.json> --snapshot-tolerance-sats 0 --snapshot-json-out <summary> --out-dir <tmp>` passed locally; evidence bundle captured `snapshot-inputs.txt`, `snapshot-gettxoutsetinfo.json`, and `snapshot-supply-check.json`.
 - `2026-03-04`: `./scripts/launch/run_launch_rehearsal.sh --mode smoke --allow-dirty --skip-release-manifest --check-snapshot-supply --snapshot-genesis <generated genesis> --snapshot-txoutsetinfo <generated gettxoutsetinfo.json> --snapshot-tolerance-sats 0 --snapshot-json-out <summary> --out-dir <tmp>` passed locally, confirming snapshot pass-through from rehearsal -> evidence -> readiness.
+- `2026-03-04`: Added `docs/technical-whitepaper.md` and wired it into launch required-doc checks (`run_readiness_gate.sh`) plus evidence snapshots (`generate_evidence_bundle.sh`).
+- `2026-03-04`: `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist` passed locally after whitepaper gating was added.
+- `2026-03-04`: `./scripts/launch/generate_evidence_bundle.sh --mode smoke --skip-gate --allow-dirty --out-dir <tmp>` passed locally after whitepaper gating was added; bundle includes `technical-whitepaper.md`.
 
 ## External Gates (Not Solvable by Repository Changes Alone)
 

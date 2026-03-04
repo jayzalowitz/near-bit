@@ -2391,3 +2391,27 @@ Verification:
 - `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist --check-snapshot-supply --snapshot-genesis <generated genesis> --snapshot-txoutsetinfo <generated gettxoutsetinfo.json> --snapshot-tolerance-sats 0 --snapshot-json-out <summary>` passed locally (`difference_satoshis=0`, `within_tolerance=true`).
 - `./scripts/launch/generate_evidence_bundle.sh --mode smoke --allow-dirty --check-snapshot-supply --snapshot-genesis <generated genesis> --snapshot-txoutsetinfo <generated gettxoutsetinfo.json> --snapshot-tolerance-sats 0 --snapshot-json-out <summary> --out-dir <tmp>` passed locally and produced snapshot artifacts in the bundle.
 - `./scripts/launch/run_launch_rehearsal.sh --mode smoke --allow-dirty --skip-release-manifest --check-snapshot-supply --snapshot-genesis <generated genesis> --snapshot-txoutsetinfo <generated gettxoutsetinfo.json> --snapshot-tolerance-sats 0 --snapshot-json-out <summary> --out-dir <tmp>` passed locally, confirming end-to-end snapshot gate pass-through.
+
+## Continuation (2026-03-04): technical whitepaper baseline + launch-gate enforcement
+
+Implemented:
+- Added `docs/technical-whitepaper.md` as a repository-controlled technical baseline covering:
+  - architecture and identity/signature model,
+  - genesis and supply reconciliation model,
+  - economics/throughput positioning,
+  - security and launch control-plane references.
+- Updated launch gating:
+  - `scripts/launch/run_readiness_gate.sh` now requires `docs/technical-whitepaper.md` in required launch docs.
+  - `scripts/launch/generate_evidence_bundle.sh` now snapshots `technical-whitepaper.md` and includes it in bundle summary.
+- Updated discovery/docs surfacing:
+  - `docs/documentation-hub.md`
+  - `docs/index.html`
+  - `README.md`
+  - `docs/launch-evidence-bundle.md`
+  - `docs/launch-readiness-gates.md`
+
+Verification:
+- `bash -n scripts/launch/run_readiness_gate.sh` passed.
+- `bash -n scripts/launch/generate_evidence_bundle.sh` passed.
+- `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist` passed locally after whitepaper gating changes.
+- `./scripts/launch/generate_evidence_bundle.sh --mode smoke --skip-gate --allow-dirty --out-dir <tmp>` passed locally and produced a bundle containing `technical-whitepaper.md`.

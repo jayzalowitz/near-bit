@@ -356,6 +356,7 @@ copy_and_checksum() {
 }
 
 copy_and_checksum "docs/launch-readiness-gates.md" "${bundle_dir}/launch-readiness-gates.md"
+copy_and_checksum "docs/technical-whitepaper.md" "${bundle_dir}/technical-whitepaper.md"
 checklist_basename="$(basename "$CHECKLIST_FILE")"
 copy_and_checksum "$CHECKLIST_FILE" "${bundle_dir}/${checklist_basename}"
 copy_and_checksum "docs/genesis-determinism-check.md" "${bundle_dir}/genesis-determinism-check.md"
@@ -513,6 +514,7 @@ cat > "${bundle_dir}/SUMMARY.md" <<EOF
 - git-commit.txt
 - SHA256SUMS.txt
 - launch-readiness-gates.md
+- technical-whitepaper.md
 - ${checklist_basename}
 - genesis-determinism-check.md
 - snapshot-supply-reconciliation.md
