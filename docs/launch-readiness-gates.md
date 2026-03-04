@@ -32,6 +32,9 @@ Use one command path for repeatable local verification:
 
 # Direct gate #9 deterministic genesis hash verification
 ./scripts/launch/check_genesis_determinism.sh --testnet --expected-hash 95f3e2600eec0dcd3ca51bf530f46ac963fa3b5286e18c6401efdcae8066aa5d
+
+# Optional override when intentionally rotating fixture hash
+GENESIS_FIXTURE_EXPECTED_HASH=<new_sha256> ./scripts/launch/run_readiness_gate.sh --smoke
 ```
 
 ## Repository-Verifiable Gates

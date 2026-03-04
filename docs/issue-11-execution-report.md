@@ -2334,3 +2334,12 @@ Verification:
   - release build/version checks,
   - workspace + `near-account-id` test/clippy/fmt/audit,
   - all configured fuzz-smoke targets.
+
+## Continuation (2026-03-04): readiness pinned-hash override via environment
+
+Implemented:
+- Updated `scripts/launch/run_readiness_gate.sh` to accept `GENESIS_FIXTURE_EXPECTED_HASH` as an environment override for the pinned deterministic fixture hash.
+- Documented the override in launch docs for intentional fixture-hash rotations.
+
+Verification:
+- `GENESIS_FIXTURE_EXPECTED_HASH=95f3e2600eec0dcd3ca51bf530f46ac963fa3b5286e18c6401efdcae8066aa5d ./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist` passed locally.
