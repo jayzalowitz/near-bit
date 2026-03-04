@@ -116,6 +116,9 @@ bash -n scripts/benchmark/run_tps_profiles.sh
 
 # Optional for orchestration: run gate without checklist parse
 ./scripts/launch/run_readiness_gate.sh --full --skip-checklist
+
+# Optional for faster iteration: skip Issue #1 target suites
+./scripts/launch/run_readiness_gate.sh --smoke --skip-issue1-goal-checks
 ```
 
 ## Generate launch evidence bundle
@@ -145,6 +148,9 @@ bash -n scripts/benchmark/run_tps_profiles.sh
 
 # Direct health check with custom criteria
 ./scripts/launch/check_nightly_fuzz_health.sh --branch main --workflow "Nightly Fuzz" --window-days 7 --min-runs 1 --max-runs 200
+
+# Explicit Issue #1 core-goal verification suites
+./scripts/launch/check_issue1_core_goals.sh
 ```
 
 ## Run launch rehearsal
@@ -170,6 +176,9 @@ bash -n scripts/benchmark/run_tps_profiles.sh
 
 # Include nightly fuzz health gate with explicit criteria
 ./scripts/launch/run_launch_rehearsal.sh --check-nightly-fuzz-health --nightly-fuzz-branch main --nightly-fuzz-workflow "Nightly Fuzz" --nightly-fuzz-window-days 7 --nightly-fuzz-min-runs 1 --nightly-fuzz-max-runs 200
+
+# Optional for quick local iteration: skip Issue #1 target suites
+./scripts/launch/run_launch_rehearsal.sh --skip-issue1-goal-checks
 ```
 
 ## Generate release artifact manifest

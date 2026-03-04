@@ -2201,7 +2201,12 @@ Implemented:
 - Updated manual-dispatch workflows to expose the same parameters:
   - `.github/workflows/launch-evidence.yml`
   - `.github/workflows/launch-rehearsal.yml`
-- Updated launch docs/README to document strict and tuned nightly-fuzz gate usage.
+- Added dedicated Issue #1 launch checker:
+  - `scripts/launch/check_issue1_core_goals.sh`
+  - verifies `near-account-id` and `bitinfinity-tools` target suites.
+- Wired Issue #1 checker into readiness/evidence/rehearsal flow by default, with explicit opt-out for fast local iteration:
+  - `--skip-issue1-goal-checks`.
+- Updated launch docs/README to document strict/tuned nightly-fuzz gating and Issue #1 checker behavior.
 
 Verification:
 - `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist` passed locally.

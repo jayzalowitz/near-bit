@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/launch/generate_evidence_bundle.sh [--mode smoke|full] [--include-fuzz] [--check-nightly-fuzz-health] [--nightly-fuzz-branch <name>] [--nightly-fuzz-workflow <name>] [--nightly-fuzz-window-days <n>] [--nightly-fuzz-min-runs <n>] [--nightly-fuzz-max-runs <n>] [--nightly-fuzz-allow-in-progress] [--skip-gate] [--require-go] [--checklist-file <path>] [--out-dir <path>]
+Usage: ./scripts/launch/generate_evidence_bundle.sh [--mode smoke|full] [--include-fuzz] [--check-nightly-fuzz-health] [--nightly-fuzz-branch <name>] [--nightly-fuzz-workflow <name>] [--nightly-fuzz-window-days <n>] [--nightly-fuzz-min-runs <n>] [--nightly-fuzz-max-runs <n>] [--nightly-fuzz-allow-in-progress] [--skip-issue1-goal-checks] [--skip-gate] [--require-go] [--checklist-file <path>] [--out-dir <path>]
 
 Options:
   --mode <smoke|full>  Readiness gate mode to run. Default: full.
@@ -15,6 +15,7 @@ Options:
   --nightly-fuzz-min-runs <n> Minimum required runs in lookback window. Default: 1.
   --nightly-fuzz-max-runs <n> Max runs fetched from GitHub API. Default: 200.
   --nightly-fuzz-allow-in-progress Do not fail when in-progress runs are present.
+  --skip-issue1-goal-checks Skip targeted Issue #1 goal validation tests in readiness gate.
   --skip-gate          Skip executing readiness gate and only snapshot metadata/docs.
   --require-go         Enforce GO criteria in checklist validation.
   --checklist-file     Checklist file path. Default: docs/mainnet-go-no-go-checklist.md
@@ -33,6 +34,7 @@ NIGHTLY_FUZZ_WINDOW_DAYS=7
 NIGHTLY_FUZZ_MIN_RUNS=1
 NIGHTLY_FUZZ_MAX_RUNS=200
 NIGHTLY_FUZZ_ALLOW_IN_PROGRESS=0
+SKIP_ISSUE1_GOAL_CHECKS=0
 SKIP_GATE=0
 REQUIRE_GO=0
 ALLOW_DIRTY=0
@@ -99,6 +101,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --nightly-fuzz-allow-in-progress)
       NIGHTLY_FUZZ_ALLOW_IN_PROGRESS=1
+      shift
+      ;;
+    --skip-issue1-goal-checks)
+      SKIP_ISSUE1_GOAL_CHECKS=1
       shift
       ;;
     --skip-gate)
@@ -215,6 +221,7 @@ jq -n \
   --argjson nightly_fuzz_min_runs "$NIGHTLY_FUZZ_MIN_RUNS" \
   --argjson nightly_fuzz_max_runs "$NIGHTLY_FUZZ_MAX_RUNS" \
   --argjson nightly_fuzz_allow_in_progress "$NIGHTLY_FUZZ_ALLOW_IN_PROGRESS" \
+  --argjson skip_issue1_goal_checks "$SKIP_ISSUE1_GOAL_CHECKS" \
   --argjson skip_gate "$SKIP_GATE" \
   --argjson require_go "$REQUIRE_GO" \
   --argjson allow_dirty "$ALLOW_DIRTY" \
@@ -241,6 +248,7 @@ jq -n \
       nightly_fuzz_min_runs: $nightly_fuzz_min_runs,
       nightly_fuzz_max_runs: $nightly_fuzz_max_runs,
       nightly_fuzz_allow_in_progress: ($nightly_fuzz_allow_in_progress == 1),
+      skip_issue1_goal_checks: ($skip_issue1_goal_checks == 1),
       skipped: $skip_gate
     },
     checklist: {
@@ -281,6 +289,7 @@ copy_and_checksum ".github/workflows/release-manifest.yml" "${bundle_dir}/releas
 copy_and_checksum "scripts/launch/run_readiness_gate.sh" "${bundle_dir}/run_readiness_gate.sh"
 copy_and_checksum "scripts/launch/check_go_no_go_checklist.sh" "${bundle_dir}/check_go_no_go_checklist.sh"
 copy_and_checksum "scripts/launch/check_nightly_fuzz_health.sh" "${bundle_dir}/check_nightly_fuzz_health.sh"
+copy_and_checksum "scripts/launch/check_issue1_core_goals.sh" "${bundle_dir}/check_issue1_core_goals.sh"
 copy_and_checksum "scripts/launch/run_launch_rehearsal.sh" "${bundle_dir}/run_launch_rehearsal.sh"
 copy_and_checksum "scripts/launch/generate_release_manifest.sh" "${bundle_dir}/generate_release_manifest.sh"
 
@@ -308,6 +317,9 @@ if [[ "$SKIP_GATE" -eq 0 ]]; then
     if [[ "$NIGHTLY_FUZZ_ALLOW_IN_PROGRESS" -eq 1 ]]; then
       gate_cmd+=(--nightly-fuzz-allow-in-progress)
     fi
+  fi
+  if [[ "$SKIP_ISSUE1_GOAL_CHECKS" -eq 1 ]]; then
+    gate_cmd+=(--skip-issue1-goal-checks)
   fi
 
   echo "Running readiness gate: ${gate_cmd[*]}"
@@ -371,6 +383,7 @@ cat > "${bundle_dir}/SUMMARY.md" <<EOF
 - readiness_gate_nightly_fuzz_min_runs: ${NIGHTLY_FUZZ_MIN_RUNS}
 - readiness_gate_nightly_fuzz_max_runs: ${NIGHTLY_FUZZ_MAX_RUNS}
 - readiness_gate_nightly_fuzz_allow_in_progress: ${NIGHTLY_FUZZ_ALLOW_IN_PROGRESS}
+- readiness_gate_skip_issue1_goal_checks: ${SKIP_ISSUE1_GOAL_CHECKS}
 - readiness_gate_status: ${gate_status}
 - readiness_gate_exit_code: ${gate_exit_code}
 - checklist_file: ${CHECKLIST_FILE}
@@ -395,6 +408,7 @@ cat > "${bundle_dir}/SUMMARY.md" <<EOF
 - run_readiness_gate.sh
 - check_go_no_go_checklist.sh
 - check_nightly_fuzz_health.sh
+- check_issue1_core_goals.sh
 - run_launch_rehearsal.sh
 - generate_release_manifest.sh
 - go-no-go-checklist-report.txt
