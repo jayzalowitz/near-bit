@@ -2322,3 +2322,15 @@ Verification:
   - checklist report generation,
   - release manifest generation (`--skip-build`),
   - rehearsal summary artifact creation.
+
+## Continuation (2026-03-04): full launch-readiness rerun on latest head
+
+Verification:
+- `./scripts/launch/run_readiness_gate.sh --full --include-fuzz --skip-checklist` passed locally on commit `947011618`.
+- Gate coverage on this rerun included:
+  - docs/script/checklist syntax checks,
+  - Issue #1 target suites,
+  - deterministic genesis hash + supply reconciliation with pinned expected hash,
+  - release build/version checks,
+  - workspace + `near-account-id` test/clippy/fmt/audit,
+  - all configured fuzz-smoke targets.
