@@ -66,11 +66,6 @@ pub fn reassign_patoshi(
         *utxo_map.entry(target_address.to_string()).or_insert(0) += total_removed;
     }
 
-    println!(
-        "✓ Patoshi reassignment: {} addresses, {} satoshis -> {}",
-        count_removed, total_removed, target_address
-    );
-
     PatoshiReassignment {
         total_satoshis: total_removed,
         addresses_removed: count_removed,
