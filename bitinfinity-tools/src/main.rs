@@ -280,7 +280,7 @@ fn parse_btc_amount_to_satoshis(raw: &str) -> Result<u128, Box<dyn std::error::E
 }
 
 fn yocto_to_satoshis_exact(yocto: u128) -> Result<u128, Box<dyn std::error::Error>> {
-    if yocto % YOCTO_PER_SATOSHI != 0 {
+    if !yocto.is_multiple_of(YOCTO_PER_SATOSHI) {
         return Err(format!("Yocto amount is not an exact satoshi multiple: {}", yocto).into());
     }
     Ok(yocto / YOCTO_PER_SATOSHI)
@@ -518,11 +518,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let genesis_total_satoshis =
                 yocto_to_satoshis_exact(genesis_summary.computed_total_yocto)?;
             let snapshot_total_satoshis = txoutset_summary.total_satoshis;
-            let diff_satoshis = if genesis_total_satoshis >= snapshot_total_satoshis {
-                genesis_total_satoshis - snapshot_total_satoshis
-            } else {
-                snapshot_total_satoshis - genesis_total_satoshis
-            };
+            let diff_satoshis = genesis_total_satoshis.abs_diff(snapshot_total_satoshis);
             let within_tolerance = diff_satoshis <= tolerance_sats as u128;
 
             println!("Snapshot supply reconciliation summary");
