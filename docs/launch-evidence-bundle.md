@@ -27,6 +27,9 @@ The bundle is designed to support launch rehearsal and go/no-go review by captur
 
 # Enforce nightly fuzz health gate with explicit criteria
 ./scripts/launch/generate_evidence_bundle.sh --mode full --check-nightly-fuzz-health --nightly-fuzz-branch main --nightly-fuzz-workflow "Nightly Fuzz" --nightly-fuzz-window-days 7 --nightly-fuzz-min-runs 1 --nightly-fuzz-max-runs 200
+
+# Enforce gate #10 snapshot reconciliation during readiness execution
+./scripts/launch/generate_evidence_bundle.sh --mode full --check-snapshot-supply --snapshot-genesis /path/to/genesis.json --snapshot-txoutsetinfo /path/to/gettxoutsetinfo.json --snapshot-tolerance-sats 1 --snapshot-json-out /tmp/snapshot-supply-check.json
 ```
 
 Output is written under:
@@ -65,6 +68,10 @@ It executes readiness checks with checklist parsing disabled internally, then ru
   - `check_snapshot_supply_reconciliation.sh`
   - `run_launch_rehearsal.sh`
   - `generate_release_manifest.sh`
+- when `--check-snapshot-supply` is enabled:
+  - `snapshot-inputs.txt` (input paths + SHA256 hashes + tolerance)
+  - `snapshot-gettxoutsetinfo.json` (captured `gettxoutsetinfo` input)
+  - `snapshot-supply-check.json` (machine-readable reconciliation summary)
 
 ## Validate Go/No-Go Checklist
 
@@ -102,6 +109,9 @@ It executes readiness checks with checklist parsing disabled internally, then ru
 
 # Permit in-progress nightly runs during active maintenance windows
 ./scripts/launch/generate_evidence_bundle.sh --check-nightly-fuzz-health --nightly-fuzz-allow-in-progress
+
+# Enforce gate #10 snapshot reconciliation with explicit input files
+./scripts/launch/generate_evidence_bundle.sh --check-snapshot-supply --snapshot-genesis /path/to/genesis.json --snapshot-txoutsetinfo /path/to/gettxoutsetinfo.json --snapshot-tolerance-sats 1
 
 # Skip Issue #1 target suites for quick local iteration (not for signoff evidence)
 ./scripts/launch/generate_evidence_bundle.sh --skip-issue1-goal-checks

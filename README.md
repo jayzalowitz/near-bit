@@ -130,6 +130,9 @@ bash -n scripts/benchmark/run_tps_profiles.sh
 # Faster evidence bundle for iteration
 ./scripts/launch/generate_evidence_bundle.sh --mode smoke
 
+# Evidence bundle with enforced gate #10 snapshot reconciliation
+./scripts/launch/generate_evidence_bundle.sh --mode smoke --check-snapshot-supply --snapshot-genesis /path/to/genesis.json --snapshot-txoutsetinfo /path/to/gettxoutsetinfo.json --snapshot-tolerance-sats 1 --snapshot-json-out /tmp/snapshot-supply-check.json
+
 # Strict signoff bundle (fails unless checklist is fully GO)
 ./scripts/launch/generate_evidence_bundle.sh --mode full --require-go
 
@@ -185,6 +188,9 @@ cargo run -q -p bitinfinity-tools -- verify-genesis --genesis /path/to/genesis.j
 
 # Include nightly fuzz health gate with explicit criteria
 ./scripts/launch/run_launch_rehearsal.sh --check-nightly-fuzz-health --nightly-fuzz-branch main --nightly-fuzz-workflow "Nightly Fuzz" --nightly-fuzz-window-days 7 --nightly-fuzz-min-runs 1 --nightly-fuzz-max-runs 200
+
+# Rehearsal with enforced gate #10 snapshot reconciliation
+./scripts/launch/run_launch_rehearsal.sh --mode smoke --check-snapshot-supply --snapshot-genesis /path/to/genesis.json --snapshot-txoutsetinfo /path/to/gettxoutsetinfo.json --snapshot-tolerance-sats 1 --snapshot-json-out /tmp/snapshot-supply-check.json
 
 # Optional for quick local iteration: skip Issue #1 target suites
 ./scripts/launch/run_launch_rehearsal.sh --skip-issue1-goal-checks
