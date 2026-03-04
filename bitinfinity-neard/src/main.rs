@@ -8,6 +8,7 @@ mod keys;
 
 #[derive(Parser)]
 #[command(name = "bitinfinity-neard")]
+#[command(version)]
 #[command(about = "Bitcoin Infinity Node - NEAR with Bitcoin addresses", long_about = None)]
 struct Cli {
     #[command(subcommand)]

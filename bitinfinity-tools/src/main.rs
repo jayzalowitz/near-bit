@@ -17,6 +17,7 @@ mod utxo_parser;
 
 #[derive(Parser)]
 #[command(name = "bitinfinity-tools")]
+#[command(version)]
 #[command(about = "Genesis and configuration tools for Bitcoin Infinity chain")]
 struct Cli {
     #[command(subcommand)]
