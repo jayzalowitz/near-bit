@@ -2221,3 +2221,19 @@ Issue #1 core-goal verification rerun:
   - `cargo test -p bitinfinity-tools -- --nocapture`
     - result: `22 passed`, `0 failed`, `1 ignored`.
 - Outcome: Issue #1 core-goal coverage remains green on current launch-readiness branch changes.
+
+## Continuation (2026-03-04): clean-mode rehearsal orchestration fix
+
+Implemented:
+- Fixed a launch-rehearsal orchestration failure where `run_launch_rehearsal.sh` created `artifacts/launch-rehearsals/...` before invoking `generate_evidence_bundle.sh`, causing a false dirty-worktree rejection in strict mode.
+- Updated `run_launch_rehearsal.sh` to stage evidence and optional release-manifest outputs under a temporary directory first, then copy artifacts into the final rehearsal output root after command execution completes.
+- Preserved final artifact layout and summary paths under:
+  - `artifacts/launch-rehearsals/<timestamp>-<shortsha>/...`
+
+Verification:
+- `./scripts/launch/run_launch_rehearsal.sh --mode smoke --include-release-manifest --release-manifest-skip-build --operator "launch-readiness"` passed locally on commit `3cdce7b63` with strict clean-worktree behavior (without `--allow-dirty`).
+- The run produced:
+  - readiness-gate pass,
+  - evidence bundle,
+  - release artifact manifest,
+  - rehearsal summary artifacts.
