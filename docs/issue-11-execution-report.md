@@ -2184,3 +2184,35 @@ Still open and required for full #11 closure:
 - Full launch-gate completion across all #11 phases.
 
 This change set advances Phase 0 hardening and removes a key blocker against Issue #1’s zero-friction address goal.
+
+## Continuation (2026-03-04): launch-gate nightly-fuzz parameterization + Issue #1 verification rerun
+
+Implemented:
+- Extended launch orchestration to pass explicit nightly-fuzz health criteria end-to-end:
+  - `scripts/launch/run_readiness_gate.sh`
+  - `scripts/launch/generate_evidence_bundle.sh`
+  - `scripts/launch/run_launch_rehearsal.sh`
+- Added pass-through controls for:
+  - workflow name
+  - lookback window days
+  - minimum runs
+  - max fetched runs
+  - allow-in-progress override
+- Updated manual-dispatch workflows to expose the same parameters:
+  - `.github/workflows/launch-evidence.yml`
+  - `.github/workflows/launch-rehearsal.yml`
+- Updated launch docs/README to document strict and tuned nightly-fuzz gate usage.
+
+Verification:
+- `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist` passed locally.
+- `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist --check-nightly-fuzz-health --nightly-fuzz-workflow CI --nightly-fuzz-branch infinitoshi/btc-near-fork-plan --nightly-fuzz-window-days 0 --nightly-fuzz-min-runs 0 --nightly-fuzz-max-runs 50 --nightly-fuzz-allow-in-progress` passed locally.
+- `./scripts/launch/generate_evidence_bundle.sh --mode smoke --check-nightly-fuzz-health --nightly-fuzz-workflow CI --nightly-fuzz-branch infinitoshi/btc-near-fork-plan --nightly-fuzz-window-days 0 --nightly-fuzz-min-runs 0 --nightly-fuzz-max-runs 50 --nightly-fuzz-allow-in-progress --allow-dirty` passed locally.
+- `./scripts/launch/run_launch_rehearsal.sh --mode smoke --check-nightly-fuzz-health --nightly-fuzz-workflow CI --nightly-fuzz-branch infinitoshi/btc-near-fork-plan --nightly-fuzz-window-days 0 --nightly-fuzz-min-runs 0 --nightly-fuzz-max-runs 50 --nightly-fuzz-allow-in-progress --skip-release-manifest --allow-dirty` passed locally.
+
+Issue #1 core-goal verification rerun:
+- Re-ran the target suites used in prior Issue #1 validation:
+  - `cargo test --manifest-path near-account-id/Cargo.toml -- --nocapture`
+    - result: `10 passed`, `0 failed`.
+  - `cargo test -p bitinfinity-tools -- --nocapture`
+    - result: `22 passed`, `0 failed`, `1 ignored`.
+- Outcome: Issue #1 core-goal coverage remains green on current launch-readiness branch changes.
