@@ -29,6 +29,9 @@ Use one command path for repeatable local verification:
 
 # Optional for faster iteration only: skip Issue #1 target test suites
 ./scripts/launch/run_readiness_gate.sh --smoke --skip-issue1-goal-checks
+
+# Direct gate #9 deterministic genesis hash verification
+./scripts/launch/check_genesis_determinism.sh --testnet
 ```
 
 ## Repository-Verifiable Gates
@@ -46,6 +49,7 @@ Use one command path for repeatable local verification:
 | Go/no-go checklist validator script | complete | `scripts/launch/check_go_no_go_checklist.sh` |
 | Nightly fuzz 7-day health verifier script | complete | `scripts/launch/check_nightly_fuzz_health.sh`, `docs/nightly-fuzz-health-check.md` |
 | Issue #1 core-goal verification script | complete | `scripts/launch/check_issue1_core_goals.sh`, `docs/issue1-core-goal-check.md` |
+| Genesis determinism verifier script (gate #9) | complete | `scripts/launch/check_genesis_determinism.sh`, `docs/genesis-determinism-check.md` |
 | Launch evidence bundle generator | complete | `scripts/launch/generate_evidence_bundle.sh`, `docs/launch-evidence-bundle.md` |
 | Launch rehearsal orchestration runner | complete | `scripts/launch/run_launch_rehearsal.sh`, `docs/launch-rehearsal.md` |
 | Release artifact checksum manifest generator | complete | `scripts/launch/generate_release_manifest.sh`, `docs/release-artifact-manifest.md` |
@@ -59,6 +63,8 @@ Use one command path for repeatable local verification:
 - `2026-03-04`: `scripts/launch/run_launch_rehearsal.sh` fixed to stage evidence/manifest generation in a temporary directory before writing to `artifacts/`, preventing false dirty-worktree failures during strict rehearsal execution.
 - `2026-03-04`: `./scripts/launch/run_launch_rehearsal.sh --mode full --include-fuzz --release-manifest-skip-build --operator "launch-readiness"` passed locally on commit `783a956b1` in strict mode (no `--allow-dirty`).
 - `2026-03-04`: `scripts/launch/run_launch_rehearsal.sh` updated to restore generated `target/.rustc_info.json` before strict release-manifest execution so full-gate build metadata does not block manifest generation.
+- `2026-03-04`: `./scripts/launch/check_genesis_determinism.sh --testnet --num-accounts 32 --json-out /tmp/genesis-determinism.json` passed locally on commit `5437c6dc7`.
+- `2026-03-04`: `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist` passed locally on commit `5437c6dc7` with gate #9 deterministic-genesis verification enabled by default.
 - Rehearsal metadata now includes operator attribution via `--operator` (or workflow actor in CI).
 - `2026-03-04`: CI run `22652391057` (commit `d1fd2c22d`) completed success across Build/Test/Clippy/Fuzz (smoke)/Security Audit/Format/Launch Readiness.
 - `2026-03-04`: `./scripts/launch/check_issue1_core_goals.sh` passed locally (`near-account-id`: `10 passed`; `bitinfinity-tools`: `22 passed`, `1 ignored`).

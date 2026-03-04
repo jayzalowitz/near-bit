@@ -49,6 +49,7 @@ It executes readiness checks with checklist parsing disabled internally, then ru
 - launch-critical snapshots:
   - `launch-readiness-gates.md`
   - `mainnet-go-no-go-checklist.md`
+  - `genesis-determinism-check.md`
   - `incident-communication-templates.md`
   - `ci.yml`
   - `nightly-fuzz.yml`
@@ -59,6 +60,7 @@ It executes readiness checks with checklist parsing disabled internally, then ru
   - `check_go_no_go_checklist.sh`
   - `check_nightly_fuzz_health.sh`
   - `check_issue1_core_goals.sh`
+  - `check_genesis_determinism.sh`
   - `run_launch_rehearsal.sh`
   - `generate_release_manifest.sh`
 

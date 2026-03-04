@@ -151,6 +151,9 @@ bash -n scripts/benchmark/run_tps_profiles.sh
 
 # Explicit Issue #1 core-goal verification suites
 ./scripts/launch/check_issue1_core_goals.sh
+
+# Genesis determinism verification (launch gate #9)
+./scripts/launch/check_genesis_determinism.sh --testnet
 ```
 
 ## Run launch rehearsal
@@ -191,7 +194,7 @@ bash -n scripts/benchmark/run_tps_profiles.sh
 ./scripts/launch/generate_release_manifest.sh --skip-build
 ```
 
-See `docs/launch-readiness-gates.md` for gate status, `docs/mainnet-go-no-go-checklist.md` for decision signoff, `docs/incident-communication-templates.md` for incident messaging templates, `docs/launch-evidence-bundle.md` for evidence packaging details, `docs/nightly-fuzz-health-check.md` for 7-day fuzz health gating, `docs/issue1-core-goal-check.md` for Issue #1 target verification, and `docs/release-artifact-manifest.md` for release-binary checksum manifests.
+See `docs/launch-readiness-gates.md` for gate status, `docs/mainnet-go-no-go-checklist.md` for decision signoff, `docs/incident-communication-templates.md` for incident messaging templates, `docs/launch-evidence-bundle.md` for evidence packaging details, `docs/nightly-fuzz-health-check.md` for 7-day fuzz health gating, `docs/issue1-core-goal-check.md` for Issue #1 target verification, `docs/genesis-determinism-check.md` for gate #9 hash-stability checks, and `docs/release-artifact-manifest.md` for release-binary checksum manifests.
 
 ## Fuzzing
 
