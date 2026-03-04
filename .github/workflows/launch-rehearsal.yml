@@ -21,6 +21,20 @@ on:
         required: true
         default: false
         type: boolean
+      release_manifest:
+        description: "Release manifest behavior"
+        required: true
+        default: "auto"
+        type: choice
+        options:
+          - auto
+          - include
+          - skip
+      release_manifest_skip_build:
+        description: "Skip release build when generating release manifest"
+        required: true
+        default: false
+        type: boolean
 
 env:
   CARGO_TERM_COLOR: always
@@ -56,6 +70,27 @@ jobs:
           fi
           if [[ "${{ inputs.require_go }}" == "true" ]]; then
             EXTRA_ARGS+=(--require-go)
+          fi
+          case "${{ inputs.release_manifest }}" in
+            include)
+              EXTRA_ARGS+=(--include-release-manifest)
+              ;;
+            skip)
+              EXTRA_ARGS+=(--skip-release-manifest)
+              ;;
+            auto)
+              ;;
+            *)
+              echo "Unknown release_manifest input: ${{ inputs.release_manifest }}" >&2
+              exit 1
+              ;;
+          esac
+          if [[ "${{ inputs.release_manifest_skip_build }}" == "true" ]]; then
+            if [[ "${{ inputs.release_manifest }}" == "skip" ]]; then
+              echo "release_manifest_skip_build=true cannot be combined with release_manifest=skip" >&2
+              exit 1
+            fi
+            EXTRA_ARGS+=(--release-manifest-skip-build)
           fi
           ./scripts/launch/run_launch_rehearsal.sh --mode "${{ inputs.mode }}" --out-dir "${RUNNER_TEMP}/launch-rehearsals" "${EXTRA_ARGS[@]}"
 
