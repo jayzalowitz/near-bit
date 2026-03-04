@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/launch/run_readiness_gate.sh [--smoke|--full] [--include-fuzz] [--require-go] [--skip-checklist]
+Usage: ./scripts/launch/run_readiness_gate.sh [--smoke|--full] [--include-fuzz] [--check-nightly-fuzz-health] [--nightly-fuzz-branch <name>] [--require-go] [--skip-checklist]
 
 Modes:
   --smoke         Fast readiness checks (docs + script + benchmark/auth smoke).
@@ -11,6 +11,8 @@ Modes:
 
 Options:
   --include-fuzz  Add nightly-toolchain fuzz smoke runs (slow).
+  --check-nightly-fuzz-health  Enforce 7-day nightly fuzz health check (gate #4).
+  --nightly-fuzz-branch <name> Branch used by nightly fuzz health check. Default: main.
   --require-go    Enforce GO criteria during checklist parse.
   --skip-checklist  Skip checklist parse step (used by higher-level orchestration).
   -h, --help      Show this help text.
@@ -19,6 +21,8 @@ EOF
 
 MODE="full"
 INCLUDE_FUZZ=0
+CHECK_NIGHTLY_FUZZ_HEALTH=0
+NIGHTLY_FUZZ_BRANCH="main"
 REQUIRE_GO=0
 SKIP_CHECKLIST=0
 HAS_RG=0
@@ -36,6 +40,18 @@ while [[ $# -gt 0 ]]; do
     --include-fuzz)
       INCLUDE_FUZZ=1
       shift
+      ;;
+    --check-nightly-fuzz-health)
+      CHECK_NIGHTLY_FUZZ_HEALTH=1
+      shift
+      ;;
+    --nightly-fuzz-branch)
+      if [[ $# -lt 2 ]]; then
+        echo "--nightly-fuzz-branch requires a value" >&2
+        exit 1
+      fi
+      NIGHTLY_FUZZ_BRANCH="$2"
+      shift 2
       ;;
     --require-go)
       REQUIRE_GO=1
@@ -199,12 +215,19 @@ run_cmd "Launch evidence bundle script syntax" bash -n scripts/launch/generate_e
 run_cmd "Launch rehearsal script syntax" bash -n scripts/launch/run_launch_rehearsal.sh
 run_cmd "Release artifact manifest script syntax" bash -n scripts/launch/generate_release_manifest.sh
 run_cmd "Go/no-go checklist script syntax" bash -n scripts/launch/check_go_no_go_checklist.sh
+run_cmd "Nightly fuzz health script syntax" bash -n scripts/launch/check_nightly_fuzz_health.sh
 if [[ "$SKIP_CHECKLIST" -eq 0 ]]; then
   checklist_cmd=(./scripts/launch/check_go_no_go_checklist.sh)
   if [[ "$REQUIRE_GO" -eq 1 ]]; then
     checklist_cmd+=(--require-go)
   fi
   run_cmd "Go/no-go checklist parse" "${checklist_cmd[@]}"
+fi
+if [[ "$CHECK_NIGHTLY_FUZZ_HEALTH" -eq 1 ]]; then
+  run_cmd \
+    "Nightly fuzz health (7d window)" \
+    ./scripts/launch/check_nightly_fuzz_health.sh \
+    --branch "$NIGHTLY_FUZZ_BRANCH"
 fi
 run_cmd "Benchmark runner dry-run smoke" ./scripts/benchmark/run_tps_profiles.sh --dry-run --skip-build --profile all --metrics-interval 1
 
@@ -226,4 +249,4 @@ if [[ "$INCLUDE_FUZZ" -eq 1 ]]; then
 fi
 
 echo
-echo "Launch readiness gate passed: mode=${MODE}, include_fuzz=${INCLUDE_FUZZ}, require_go=${REQUIRE_GO}, skip_checklist=${SKIP_CHECKLIST}, at=$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+echo "Launch readiness gate passed: mode=${MODE}, include_fuzz=${INCLUDE_FUZZ}, check_nightly_fuzz_health=${CHECK_NIGHTLY_FUZZ_HEALTH}, nightly_fuzz_branch=${NIGHTLY_FUZZ_BRANCH}, require_go=${REQUIRE_GO}, skip_checklist=${SKIP_CHECKLIST}, at=$(date -u +"%Y-%m-%dT%H:%M:%SZ")"

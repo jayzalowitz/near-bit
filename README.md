@@ -105,6 +105,9 @@ bash -n scripts/benchmark/run_tps_profiles.sh
 # Add nightly fuzz smoke runs
 ./scripts/launch/run_readiness_gate.sh --full --include-fuzz
 
+# Enforce 7-day nightly fuzz health gate (launch gate #4)
+./scripts/launch/run_readiness_gate.sh --full --check-nightly-fuzz-health
+
 # Strict launch gate (fails unless checklist is fully GO)
 ./scripts/launch/run_readiness_gate.sh --full --require-go
 
@@ -133,6 +136,9 @@ bash -n scripts/benchmark/run_tps_profiles.sh
 
 # Enforce checklist row count (defaults to 16; override for custom templates)
 ./scripts/launch/check_go_no_go_checklist.sh --expected-gates 16
+
+# Validate nightly fuzz matrix health directly
+./scripts/launch/check_nightly_fuzz_health.sh --branch main
 ```
 
 ## Run launch rehearsal
@@ -152,6 +158,9 @@ bash -n scripts/benchmark/run_tps_profiles.sh
 
 # Attribute rehearsal to an operator in summary artifacts
 ./scripts/launch/run_launch_rehearsal.sh --operator "launch-operator"
+
+# Include nightly fuzz health gate in rehearsal readiness execution
+./scripts/launch/run_launch_rehearsal.sh --check-nightly-fuzz-health
 ```
 
 ## Generate release artifact manifest
@@ -164,7 +173,7 @@ bash -n scripts/benchmark/run_tps_profiles.sh
 ./scripts/launch/generate_release_manifest.sh --skip-build
 ```
 
-See `docs/launch-readiness-gates.md` for gate status, `docs/mainnet-go-no-go-checklist.md` for decision signoff, `docs/incident-communication-templates.md` for incident messaging templates, `docs/launch-evidence-bundle.md` for evidence packaging details, and `docs/release-artifact-manifest.md` for release-binary checksum manifests.
+See `docs/launch-readiness-gates.md` for gate status, `docs/mainnet-go-no-go-checklist.md` for decision signoff, `docs/incident-communication-templates.md` for incident messaging templates, `docs/launch-evidence-bundle.md` for evidence packaging details, `docs/nightly-fuzz-health-check.md` for 7-day fuzz health gating, and `docs/release-artifact-manifest.md` for release-binary checksum manifests.
 
 ## Fuzzing
 

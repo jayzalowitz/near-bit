@@ -3,11 +3,13 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/launch/generate_evidence_bundle.sh [--mode smoke|full] [--include-fuzz] [--skip-gate] [--require-go] [--checklist-file <path>] [--out-dir <path>]
+Usage: ./scripts/launch/generate_evidence_bundle.sh [--mode smoke|full] [--include-fuzz] [--check-nightly-fuzz-health] [--nightly-fuzz-branch <name>] [--skip-gate] [--require-go] [--checklist-file <path>] [--out-dir <path>]
 
 Options:
   --mode <smoke|full>  Readiness gate mode to run. Default: full.
   --include-fuzz       Pass --include-fuzz to readiness gate.
+  --check-nightly-fuzz-health  Enforce 7-day nightly fuzz health check in readiness gate.
+  --nightly-fuzz-branch <name> Branch used by nightly fuzz health check. Default: main.
   --skip-gate          Skip executing readiness gate and only snapshot metadata/docs.
   --require-go         Enforce GO criteria in checklist validation.
   --checklist-file     Checklist file path. Default: docs/mainnet-go-no-go-checklist.md
@@ -19,6 +21,8 @@ EOF
 
 MODE="full"
 INCLUDE_FUZZ=0
+CHECK_NIGHTLY_FUZZ_HEALTH=0
+NIGHTLY_FUZZ_BRANCH="main"
 SKIP_GATE=0
 REQUIRE_GO=0
 ALLOW_DIRTY=0
@@ -38,6 +42,18 @@ while [[ $# -gt 0 ]]; do
     --include-fuzz)
       INCLUDE_FUZZ=1
       shift
+      ;;
+    --check-nightly-fuzz-health)
+      CHECK_NIGHTLY_FUZZ_HEALTH=1
+      shift
+      ;;
+    --nightly-fuzz-branch)
+      if [[ $# -lt 2 ]]; then
+        echo "--nightly-fuzz-branch requires a value" >&2
+        exit 1
+      fi
+      NIGHTLY_FUZZ_BRANCH="$2"
+      shift 2
       ;;
     --skip-gate)
       SKIP_GATE=1
@@ -139,6 +155,8 @@ jq -n \
   --arg branch "$branch_name" \
   --arg mode "$MODE" \
   --argjson include_fuzz "$INCLUDE_FUZZ" \
+  --argjson check_nightly_fuzz_health "$CHECK_NIGHTLY_FUZZ_HEALTH" \
+  --arg nightly_fuzz_branch "$NIGHTLY_FUZZ_BRANCH" \
   --argjson skip_gate "$SKIP_GATE" \
   --argjson require_go "$REQUIRE_GO" \
   --argjson allow_dirty "$ALLOW_DIRTY" \
@@ -158,6 +176,8 @@ jq -n \
     readiness_gate: {
       mode: $mode,
       include_fuzz: $include_fuzz,
+      check_nightly_fuzz_health: $check_nightly_fuzz_health,
+      nightly_fuzz_branch: $nightly_fuzz_branch,
       skipped: $skip_gate
     },
     checklist: {
@@ -197,6 +217,7 @@ copy_and_checksum ".github/workflows/launch-rehearsal.yml" "${bundle_dir}/launch
 copy_and_checksum ".github/workflows/release-manifest.yml" "${bundle_dir}/release-manifest.yml"
 copy_and_checksum "scripts/launch/run_readiness_gate.sh" "${bundle_dir}/run_readiness_gate.sh"
 copy_and_checksum "scripts/launch/check_go_no_go_checklist.sh" "${bundle_dir}/check_go_no_go_checklist.sh"
+copy_and_checksum "scripts/launch/check_nightly_fuzz_health.sh" "${bundle_dir}/check_nightly_fuzz_health.sh"
 copy_and_checksum "scripts/launch/run_launch_rehearsal.sh" "${bundle_dir}/run_launch_rehearsal.sh"
 copy_and_checksum "scripts/launch/generate_release_manifest.sh" "${bundle_dir}/generate_release_manifest.sh"
 
@@ -211,6 +232,9 @@ if [[ "$SKIP_GATE" -eq 0 ]]; then
   fi
   if [[ "$INCLUDE_FUZZ" -eq 1 ]]; then
     gate_cmd+=(--include-fuzz)
+  fi
+  if [[ "$CHECK_NIGHTLY_FUZZ_HEALTH" -eq 1 ]]; then
+    gate_cmd+=(--check-nightly-fuzz-health --nightly-fuzz-branch "$NIGHTLY_FUZZ_BRANCH")
   fi
 
   echo "Running readiness gate: ${gate_cmd[*]}"
@@ -267,6 +291,8 @@ cat > "${bundle_dir}/SUMMARY.md" <<EOF
 - worktree_dirty: ${worktree_dirty}
 - readiness_gate_mode: ${MODE}
 - readiness_gate_include_fuzz: ${INCLUDE_FUZZ}
+- readiness_gate_check_nightly_fuzz_health: ${CHECK_NIGHTLY_FUZZ_HEALTH}
+- readiness_gate_nightly_fuzz_branch: ${NIGHTLY_FUZZ_BRANCH}
 - readiness_gate_status: ${gate_status}
 - readiness_gate_exit_code: ${gate_exit_code}
 - checklist_file: ${CHECKLIST_FILE}
@@ -290,6 +316,7 @@ cat > "${bundle_dir}/SUMMARY.md" <<EOF
 - release-manifest.yml
 - run_readiness_gate.sh
 - check_go_no_go_checklist.sh
+- check_nightly_fuzz_health.sh
 - run_launch_rehearsal.sh
 - generate_release_manifest.sh
 - go-no-go-checklist-report.txt

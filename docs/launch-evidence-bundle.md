@@ -21,6 +21,9 @@ The bundle is designed to support launch rehearsal and go/no-go review by captur
 
 # Include fuzz smoke in readiness gate execution
 ./scripts/launch/generate_evidence_bundle.sh --mode full --include-fuzz
+
+# Enforce nightly fuzz 7-day health gate in readiness execution
+./scripts/launch/generate_evidence_bundle.sh --mode full --check-nightly-fuzz-health
 ```
 
 Output is written under:
@@ -51,6 +54,7 @@ It executes readiness checks with checklist parsing disabled internally, then ru
   - `release-manifest.yml`
   - `run_readiness_gate.sh`
   - `check_go_no_go_checklist.sh`
+  - `check_nightly_fuzz_health.sh`
   - `run_launch_rehearsal.sh`
   - `generate_release_manifest.sh`
 
@@ -81,6 +85,9 @@ It executes readiness checks with checklist parsing disabled internally, then ru
 
 # Enforce strict GO criteria from checklist
 ./scripts/launch/generate_evidence_bundle.sh --require-go
+
+# Override nightly fuzz health branch target
+./scripts/launch/generate_evidence_bundle.sh --check-nightly-fuzz-health --nightly-fuzz-branch main
 ```
 
 Use `--skip-gate` only for documentation snapshots, not for launch signoff evidence.
@@ -93,5 +100,6 @@ Use workflow `.github/workflows/launch-evidence.yml` via manual dispatch:
 
 1. choose `mode` (`smoke` or `full`)
 2. optionally set `include_fuzz=true`
-3. set `require_go=true` for final signoff runs (will fail until checklist is fully complete)
-4. download the uploaded `launch-evidence-*` artifact for signoff records
+3. optionally set `check_nightly_fuzz_health=true` (defaults to `nightly_fuzz_branch=main`)
+4. set `require_go=true` for final signoff runs (will fail until checklist is fully complete)
+5. download the uploaded `launch-evidence-*` artifact for signoff records
