@@ -165,6 +165,7 @@ check_required_docs() {
     "docs/launch-readiness-gates.md"
     "docs/mainnet-go-no-go-checklist.md"
     "docs/genesis-determinism-check.md"
+    "docs/snapshot-supply-reconciliation.md"
     "docs/launch-evidence-bundle.md"
     "docs/launch-rehearsal.md"
     "docs/release-artifact-manifest.md"
@@ -279,6 +280,7 @@ run_cmd "Go/no-go checklist script syntax" bash -n scripts/launch/check_go_no_go
 run_cmd "Nightly fuzz health script syntax" bash -n scripts/launch/check_nightly_fuzz_health.sh
 run_cmd "Issue #1 core-goal checker script syntax" bash -n scripts/launch/check_issue1_core_goals.sh
 run_cmd "Genesis determinism checker script syntax" bash -n scripts/launch/check_genesis_determinism.sh
+run_cmd "Snapshot supply reconciliation checker script syntax" bash -n scripts/launch/check_snapshot_supply_reconciliation.sh
 if [[ "$SKIP_ISSUE1_GOAL_CHECKS" -eq 0 ]]; then
   run_cmd "Issue #1 core-goal checks" ./scripts/launch/check_issue1_core_goals.sh
 fi

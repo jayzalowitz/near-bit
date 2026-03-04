@@ -2343,3 +2343,27 @@ Implemented:
 
 Verification:
 - `GENESIS_FIXTURE_EXPECTED_HASH=95f3e2600eec0dcd3ca51bf530f46ac963fa3b5286e18c6401efdcae8066aa5d ./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist` passed locally.
+
+## Continuation (2026-03-04): snapshot-vs-genesis supply reconciliation gate tooling
+
+Implemented:
+- Added `bitinfinity-tools verify-snapshot-supply`:
+  - compares `genesis.json` supply against `bitcoin-cli gettxoutsetinfo` `total_amount`,
+  - parses BTC amount to satoshis with decimal-safe validation,
+  - enforces configurable satoshi tolerance (`--tolerance-sats`, default `1`),
+  - emits optional machine-readable JSON summary (`--json-out`),
+  - exits non-zero on tolerance violation.
+- Added launch wrapper:
+  - `scripts/launch/check_snapshot_supply_reconciliation.sh`
+- Wired launch flows:
+  - `scripts/launch/run_readiness_gate.sh`: required-doc and syntax checks include the new script/doc.
+  - `scripts/launch/generate_evidence_bundle.sh`: snapshots now include reconciliation doc/script.
+- Added documentation:
+  - `docs/snapshot-supply-reconciliation.md`
+  - README + docs hub + launch docs + site index links.
+
+Verification:
+- `cargo test -p bitinfinity-tools` passed locally (`26 passed`, `0 failed`, `1 ignored`) including new parser/conversion unit tests.
+- `./scripts/launch/check_snapshot_supply_reconciliation.sh --genesis <generated genesis> --txoutsetinfo <fixture json> --tolerance-sats 0 --json-out <summary>` passed locally.
+  - result: `difference_satoshis=0`, `within_tolerance=true`.
+- `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist` passed locally with new snapshot-reconciliation script syntax check active.

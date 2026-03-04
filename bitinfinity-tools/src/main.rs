@@ -1,6 +1,6 @@
 use clap::{Parser, Subcommand};
 use std::collections::BTreeMap;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
 #[allow(dead_code)]
@@ -81,6 +81,228 @@ enum Commands {
         #[arg(long)]
         json_out: Option<PathBuf>,
     },
+    VerifySnapshotSupply {
+        /// Path to generated genesis.json
+        #[arg(long)]
+        genesis: PathBuf,
+
+        /// Path to `bitcoin-cli gettxoutsetinfo` JSON output
+        #[arg(long)]
+        txoutsetinfo: PathBuf,
+
+        /// Allowed absolute difference in satoshis. Default: 1 satoshi.
+        #[arg(long, default_value = "1")]
+        tolerance_sats: u64,
+
+        /// Optional path to write machine-readable summary JSON
+        #[arg(long)]
+        json_out: Option<PathBuf>,
+    },
+}
+
+const SATOSHIS_PER_BTC: u128 = 100_000_000;
+const YOCTO_PER_SATOSHI: u128 = 10_000_000_000_000_000;
+
+struct GenesisSupplySummary {
+    chain_id: String,
+    genesis_time: String,
+    declared_total_yocto: u128,
+    computed_total_yocto: u128,
+    reconciled: bool,
+    total_records: usize,
+    account_records: usize,
+    access_key_records: usize,
+    data_records: usize,
+}
+
+struct TxoutsetSupplySummary {
+    height: Option<u64>,
+    txouts: Option<u64>,
+    total_amount_btc: String,
+    total_satoshis: u128,
+}
+
+fn summarize_genesis(path: &Path) -> Result<GenesisSupplySummary, Box<dyn std::error::Error>> {
+    let content = std::fs::read_to_string(path)?;
+    let parsed: genesis_builder::Genesis = serde_json::from_str(&content)?;
+
+    let declared_total = parsed
+        .total_supply
+        .parse::<u128>()
+        .map_err(|e| format!("Invalid genesis total_supply: {}", e))?;
+
+    let mut computed_total: u128 = 0;
+    let mut account_records: usize = 0;
+    let mut access_key_records: usize = 0;
+    let mut data_records: usize = 0;
+
+    for record in &parsed.records {
+        match record {
+            genesis_builder::StateRecord::Account { account, .. } => {
+                let amount = account
+                    .amount
+                    .parse::<u128>()
+                    .map_err(|e| format!("Invalid account.amount: {}", e))?;
+                let locked = account
+                    .locked
+                    .parse::<u128>()
+                    .map_err(|e| format!("Invalid account.locked: {}", e))?;
+                computed_total = computed_total
+                    .checked_add(amount)
+                    .and_then(|x| x.checked_add(locked))
+                    .ok_or("Computed account total overflowed u128")?;
+                account_records += 1;
+            }
+            genesis_builder::StateRecord::AccessKey { .. } => {
+                access_key_records += 1;
+            }
+            genesis_builder::StateRecord::Data { .. } => {
+                data_records += 1;
+            }
+        }
+    }
+
+    Ok(GenesisSupplySummary {
+        chain_id: parsed.chain_id,
+        genesis_time: parsed.genesis_time,
+        declared_total_yocto: declared_total,
+        computed_total_yocto: computed_total,
+        reconciled: declared_total == computed_total,
+        total_records: parsed.records.len(),
+        account_records,
+        access_key_records,
+        data_records,
+    })
+}
+
+fn extract_json_key_literal(input: &str, key: &str) -> Result<String, Box<dyn std::error::Error>> {
+    let needle = format!("\"{}\"", key);
+    let key_pos = input
+        .find(&needle)
+        .ok_or_else(|| format!("Missing JSON key: {}", key))?;
+    let after_key = &input[key_pos + needle.len()..];
+    let colon_rel = after_key
+        .find(':')
+        .ok_or_else(|| format!("Missing ':' after JSON key: {}", key))?;
+    let mut idx = key_pos + needle.len() + colon_rel + 1;
+
+    let bytes = input.as_bytes();
+    while idx < bytes.len() && bytes[idx].is_ascii_whitespace() {
+        idx += 1;
+    }
+    if idx >= bytes.len() {
+        return Err(format!("Missing JSON value for key: {}", key).into());
+    }
+
+    if bytes[idx] == b'"' {
+        idx += 1;
+        let mut out = String::new();
+        let mut escaped = false;
+        while idx < bytes.len() {
+            let ch = bytes[idx] as char;
+            if escaped {
+                out.push(ch);
+                escaped = false;
+            } else if ch == '\\' {
+                escaped = true;
+            } else if ch == '"' {
+                return Ok(out);
+            } else {
+                out.push(ch);
+            }
+            idx += 1;
+        }
+        return Err(format!("Unterminated string literal for key: {}", key).into());
+    }
+
+    let start = idx;
+    while idx < bytes.len() {
+        let ch = bytes[idx] as char;
+        if ch.is_ascii_digit() || ch == '.' || ch == '-' || ch == '+' || ch == 'e' || ch == 'E' {
+            idx += 1;
+        } else {
+            break;
+        }
+    }
+    if start == idx {
+        return Err(format!("Unsupported literal type for key: {}", key).into());
+    }
+    Ok(input[start..idx].to_string())
+}
+
+fn parse_btc_amount_to_satoshis(raw: &str) -> Result<u128, Box<dyn std::error::Error>> {
+    let mut value = raw.trim();
+    if value.is_empty() {
+        return Err("BTC amount is empty".into());
+    }
+    if value.starts_with('+') {
+        value = &value[1..];
+    }
+    if value.starts_with('-') {
+        return Err(format!("BTC amount cannot be negative: {}", raw).into());
+    }
+    if value.contains('e') || value.contains('E') {
+        return Err(format!("BTC amount scientific notation is not supported: {}", raw).into());
+    }
+
+    let mut parts = value.split('.');
+    let whole_part = parts.next().unwrap_or_default();
+    let frac_part = parts.next();
+    if parts.next().is_some() {
+        return Err(format!("Invalid BTC amount format: {}", raw).into());
+    }
+
+    let whole_digits = if whole_part.is_empty() {
+        "0"
+    } else {
+        whole_part
+    };
+    if !whole_digits.chars().all(|c| c.is_ascii_digit()) {
+        return Err(format!("Invalid BTC whole-part digits: {}", raw).into());
+    }
+
+    let frac_digits = frac_part.unwrap_or("");
+    if !frac_digits.chars().all(|c| c.is_ascii_digit()) {
+        return Err(format!("Invalid BTC fractional digits: {}", raw).into());
+    }
+    if frac_digits.len() > 8 {
+        return Err(format!("BTC amount has more than 8 decimal places: {}", raw).into());
+    }
+
+    let whole = whole_digits.parse::<u128>()?;
+    let frac_padded = format!("{:0<8}", frac_digits);
+    let frac = frac_padded.parse::<u128>()?;
+    let satoshis = whole
+        .checked_mul(SATOSHIS_PER_BTC)
+        .and_then(|x| x.checked_add(frac))
+        .ok_or("BTC amount conversion overflowed u128")?;
+    Ok(satoshis)
+}
+
+fn yocto_to_satoshis_exact(yocto: u128) -> Result<u128, Box<dyn std::error::Error>> {
+    if yocto % YOCTO_PER_SATOSHI != 0 {
+        return Err(format!("Yocto amount is not an exact satoshi multiple: {}", yocto).into());
+    }
+    Ok(yocto / YOCTO_PER_SATOSHI)
+}
+
+fn summarize_txoutsetinfo(
+    path: &Path,
+) -> Result<TxoutsetSupplySummary, Box<dyn std::error::Error>> {
+    let content = std::fs::read_to_string(path)?;
+    let total_amount_btc = extract_json_key_literal(&content, "total_amount")?;
+    let total_satoshis = parse_btc_amount_to_satoshis(&total_amount_btc)?;
+
+    let parsed: serde_json::Value = serde_json::from_str(&content)?;
+    let height = parsed.get("height").and_then(|v| v.as_u64());
+    let txouts = parsed.get("txouts").and_then(|v| v.as_u64());
+
+    Ok(TxoutsetSupplySummary {
+        height,
+        txouts,
+        total_amount_btc,
+        total_satoshis,
+    })
 }
 
 #[tokio::main]
@@ -241,72 +463,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         Commands::VerifyGenesis { genesis, json_out } => {
-            let content = std::fs::read_to_string(&genesis)?;
-            let parsed: genesis_builder::Genesis = serde_json::from_str(&content)?;
-
-            let declared_total = parsed
-                .total_supply
-                .parse::<u128>()
-                .map_err(|e| format!("Invalid genesis total_supply: {}", e))?;
-
-            let mut computed_total: u128 = 0;
-            let mut account_records: usize = 0;
-            let mut access_key_records: usize = 0;
-            let mut data_records: usize = 0;
-
-            for record in &parsed.records {
-                match record {
-                    genesis_builder::StateRecord::Account { account, .. } => {
-                        let amount = account
-                            .amount
-                            .parse::<u128>()
-                            .map_err(|e| format!("Invalid account.amount: {}", e))?;
-                        let locked = account
-                            .locked
-                            .parse::<u128>()
-                            .map_err(|e| format!("Invalid account.locked: {}", e))?;
-                        computed_total = computed_total
-                            .checked_add(amount)
-                            .and_then(|x| x.checked_add(locked))
-                            .ok_or("Computed account total overflowed u128")?;
-                        account_records += 1;
-                    }
-                    genesis_builder::StateRecord::AccessKey { .. } => {
-                        access_key_records += 1;
-                    }
-                    genesis_builder::StateRecord::Data { .. } => {
-                        data_records += 1;
-                    }
-                }
-            }
-
-            let reconciled = declared_total == computed_total;
+            let summary = summarize_genesis(&genesis)?;
 
             println!("Genesis verification summary");
             println!("  file: {}", genesis.display());
-            println!("  chain_id: {}", parsed.chain_id);
-            println!("  genesis_time: {}", parsed.genesis_time);
-            println!("  declared_total_supply: {}", declared_total);
-            println!("  computed_total_supply: {}", computed_total);
-            println!("  reconciled: {}", reconciled);
-            println!("  records: {}", parsed.records.len());
-            println!("    account: {}", account_records);
-            println!("    access_key: {}", access_key_records);
-            println!("    data: {}", data_records);
+            println!("  chain_id: {}", summary.chain_id);
+            println!("  genesis_time: {}", summary.genesis_time);
+            println!("  declared_total_supply: {}", summary.declared_total_yocto);
+            println!("  computed_total_supply: {}", summary.computed_total_yocto);
+            println!("  reconciled: {}", summary.reconciled);
+            println!("  records: {}", summary.total_records);
+            println!("    account: {}", summary.account_records);
+            println!("    access_key: {}", summary.access_key_records);
+            println!("    data: {}", summary.data_records);
 
             if let Some(path) = json_out {
                 let payload = serde_json::json!({
                     "file": genesis.display().to_string(),
-                    "chain_id": parsed.chain_id,
-                    "genesis_time": parsed.genesis_time,
-                    "declared_total_supply": declared_total.to_string(),
-                    "computed_total_supply": computed_total.to_string(),
-                    "reconciled": reconciled,
+                    "chain_id": summary.chain_id,
+                    "genesis_time": summary.genesis_time,
+                    "declared_total_supply": summary.declared_total_yocto.to_string(),
+                    "computed_total_supply": summary.computed_total_yocto.to_string(),
+                    "reconciled": summary.reconciled,
                     "records": {
-                        "total": parsed.records.len(),
-                        "account": account_records,
-                        "access_key": access_key_records,
-                        "data": data_records
+                        "total": summary.total_records,
+                        "account": summary.account_records,
+                        "access_key": summary.access_key_records,
+                        "data": summary.data_records
                     }
                 });
                 let rendered = serde_json::to_string_pretty(&payload)?;
@@ -314,11 +497,137 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("  summary_json: {}", path.display());
             }
 
-            if !reconciled {
+            if !summary.reconciled {
                 return Err("Genesis total supply reconciliation failed".into());
+            }
+        }
+        Commands::VerifySnapshotSupply {
+            genesis,
+            txoutsetinfo,
+            tolerance_sats,
+            json_out,
+        } => {
+            let genesis_summary = summarize_genesis(&genesis)?;
+            if !genesis_summary.reconciled {
+                return Err(
+                    "Genesis must reconcile internally before snapshot supply comparison".into(),
+                );
+            }
+
+            let txoutset_summary = summarize_txoutsetinfo(&txoutsetinfo)?;
+            let genesis_total_satoshis =
+                yocto_to_satoshis_exact(genesis_summary.computed_total_yocto)?;
+            let snapshot_total_satoshis = txoutset_summary.total_satoshis;
+            let diff_satoshis = if genesis_total_satoshis >= snapshot_total_satoshis {
+                genesis_total_satoshis - snapshot_total_satoshis
+            } else {
+                snapshot_total_satoshis - genesis_total_satoshis
+            };
+            let within_tolerance = diff_satoshis <= tolerance_sats as u128;
+
+            println!("Snapshot supply reconciliation summary");
+            println!("  genesis_file: {}", genesis.display());
+            println!("  txoutsetinfo_file: {}", txoutsetinfo.display());
+            if let Some(height) = txoutset_summary.height {
+                println!("  snapshot_height: {}", height);
+            }
+            if let Some(txouts) = txoutset_summary.txouts {
+                println!("  snapshot_txouts: {}", txouts);
+            }
+            println!(
+                "  snapshot_total_amount_btc: {}",
+                txoutset_summary.total_amount_btc
+            );
+            println!("  snapshot_total_satoshis: {}", snapshot_total_satoshis);
+            println!("  genesis_total_satoshis: {}", genesis_total_satoshis);
+            println!("  difference_satoshis: {}", diff_satoshis);
+            println!("  tolerance_satoshis: {}", tolerance_sats);
+            println!("  within_tolerance: {}", within_tolerance);
+
+            if let Some(path) = json_out {
+                let payload = serde_json::json!({
+                    "genesis_file": genesis.display().to_string(),
+                    "txoutsetinfo_file": txoutsetinfo.display().to_string(),
+                    "snapshot": {
+                        "height": txoutset_summary.height,
+                        "txouts": txoutset_summary.txouts,
+                        "total_amount_btc": txoutset_summary.total_amount_btc,
+                        "total_satoshis": snapshot_total_satoshis.to_string()
+                    },
+                    "genesis": {
+                        "chain_id": genesis_summary.chain_id,
+                        "genesis_time": genesis_summary.genesis_time,
+                        "total_satoshis": genesis_total_satoshis.to_string()
+                    },
+                    "difference_satoshis": diff_satoshis.to_string(),
+                    "tolerance_satoshis": tolerance_sats,
+                    "within_tolerance": within_tolerance
+                });
+                let rendered = serde_json::to_string_pretty(&payload)?;
+                std::fs::write(&path, rendered)?;
+                println!("  summary_json: {}", path.display());
+            }
+
+            if !within_tolerance {
+                return Err(format!(
+                    "Snapshot supply reconciliation failed: diff {} sats exceeds tolerance {} sats",
+                    diff_satoshis, tolerance_sats
+                )
+                .into());
             }
         }
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_btc_amount_to_satoshis_valid() {
+        assert_eq!(parse_btc_amount_to_satoshis("1").unwrap(), 100_000_000);
+        assert_eq!(
+            parse_btc_amount_to_satoshis("1.00000000").unwrap(),
+            100_000_000
+        );
+        assert_eq!(parse_btc_amount_to_satoshis("0.00000001").unwrap(), 1);
+        assert_eq!(
+            parse_btc_amount_to_satoshis("19893654.12345678").unwrap(),
+            1_989_365_412_345_678
+        );
+    }
+
+    #[test]
+    fn test_parse_btc_amount_to_satoshis_rejects_invalid() {
+        assert!(parse_btc_amount_to_satoshis("-1").is_err());
+        assert!(parse_btc_amount_to_satoshis("1.123456789").is_err());
+        assert!(parse_btc_amount_to_satoshis("1e-8").is_err());
+        assert!(parse_btc_amount_to_satoshis("abc").is_err());
+    }
+
+    #[test]
+    fn test_yocto_to_satoshis_exact() {
+        assert_eq!(
+            yocto_to_satoshis_exact(5_000_000_000_000_000_000_000_000).unwrap(),
+            500_000_000
+        );
+        assert!(yocto_to_satoshis_exact(5_000_000_000_000_000_000_000_001).is_err());
+    }
+
+    #[test]
+    fn test_extract_json_key_literal_number_and_string() {
+        let json_number = r#"{"height":123,"total_amount":19893654.12345678}"#;
+        let json_string = r#"{"height":123,"total_amount":"19893654.12345678"}"#;
+
+        assert_eq!(
+            extract_json_key_literal(json_number, "total_amount").unwrap(),
+            "19893654.12345678"
+        );
+        assert_eq!(
+            extract_json_key_literal(json_string, "total_amount").unwrap(),
+            "19893654.12345678"
+        );
+    }
 }

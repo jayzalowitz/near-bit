@@ -35,6 +35,9 @@ Use one command path for repeatable local verification:
 
 # Optional override when intentionally rotating fixture hash
 GENESIS_FIXTURE_EXPECTED_HASH=<new_sha256> ./scripts/launch/run_readiness_gate.sh --smoke
+
+# Direct gate #10 snapshot-vs-genesis supply reconciliation
+./scripts/launch/check_snapshot_supply_reconciliation.sh --genesis /path/to/genesis.json --txoutsetinfo /path/to/gettxoutsetinfo.json --tolerance-sats 1
 ```
 
 ## Repository-Verifiable Gates
@@ -54,6 +57,7 @@ GENESIS_FIXTURE_EXPECTED_HASH=<new_sha256> ./scripts/launch/run_readiness_gate.s
 | Issue #1 core-goal verification script | complete | `scripts/launch/check_issue1_core_goals.sh`, `docs/issue1-core-goal-check.md` |
 | Genesis determinism verifier script (gate #9) | complete | `scripts/launch/check_genesis_determinism.sh`, `docs/genesis-determinism-check.md` |
 | Genesis supply reconciliation verifier (gate #10 primitive) | complete | `bitinfinity-tools verify-genesis`, `docs/genesis-determinism-check.md` |
+| Snapshot supply reconciliation verifier (gate #10 signoff) | complete | `scripts/launch/check_snapshot_supply_reconciliation.sh`, `bitinfinity-tools verify-snapshot-supply`, `docs/snapshot-supply-reconciliation.md` |
 | Launch evidence bundle generator | complete | `scripts/launch/generate_evidence_bundle.sh`, `docs/launch-evidence-bundle.md` |
 | Launch rehearsal orchestration runner | complete | `scripts/launch/run_launch_rehearsal.sh`, `docs/launch-rehearsal.md` |
 | Release artifact checksum manifest generator | complete | `scripts/launch/generate_release_manifest.sh`, `docs/release-artifact-manifest.md` |
@@ -76,6 +80,7 @@ GENESIS_FIXTURE_EXPECTED_HASH=<new_sha256> ./scripts/launch/run_readiness_gate.s
 - `2026-03-04`: `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist --check-nightly-fuzz-health --nightly-fuzz-workflow CI --nightly-fuzz-branch jayzalowitz/btc-near-fork-plan --nightly-fuzz-window-days 0 --nightly-fuzz-min-runs 0 --nightly-fuzz-max-runs 50 --nightly-fuzz-allow-in-progress` passed locally.
 - `2026-03-04`: `./scripts/launch/run_launch_rehearsal.sh --mode smoke --check-nightly-fuzz-health --nightly-fuzz-workflow CI --nightly-fuzz-branch jayzalowitz/btc-near-fork-plan --nightly-fuzz-window-days 0 --nightly-fuzz-min-runs 0 --nightly-fuzz-max-runs 50 --nightly-fuzz-allow-in-progress --skip-release-manifest --allow-dirty` passed locally.
 - `2026-03-04`: `./scripts/launch/check_genesis_determinism.sh --testnet --num-accounts 100 --chain-id bitinfinity-mainnet --genesis-time 2026-01-01T00:00:00Z --expected-hash 95f3e2600eec0dcd3ca51bf530f46ac963fa3b5286e18c6401efdcae8066aa5d` passed locally; readiness now enforces this pinned fixture hash.
+- `2026-03-04`: `./scripts/launch/check_snapshot_supply_reconciliation.sh --genesis <generated genesis> --txoutsetinfo <fixture gettxoutsetinfo.json> --tolerance-sats 0 --json-out <summary>` passed locally (`difference_satoshis=0`, `within_tolerance=true`).
 - `2026-03-04`: `scripts/launch/run_launch_rehearsal.sh` strict-mode pre-manifest cleanup generalized to restore all tracked `target/` file diffs (not only `target/.rustc_info.json`), preventing smoke/full rehearsal test artifacts from blocking manifest generation.
 - `2026-03-04`: `./scripts/launch/run_launch_rehearsal.sh --mode smoke --include-release-manifest --release-manifest-skip-build --operator "launch-readiness"` passed locally on commit `196b0f43d` in strict mode after tracked-`target/` restore generalization.
 

@@ -157,6 +157,9 @@ bash -n scripts/benchmark/run_tps_profiles.sh
 
 # Direct genesis supply reconciliation (launch gate #10 evidence primitive)
 cargo run -q -p bitinfinity-tools -- verify-genesis --genesis /path/to/genesis.json --json-out /tmp/genesis-verify.json
+
+# Snapshot-vs-genesis supply reconciliation (launch gate #10 signoff check)
+./scripts/launch/check_snapshot_supply_reconciliation.sh --genesis /path/to/genesis.json --txoutsetinfo /path/to/gettxoutsetinfo.json --tolerance-sats 1
 ```
 
 ## Run launch rehearsal
@@ -197,7 +200,7 @@ cargo run -q -p bitinfinity-tools -- verify-genesis --genesis /path/to/genesis.j
 ./scripts/launch/generate_release_manifest.sh --skip-build
 ```
 
-See `docs/launch-readiness-gates.md` for gate status, `docs/mainnet-go-no-go-checklist.md` for decision signoff, `docs/incident-communication-templates.md` for incident messaging templates, `docs/launch-evidence-bundle.md` for evidence packaging details, `docs/nightly-fuzz-health-check.md` for 7-day fuzz health gating, `docs/issue1-core-goal-check.md` for Issue #1 target verification, `docs/genesis-determinism-check.md` for gate #9 hash-stability checks, and `docs/release-artifact-manifest.md` for release-binary checksum manifests.
+See `docs/launch-readiness-gates.md` for gate status, `docs/mainnet-go-no-go-checklist.md` for decision signoff, `docs/incident-communication-templates.md` for incident messaging templates, `docs/launch-evidence-bundle.md` for evidence packaging details, `docs/nightly-fuzz-health-check.md` for 7-day fuzz health gating, `docs/issue1-core-goal-check.md` for Issue #1 target verification, `docs/genesis-determinism-check.md` for gate #9 hash-stability checks, `docs/snapshot-supply-reconciliation.md` for gate #10 snapshot supply checks, and `docs/release-artifact-manifest.md` for release-binary checksum manifests.
 
 ## Fuzzing
 
