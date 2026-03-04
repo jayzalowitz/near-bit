@@ -26,6 +26,31 @@ on:
         required: true
         default: "main"
         type: string
+      nightly_fuzz_workflow:
+        description: "Workflow name used by nightly fuzz health check"
+        required: true
+        default: "Nightly Fuzz"
+        type: string
+      nightly_fuzz_window_days:
+        description: "Lookback window in days for nightly fuzz health"
+        required: true
+        default: "7"
+        type: string
+      nightly_fuzz_min_runs:
+        description: "Minimum required runs in nightly fuzz lookback window"
+        required: true
+        default: "1"
+        type: string
+      nightly_fuzz_max_runs:
+        description: "Max runs fetched from GitHub API for nightly fuzz health"
+        required: true
+        default: "200"
+        type: string
+      nightly_fuzz_allow_in_progress:
+        description: "Allow in-progress nightly fuzz runs"
+        required: true
+        default: false
+        type: boolean
       require_go:
         description: "Require GO checklist criteria"
         required: true
@@ -79,7 +104,17 @@ jobs:
             EXTRA_ARGS+=(--include-fuzz)
           fi
           if [[ "${{ inputs.check_nightly_fuzz_health }}" == "true" ]]; then
-            EXTRA_ARGS+=(--check-nightly-fuzz-health --nightly-fuzz-branch "${{ inputs.nightly_fuzz_branch }}")
+            EXTRA_ARGS+=(
+              --check-nightly-fuzz-health
+              --nightly-fuzz-branch "${{ inputs.nightly_fuzz_branch }}"
+              --nightly-fuzz-workflow "${{ inputs.nightly_fuzz_workflow }}"
+              --nightly-fuzz-window-days "${{ inputs.nightly_fuzz_window_days }}"
+              --nightly-fuzz-min-runs "${{ inputs.nightly_fuzz_min_runs }}"
+              --nightly-fuzz-max-runs "${{ inputs.nightly_fuzz_max_runs }}"
+            )
+            if [[ "${{ inputs.nightly_fuzz_allow_in_progress }}" == "true" ]]; then
+              EXTRA_ARGS+=(--nightly-fuzz-allow-in-progress)
+            fi
           fi
           if [[ "${{ inputs.require_go }}" == "true" ]]; then
             EXTRA_ARGS+=(--require-go)

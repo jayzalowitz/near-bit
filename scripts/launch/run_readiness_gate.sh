@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/launch/run_readiness_gate.sh [--smoke|--full] [--include-fuzz] [--check-nightly-fuzz-health] [--nightly-fuzz-branch <name>] [--require-go] [--skip-checklist]
+Usage: ./scripts/launch/run_readiness_gate.sh [--smoke|--full] [--include-fuzz] [--check-nightly-fuzz-health] [--nightly-fuzz-branch <name>] [--nightly-fuzz-workflow <name>] [--nightly-fuzz-window-days <n>] [--nightly-fuzz-min-runs <n>] [--nightly-fuzz-max-runs <n>] [--nightly-fuzz-allow-in-progress] [--require-go] [--skip-checklist]
 
 Modes:
   --smoke         Fast readiness checks (docs + script + benchmark/auth smoke).
@@ -13,6 +13,11 @@ Options:
   --include-fuzz  Add nightly-toolchain fuzz smoke runs (slow).
   --check-nightly-fuzz-health  Enforce 7-day nightly fuzz health check (gate #4).
   --nightly-fuzz-branch <name> Branch used by nightly fuzz health check. Default: main.
+  --nightly-fuzz-workflow <name> Workflow name used by nightly fuzz health check. Default: Nightly Fuzz.
+  --nightly-fuzz-window-days <n> Lookback window in days for nightly fuzz health. Default: 7.
+  --nightly-fuzz-min-runs <n> Minimum required runs in lookback window. Default: 1.
+  --nightly-fuzz-max-runs <n> Max runs fetched from GitHub API. Default: 200.
+  --nightly-fuzz-allow-in-progress Do not fail when in-progress runs are present.
   --require-go    Enforce GO criteria during checklist parse.
   --skip-checklist  Skip checklist parse step (used by higher-level orchestration).
   -h, --help      Show this help text.
@@ -23,6 +28,11 @@ MODE="full"
 INCLUDE_FUZZ=0
 CHECK_NIGHTLY_FUZZ_HEALTH=0
 NIGHTLY_FUZZ_BRANCH="main"
+NIGHTLY_FUZZ_WORKFLOW="Nightly Fuzz"
+NIGHTLY_FUZZ_WINDOW_DAYS=7
+NIGHTLY_FUZZ_MIN_RUNS=1
+NIGHTLY_FUZZ_MAX_RUNS=200
+NIGHTLY_FUZZ_ALLOW_IN_PROGRESS=0
 REQUIRE_GO=0
 SKIP_CHECKLIST=0
 HAS_RG=0
@@ -53,6 +63,42 @@ while [[ $# -gt 0 ]]; do
       NIGHTLY_FUZZ_BRANCH="$2"
       shift 2
       ;;
+    --nightly-fuzz-workflow)
+      if [[ $# -lt 2 ]]; then
+        echo "--nightly-fuzz-workflow requires a value" >&2
+        exit 1
+      fi
+      NIGHTLY_FUZZ_WORKFLOW="$2"
+      shift 2
+      ;;
+    --nightly-fuzz-window-days)
+      if [[ $# -lt 2 ]]; then
+        echo "--nightly-fuzz-window-days requires a numeric value" >&2
+        exit 1
+      fi
+      NIGHTLY_FUZZ_WINDOW_DAYS="$2"
+      shift 2
+      ;;
+    --nightly-fuzz-min-runs)
+      if [[ $# -lt 2 ]]; then
+        echo "--nightly-fuzz-min-runs requires a numeric value" >&2
+        exit 1
+      fi
+      NIGHTLY_FUZZ_MIN_RUNS="$2"
+      shift 2
+      ;;
+    --nightly-fuzz-max-runs)
+      if [[ $# -lt 2 ]]; then
+        echo "--nightly-fuzz-max-runs requires a numeric value" >&2
+        exit 1
+      fi
+      NIGHTLY_FUZZ_MAX_RUNS="$2"
+      shift 2
+      ;;
+    --nightly-fuzz-allow-in-progress)
+      NIGHTLY_FUZZ_ALLOW_IN_PROGRESS=1
+      shift
+      ;;
     --require-go)
       REQUIRE_GO=1
       shift
@@ -71,6 +117,13 @@ while [[ $# -gt 0 ]]; do
       exit 1
       ;;
   esac
+done
+
+for num in "$NIGHTLY_FUZZ_WINDOW_DAYS" "$NIGHTLY_FUZZ_MIN_RUNS" "$NIGHTLY_FUZZ_MAX_RUNS"; do
+  if [[ ! "$num" =~ ^[0-9]+$ ]]; then
+    echo "Nightly fuzz numeric options must be non-negative integers." >&2
+    exit 1
+  fi
 done
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -224,10 +277,20 @@ if [[ "$SKIP_CHECKLIST" -eq 0 ]]; then
   run_cmd "Go/no-go checklist parse" "${checklist_cmd[@]}"
 fi
 if [[ "$CHECK_NIGHTLY_FUZZ_HEALTH" -eq 1 ]]; then
+  nightly_fuzz_cmd=(
+    ./scripts/launch/check_nightly_fuzz_health.sh
+    --branch "$NIGHTLY_FUZZ_BRANCH"
+    --workflow "$NIGHTLY_FUZZ_WORKFLOW"
+    --window-days "$NIGHTLY_FUZZ_WINDOW_DAYS"
+    --min-runs "$NIGHTLY_FUZZ_MIN_RUNS"
+    --max-runs "$NIGHTLY_FUZZ_MAX_RUNS"
+  )
+  if [[ "$NIGHTLY_FUZZ_ALLOW_IN_PROGRESS" -eq 1 ]]; then
+    nightly_fuzz_cmd+=(--allow-in-progress)
+  fi
   run_cmd \
     "Nightly fuzz health (7d window)" \
-    ./scripts/launch/check_nightly_fuzz_health.sh \
-    --branch "$NIGHTLY_FUZZ_BRANCH"
+    "${nightly_fuzz_cmd[@]}"
 fi
 run_cmd "Benchmark runner dry-run smoke" ./scripts/benchmark/run_tps_profiles.sh --dry-run --skip-build --profile all --metrics-interval 1
 
@@ -249,4 +312,4 @@ if [[ "$INCLUDE_FUZZ" -eq 1 ]]; then
 fi
 
 echo
-echo "Launch readiness gate passed: mode=${MODE}, include_fuzz=${INCLUDE_FUZZ}, check_nightly_fuzz_health=${CHECK_NIGHTLY_FUZZ_HEALTH}, nightly_fuzz_branch=${NIGHTLY_FUZZ_BRANCH}, require_go=${REQUIRE_GO}, skip_checklist=${SKIP_CHECKLIST}, at=$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+echo "Launch readiness gate passed: mode=${MODE}, include_fuzz=${INCLUDE_FUZZ}, check_nightly_fuzz_health=${CHECK_NIGHTLY_FUZZ_HEALTH}, nightly_fuzz_branch=${NIGHTLY_FUZZ_BRANCH}, nightly_fuzz_workflow=${NIGHTLY_FUZZ_WORKFLOW}, nightly_fuzz_window_days=${NIGHTLY_FUZZ_WINDOW_DAYS}, nightly_fuzz_min_runs=${NIGHTLY_FUZZ_MIN_RUNS}, nightly_fuzz_max_runs=${NIGHTLY_FUZZ_MAX_RUNS}, nightly_fuzz_allow_in_progress=${NIGHTLY_FUZZ_ALLOW_IN_PROGRESS}, require_go=${REQUIRE_GO}, skip_checklist=${SKIP_CHECKLIST}, at=$(date -u +"%Y-%m-%dT%H:%M:%SZ")"

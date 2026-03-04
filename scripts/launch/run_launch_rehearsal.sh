@@ -3,13 +3,18 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/launch/run_launch_rehearsal.sh [--mode smoke|full] [--include-fuzz] [--check-nightly-fuzz-health] [--nightly-fuzz-branch <name>] [--require-go] [--include-release-manifest|--skip-release-manifest] [--release-manifest-skip-build] [--operator <name>] [--allow-dirty] [--checklist-file <path>] [--out-dir <path>]
+Usage: ./scripts/launch/run_launch_rehearsal.sh [--mode smoke|full] [--include-fuzz] [--check-nightly-fuzz-health] [--nightly-fuzz-branch <name>] [--nightly-fuzz-workflow <name>] [--nightly-fuzz-window-days <n>] [--nightly-fuzz-min-runs <n>] [--nightly-fuzz-max-runs <n>] [--nightly-fuzz-allow-in-progress] [--require-go] [--include-release-manifest|--skip-release-manifest] [--release-manifest-skip-build] [--operator <name>] [--allow-dirty] [--checklist-file <path>] [--out-dir <path>]
 
 Options:
   --mode <smoke|full>  Rehearsal mode passed to evidence generator. Default: full.
   --include-fuzz       Include fuzz smoke in readiness execution.
   --check-nightly-fuzz-health  Enforce 7-day nightly fuzz health gate.
   --nightly-fuzz-branch <name> Branch used by nightly fuzz health check. Default: main.
+  --nightly-fuzz-workflow <name> Workflow name used by nightly fuzz health check. Default: Nightly Fuzz.
+  --nightly-fuzz-window-days <n> Lookback window in days for nightly fuzz health. Default: 7.
+  --nightly-fuzz-min-runs <n> Minimum required runs in lookback window. Default: 1.
+  --nightly-fuzz-max-runs <n> Max runs fetched from GitHub API. Default: 200.
+  --nightly-fuzz-allow-in-progress Do not fail when in-progress runs are present.
   --require-go         Enforce strict GO criteria from checklist.
   --include-release-manifest  Generate release artifact manifest during rehearsal.
                               Default: enabled for --mode full, disabled for --mode smoke.
@@ -28,6 +33,11 @@ MODE="full"
 INCLUDE_FUZZ=0
 CHECK_NIGHTLY_FUZZ_HEALTH=0
 NIGHTLY_FUZZ_BRANCH="main"
+NIGHTLY_FUZZ_WORKFLOW="Nightly Fuzz"
+NIGHTLY_FUZZ_WINDOW_DAYS=7
+NIGHTLY_FUZZ_MIN_RUNS=1
+NIGHTLY_FUZZ_MAX_RUNS=200
+NIGHTLY_FUZZ_ALLOW_IN_PROGRESS=0
 REQUIRE_GO=0
 INCLUDE_RELEASE_MANIFEST=-1
 RELEASE_MANIFEST_SKIP_BUILD=0
@@ -61,6 +71,42 @@ while [[ $# -gt 0 ]]; do
       fi
       NIGHTLY_FUZZ_BRANCH="$2"
       shift 2
+      ;;
+    --nightly-fuzz-workflow)
+      if [[ $# -lt 2 ]]; then
+        echo "--nightly-fuzz-workflow requires a value" >&2
+        exit 1
+      fi
+      NIGHTLY_FUZZ_WORKFLOW="$2"
+      shift 2
+      ;;
+    --nightly-fuzz-window-days)
+      if [[ $# -lt 2 ]]; then
+        echo "--nightly-fuzz-window-days requires a numeric value" >&2
+        exit 1
+      fi
+      NIGHTLY_FUZZ_WINDOW_DAYS="$2"
+      shift 2
+      ;;
+    --nightly-fuzz-min-runs)
+      if [[ $# -lt 2 ]]; then
+        echo "--nightly-fuzz-min-runs requires a numeric value" >&2
+        exit 1
+      fi
+      NIGHTLY_FUZZ_MIN_RUNS="$2"
+      shift 2
+      ;;
+    --nightly-fuzz-max-runs)
+      if [[ $# -lt 2 ]]; then
+        echo "--nightly-fuzz-max-runs requires a numeric value" >&2
+        exit 1
+      fi
+      NIGHTLY_FUZZ_MAX_RUNS="$2"
+      shift 2
+      ;;
+    --nightly-fuzz-allow-in-progress)
+      NIGHTLY_FUZZ_ALLOW_IN_PROGRESS=1
+      shift
       ;;
     --require-go)
       REQUIRE_GO=1
@@ -116,6 +162,13 @@ while [[ $# -gt 0 ]]; do
       exit 1
       ;;
   esac
+done
+
+for num in "$NIGHTLY_FUZZ_WINDOW_DAYS" "$NIGHTLY_FUZZ_MIN_RUNS" "$NIGHTLY_FUZZ_MAX_RUNS"; do
+  if [[ ! "$num" =~ ^[0-9]+$ ]]; then
+    echo "Nightly fuzz numeric options must be non-negative integers." >&2
+    exit 1
+  fi
 done
 
 if [[ "$MODE" != "smoke" && "$MODE" != "full" ]]; then
@@ -192,7 +245,17 @@ if [[ "$INCLUDE_FUZZ" -eq 1 ]]; then
   evidence_cmd+=(--include-fuzz)
 fi
 if [[ "$CHECK_NIGHTLY_FUZZ_HEALTH" -eq 1 ]]; then
-  evidence_cmd+=(--check-nightly-fuzz-health --nightly-fuzz-branch "$NIGHTLY_FUZZ_BRANCH")
+  evidence_cmd+=(
+    --check-nightly-fuzz-health
+    --nightly-fuzz-branch "$NIGHTLY_FUZZ_BRANCH"
+    --nightly-fuzz-workflow "$NIGHTLY_FUZZ_WORKFLOW"
+    --nightly-fuzz-window-days "$NIGHTLY_FUZZ_WINDOW_DAYS"
+    --nightly-fuzz-min-runs "$NIGHTLY_FUZZ_MIN_RUNS"
+    --nightly-fuzz-max-runs "$NIGHTLY_FUZZ_MAX_RUNS"
+  )
+  if [[ "$NIGHTLY_FUZZ_ALLOW_IN_PROGRESS" -eq 1 ]]; then
+    evidence_cmd+=(--nightly-fuzz-allow-in-progress)
+  fi
 fi
 if [[ "$REQUIRE_GO" -eq 1 ]]; then
   evidence_cmd+=(--require-go)
@@ -311,6 +374,7 @@ jq -n \
   --arg mode "$MODE" \
   --arg operator "$OPERATOR" \
   --arg nightly_fuzz_branch "$NIGHTLY_FUZZ_BRANCH" \
+  --arg nightly_fuzz_workflow "$NIGHTLY_FUZZ_WORKFLOW" \
   --arg checklist_file "$CHECKLIST_FILE" \
   --arg overall_status "$overall_status" \
   --arg gate_status "$gate_status" \
@@ -320,6 +384,10 @@ jq -n \
   --argjson checklist_exit_code "$checklist_exit_code" \
   --argjson include_fuzz "$INCLUDE_FUZZ" \
   --argjson check_nightly_fuzz_health "$CHECK_NIGHTLY_FUZZ_HEALTH" \
+  --argjson nightly_fuzz_window_days "$NIGHTLY_FUZZ_WINDOW_DAYS" \
+  --argjson nightly_fuzz_min_runs "$NIGHTLY_FUZZ_MIN_RUNS" \
+  --argjson nightly_fuzz_max_runs "$NIGHTLY_FUZZ_MAX_RUNS" \
+  --argjson nightly_fuzz_allow_in_progress "$NIGHTLY_FUZZ_ALLOW_IN_PROGRESS" \
   --argjson require_go "$REQUIRE_GO" \
   --argjson include_release_manifest "$INCLUDE_RELEASE_MANIFEST" \
   --argjson release_manifest_skip_build "$RELEASE_MANIFEST_SKIP_BUILD" \
@@ -348,6 +416,11 @@ jq -n \
       include_fuzz: $include_fuzz,
       check_nightly_fuzz_health: $check_nightly_fuzz_health,
       nightly_fuzz_branch: $nightly_fuzz_branch,
+      nightly_fuzz_workflow: $nightly_fuzz_workflow,
+      nightly_fuzz_window_days: $nightly_fuzz_window_days,
+      nightly_fuzz_min_runs: $nightly_fuzz_min_runs,
+      nightly_fuzz_max_runs: $nightly_fuzz_max_runs,
+      nightly_fuzz_allow_in_progress: ($nightly_fuzz_allow_in_progress == 1),
       require_go: $require_go,
       include_release_manifest: $include_release_manifest,
       release_manifest_skip_build: $release_manifest_skip_build,
@@ -387,6 +460,11 @@ cat > "$summary_md" <<EOF
 - include_fuzz: ${INCLUDE_FUZZ}
 - check_nightly_fuzz_health: ${CHECK_NIGHTLY_FUZZ_HEALTH}
 - nightly_fuzz_branch: ${NIGHTLY_FUZZ_BRANCH}
+- nightly_fuzz_workflow: ${NIGHTLY_FUZZ_WORKFLOW}
+- nightly_fuzz_window_days: ${NIGHTLY_FUZZ_WINDOW_DAYS}
+- nightly_fuzz_min_runs: ${NIGHTLY_FUZZ_MIN_RUNS}
+- nightly_fuzz_max_runs: ${NIGHTLY_FUZZ_MAX_RUNS}
+- nightly_fuzz_allow_in_progress: ${NIGHTLY_FUZZ_ALLOW_IN_PROGRESS}
 - require_go: ${REQUIRE_GO}
 - include_release_manifest: ${INCLUDE_RELEASE_MANIFEST}
 - release_manifest_skip_build: ${RELEASE_MANIFEST_SKIP_BUILD}
