@@ -66,6 +66,8 @@ GENESIS_FIXTURE_EXPECTED_HASH=<new_sha256> ./scripts/launch/run_readiness_gate.s
 
 ## Latest Verification Snapshot
 
+- `2026-03-04`: `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist` passed locally on commit `fb113bc50` with snapshot-reconciliation doc/syntax checks integrated.
+- `2026-03-04`: `./scripts/launch/check_snapshot_supply_reconciliation.sh --genesis <generated genesis> --txoutsetinfo <fixture gettxoutsetinfo.json> --tolerance-sats 0 --json-out <summary>` passed locally on commit `fb113bc50` (`difference_satoshis=0`, `within_tolerance=true`).
 - `2026-03-04`: `./scripts/launch/run_readiness_gate.sh --full --include-fuzz --skip-checklist` passed locally on commit `947011618`.
 - `2026-03-04`: `./scripts/launch/run_readiness_gate.sh --full --include-fuzz --skip-checklist` passed locally on commit `e01fe7a32`.
 - `2026-03-04`: `./scripts/launch/run_launch_rehearsal.sh --mode smoke --include-release-manifest --release-manifest-skip-build --operator "launch-readiness"` passed locally on commit `3cdce7b63` in clean-worktree mode (no `--allow-dirty`).

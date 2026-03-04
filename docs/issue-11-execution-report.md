@@ -2367,3 +2367,6 @@ Verification:
 - `./scripts/launch/check_snapshot_supply_reconciliation.sh --genesis <generated genesis> --txoutsetinfo <fixture json> --tolerance-sats 0 --json-out <summary>` passed locally.
   - result: `difference_satoshis=0`, `within_tolerance=true`.
 - `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist` passed locally with new snapshot-reconciliation script syntax check active.
+- Rerun on clean commit `fb113bc50`:
+  - `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist` passed locally.
+  - `./scripts/launch/check_snapshot_supply_reconciliation.sh --genesis <generated genesis> --txoutsetinfo <fixture gettxoutsetinfo.json> --tolerance-sats 0 --json-out <summary>` passed locally (`difference_satoshis=0`, `within_tolerance=true`).
