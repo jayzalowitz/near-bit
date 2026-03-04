@@ -53,6 +53,7 @@ use utxo_synth::SyntheticUtxo;
 
 #[derive(Debug, Parser)]
 #[command(name = "bitinfinity-btcrpc")]
+#[command(version)]
 #[command(about = "Bitcoin-compatible JSON-RPC bridge for Bitcoin Infinity")]
 struct Cli {
     /// NEAR RPC URL to query backend state
