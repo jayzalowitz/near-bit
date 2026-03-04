@@ -3,11 +3,12 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/launch/check_go_no_go_checklist.sh [--file <path>] [--require-go] [--json-out <path>]
+Usage: ./scripts/launch/check_go_no_go_checklist.sh [--file <path>] [--require-go] [--expected-gates <n>] [--json-out <path>]
 
 Options:
   --file <path>  Checklist file path. Default: docs/mainnet-go-no-go-checklist.md
   --require-go   Exit non-zero unless every gate status is "done" and signoff fields are populated.
+  --expected-gates <n>  Expected number of gate rows. Default: 16.
   --json-out     Write machine-readable summary JSON to the specified file path.
   -h, --help     Show this help text.
 EOF
@@ -15,6 +16,7 @@ EOF
 
 CHECKLIST_FILE="docs/mainnet-go-no-go-checklist.md"
 REQUIRE_GO=0
+EXPECTED_GATES=16
 JSON_OUT=""
 
 while [[ $# -gt 0 ]]; do
@@ -30,6 +32,14 @@ while [[ $# -gt 0 ]]; do
     --require-go)
       REQUIRE_GO=1
       shift
+      ;;
+    --expected-gates)
+      if [[ $# -lt 2 ]]; then
+        echo "--expected-gates requires a numeric value" >&2
+        exit 1
+      fi
+      EXPECTED_GATES="$2"
+      shift 2
       ;;
     --json-out)
       if [[ $# -lt 2 ]]; then
@@ -53,6 +63,11 @@ done
 
 if [[ ! -f "$CHECKLIST_FILE" ]]; then
   echo "Checklist file not found: $CHECKLIST_FILE" >&2
+  exit 1
+fi
+
+if [[ ! "$EXPECTED_GATES" =~ ^[0-9]+$ ]]; then
+  echo "--expected-gates must be a non-negative integer: $EXPECTED_GATES" >&2
   exit 1
 fi
 
@@ -102,6 +117,11 @@ if [[ "$total_gates" -eq 0 ]]; then
   exit 1
 fi
 
+gate_count_mismatch=0
+if [[ "$EXPECTED_GATES" -gt 0 && "$total_gates" -ne "$EXPECTED_GATES" ]]; then
+  gate_count_mismatch=1
+fi
+
 required_signoff_fields=(
   "Release candidate commit:"
   "Proposed genesis hash:"
@@ -135,11 +155,16 @@ for field in "${required_signoff_fields[@]}"; do
 done
 
 echo "Checklist summary: file=${CHECKLIST_FILE}"
+echo "Expected gates: ${EXPECTED_GATES}"
 echo "Total gates:   ${total_gates}"
 echo "Done gates:    ${done_gates}"
 echo "Todo gates:    ${todo_gates}"
 echo "Invalid gates: ${invalid_status}"
 echo "Missing signoff fields: ${missing_signoff}"
+
+if [[ "$gate_count_mismatch" -eq 1 ]]; then
+  echo "Gate count mismatch: expected ${EXPECTED_GATES}, found ${total_gates}" >&2
+fi
 
 if [[ "$todo_gates" -gt 0 ]]; then
   echo
@@ -182,11 +207,13 @@ if [[ -n "$JSON_OUT" ]]; then
   jq -n \
     --arg file "$CHECKLIST_FILE" \
     --argjson require_go "$REQUIRE_GO" \
+    --argjson expected_gates "$EXPECTED_GATES" \
     --argjson total_gates "$total_gates" \
     --argjson done_gates "$done_gates" \
     --argjson todo_gates "$todo_gates" \
     --argjson invalid_gates "$invalid_status" \
     --argjson missing_signoff_fields "$missing_signoff" \
+    --argjson gate_count_mismatch "$gate_count_mismatch" \
     --argjson pending "$pending_json" \
     --argjson invalid "$invalid_json" \
     --argjson missing "$missing_json" \
@@ -194,16 +221,24 @@ if [[ -n "$JSON_OUT" ]]; then
       checklist_file: $file,
       require_go: $require_go,
       totals: {
+        expected: $expected_gates,
         gates: $total_gates,
         done: $done_gates,
         todo: $todo_gates,
         invalid: $invalid_gates,
         missing_signoff_fields: $missing_signoff_fields
       },
+      gate_count_mismatch: ($gate_count_mismatch == 1),
       pending_gates: ($pending // []),
       invalid_gates: ($invalid // []),
       missing_signoff: ($missing // [])
     }' > "$JSON_OUT"
+fi
+
+if [[ "$gate_count_mismatch" -eq 1 ]]; then
+  echo
+  echo "Checklist structure invalid: expected ${EXPECTED_GATES} gates, found ${total_gates}." >&2
+  exit 1
 fi
 
 if [[ "$REQUIRE_GO" -eq 1 ]]; then
