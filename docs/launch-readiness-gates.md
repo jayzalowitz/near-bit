@@ -59,6 +59,7 @@ Use one command path for repeatable local verification:
 
 ## Latest Verification Snapshot
 
+- `2026-03-04`: `./scripts/launch/run_readiness_gate.sh --full --include-fuzz --skip-checklist` passed locally on commit `947011618`.
 - `2026-03-04`: `./scripts/launch/run_readiness_gate.sh --full --include-fuzz --skip-checklist` passed locally on commit `e01fe7a32`.
 - `2026-03-04`: `./scripts/launch/run_launch_rehearsal.sh --mode smoke --include-release-manifest --release-manifest-skip-build --operator "launch-readiness"` passed locally on commit `3cdce7b63` in clean-worktree mode (no `--allow-dirty`).
 - `2026-03-04`: `scripts/launch/run_launch_rehearsal.sh` fixed to stage evidence/manifest generation in a temporary directory before writing to `artifacts/`, preventing false dirty-worktree failures during strict rehearsal execution.
