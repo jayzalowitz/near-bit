@@ -2273,3 +2273,22 @@ Verification:
 - `cargo test -p bitinfinity-tools` passed locally (`22 passed`, `0 failed`, `1 ignored`).
 - `./scripts/launch/check_genesis_determinism.sh --testnet --num-accounts 32 --json-out /tmp/genesis-determinism.json` passed locally on commit `5437c6dc7`.
 - `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist` passed locally on commit `5437c6dc7`, including deterministic-genesis gate execution.
+
+## Continuation (2026-03-04): genesis supply reconciliation verifier
+
+Implemented:
+- Added `bitinfinity-tools verify-genesis`:
+  - loads `genesis.json`,
+  - parses all account records,
+  - computes `sum(account.amount + account.locked)` with `u128`,
+  - compares computed total against declared `total_supply`,
+  - emits optional machine-readable JSON summary (`--json-out`),
+  - exits non-zero on reconciliation mismatch.
+- Updated `scripts/launch/check_genesis_determinism.sh` to invoke `verify-genesis` for both reruns and fail if either reconciliation result is false.
+- Updated launch docs to treat this as a gate #10 evidence primitive.
+
+Verification:
+- `cargo test -p bitinfinity-tools` passed locally (`22 passed`, `0 failed`, `1 ignored`).
+- `./scripts/launch/check_genesis_determinism.sh --testnet --num-accounts 32 --json-out /tmp/genesis-determinism.json` passed locally.
+  - includes `declared_total_supply == computed_total_supply`.
+- `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist` passed locally with deterministic-genesis + reconciliation checks enabled.
