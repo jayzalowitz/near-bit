@@ -3,12 +3,16 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/launch/run_launch_rehearsal.sh [--mode smoke|full] [--include-fuzz] [--require-go] [--allow-dirty] [--checklist-file <path>] [--out-dir <path>]
+Usage: ./scripts/launch/run_launch_rehearsal.sh [--mode smoke|full] [--include-fuzz] [--require-go] [--include-release-manifest|--skip-release-manifest] [--release-manifest-skip-build] [--allow-dirty] [--checklist-file <path>] [--out-dir <path>]
 
 Options:
   --mode <smoke|full>  Rehearsal mode passed to evidence generator. Default: full.
   --include-fuzz       Include fuzz smoke in readiness execution.
   --require-go         Enforce strict GO criteria from checklist.
+  --include-release-manifest  Generate release artifact manifest during rehearsal.
+                              Default: enabled for --mode full, disabled for --mode smoke.
+  --skip-release-manifest     Skip release artifact manifest generation.
+  --release-manifest-skip-build  Skip release build when generating manifest.
   --allow-dirty        Allow running on dirty worktree (default: fail).
   --checklist-file     Checklist file path. Default: docs/mainnet-go-no-go-checklist.md
   --out-dir <path>     Rehearsal output root. Default: artifacts/launch-rehearsals
@@ -19,6 +23,8 @@ EOF
 MODE="full"
 INCLUDE_FUZZ=0
 REQUIRE_GO=0
+INCLUDE_RELEASE_MANIFEST=-1
+RELEASE_MANIFEST_SKIP_BUILD=0
 ALLOW_DIRTY=0
 CHECKLIST_FILE="docs/mainnet-go-no-go-checklist.md"
 OUT_ROOT="artifacts/launch-rehearsals"
@@ -39,6 +45,18 @@ while [[ $# -gt 0 ]]; do
       ;;
     --require-go)
       REQUIRE_GO=1
+      shift
+      ;;
+    --include-release-manifest)
+      INCLUDE_RELEASE_MANIFEST=1
+      shift
+      ;;
+    --skip-release-manifest)
+      INCLUDE_RELEASE_MANIFEST=0
+      shift
+      ;;
+    --release-manifest-skip-build)
+      RELEASE_MANIFEST_SKIP_BUILD=1
       shift
       ;;
     --allow-dirty)
@@ -78,6 +96,19 @@ if [[ "$MODE" != "smoke" && "$MODE" != "full" ]]; then
   exit 1
 fi
 
+if [[ "$INCLUDE_RELEASE_MANIFEST" -lt 0 ]]; then
+  if [[ "$MODE" == "full" ]]; then
+    INCLUDE_RELEASE_MANIFEST=1
+  else
+    INCLUDE_RELEASE_MANIFEST=0
+  fi
+fi
+
+if [[ "$INCLUDE_RELEASE_MANIFEST" -eq 0 && "$RELEASE_MANIFEST_SKIP_BUILD" -eq 1 ]]; then
+  echo "--release-manifest-skip-build cannot be used when release manifest generation is disabled." >&2
+  exit 1
+fi
+
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
 
@@ -107,6 +138,8 @@ branch_name="$(git rev-parse --abbrev-ref HEAD)"
 rehearsal_dir="${OUT_ROOT}/${timestamp}-${short_sha}"
 evidence_root="${rehearsal_dir}/evidence"
 rehearsal_log="${rehearsal_dir}/rehearsal.log"
+release_manifest_root="${rehearsal_dir}/release-manifests"
+release_manifest_log="${rehearsal_dir}/release-manifest.log"
 summary_json="${rehearsal_dir}/summary.json"
 summary_md="${rehearsal_dir}/SUMMARY.md"
 
@@ -160,6 +193,9 @@ checklist_exit_code=-1
 checklist_todo=-1
 checklist_invalid=-1
 checklist_missing_signoff=-1
+release_manifest_status="skipped"
+release_manifest_exit_code=0
+release_manifest_dir=""
 
 if [[ -f "$metadata_json" ]]; then
   gate_status="$(jq -r '.readiness_gate.status // "unknown"' "$metadata_json")"
@@ -173,14 +209,55 @@ if [[ -f "$checklist_report_json" ]]; then
   checklist_missing_signoff="$(jq -r '.totals.missing_signoff_fields // -1' "$checklist_report_json")"
 fi
 
+if [[ "$INCLUDE_RELEASE_MANIFEST" -eq 1 ]]; then
+  release_manifest_cmd=(
+    ./scripts/launch/generate_release_manifest.sh
+    --out-dir "$release_manifest_root"
+  )
+  if [[ "$RELEASE_MANIFEST_SKIP_BUILD" -eq 1 ]]; then
+    release_manifest_cmd+=(--skip-build)
+  fi
+  if [[ "$ALLOW_DIRTY" -eq 1 ]]; then
+    release_manifest_cmd+=(--allow-dirty)
+  fi
+
+  echo "Running release manifest: ${release_manifest_cmd[*]}"
+
+  set +e
+  "${release_manifest_cmd[@]}" 2>&1 | tee "$release_manifest_log"
+  release_manifest_exit_code=${PIPESTATUS[0]}
+  set -e
+
+  if [[ "$release_manifest_exit_code" -eq 0 ]]; then
+    release_manifest_status="passed"
+  else
+    release_manifest_status="failed"
+  fi
+
+  if [[ -d "$release_manifest_root" ]]; then
+    release_manifest_dir="$(find "$release_manifest_root" -mindepth 1 -maxdepth 1 -type d | sort | tail -n 1)"
+  fi
+  if [[ -z "$release_manifest_dir" && -f "$release_manifest_log" ]]; then
+    release_manifest_dir="$(awk -F': ' '/Release artifact manifest complete: /{print $2}' "$release_manifest_log" | tail -n 1)"
+  fi
+fi
+
 go_ready=false
 if [[ "$gate_status" == "passed" && "$checklist_todo" -eq 0 && "$checklist_invalid" -eq 0 && "$checklist_missing_signoff" -eq 0 ]]; then
   go_ready=true
 fi
 
-overall_status="failed"
-if [[ "$rehearsal_exit_code" -eq 0 ]]; then
-  overall_status="passed"
+overall_status="passed"
+overall_exit_code=0
+if [[ "$rehearsal_exit_code" -ne 0 ]]; then
+  overall_status="failed"
+  overall_exit_code="$rehearsal_exit_code"
+fi
+if [[ "$INCLUDE_RELEASE_MANIFEST" -eq 1 && "$release_manifest_exit_code" -ne 0 ]]; then
+  overall_status="failed"
+  if [[ "$overall_exit_code" -eq 0 ]]; then
+    overall_exit_code="$release_manifest_exit_code"
+  fi
 fi
 
 jq -n \
@@ -201,39 +278,53 @@ jq -n \
   --argjson checklist_exit_code "$checklist_exit_code" \
   --argjson include_fuzz "$INCLUDE_FUZZ" \
   --argjson require_go "$REQUIRE_GO" \
+  --argjson include_release_manifest "$INCLUDE_RELEASE_MANIFEST" \
+  --argjson release_manifest_skip_build "$RELEASE_MANIFEST_SKIP_BUILD" \
   --argjson allow_dirty "$ALLOW_DIRTY" \
   --argjson checklist_todo "$checklist_todo" \
   --argjson checklist_invalid "$checklist_invalid" \
   --argjson checklist_missing_signoff "$checklist_missing_signoff" \
+  --arg release_manifest_status "$release_manifest_status" \
+  --argjson release_manifest_exit_code "$release_manifest_exit_code" \
+  --arg release_manifest_dir "$release_manifest_dir" \
+  --arg release_manifest_log "$release_manifest_log" \
   --argjson go_ready "$go_ready" \
   '{
-    generated_at,
-    rehearsal_dir,
-    evidence_bundle_dir,
-    log_file,
+    generated_at: $generated_at,
+    rehearsal_dir: $rehearsal_dir,
+    evidence_bundle_dir: $evidence_bundle_dir,
+    log_file: $log_file,
     git: {
-      commit_sha,
-      short_sha,
-      branch
+      commit_sha: $commit_sha,
+      short_sha: $short_sha,
+      branch: $branch
     },
     execution: {
-      mode,
-      include_fuzz,
-      require_go,
-      allow_dirty,
-      checklist_file
+      mode: $mode,
+      include_fuzz: $include_fuzz,
+      require_go: $require_go,
+      include_release_manifest: $include_release_manifest,
+      release_manifest_skip_build: $release_manifest_skip_build,
+      allow_dirty: $allow_dirty,
+      checklist_file: $checklist_file
+    },
+    release_manifest: {
+      status: $release_manifest_status,
+      exit_code: $release_manifest_exit_code,
+      manifest_dir: $release_manifest_dir,
+      log_file: $release_manifest_log
     },
     result: {
-      overall_status,
-      rehearsal_exit_code,
-      gate_status,
-      gate_exit_code,
-      checklist_status,
-      checklist_exit_code,
-      checklist_todo,
-      checklist_invalid,
-      checklist_missing_signoff,
-      go_ready
+      overall_status: $overall_status,
+      rehearsal_exit_code: $rehearsal_exit_code,
+      gate_status: $gate_status,
+      gate_exit_code: $gate_exit_code,
+      checklist_status: $checklist_status,
+      checklist_exit_code: $checklist_exit_code,
+      checklist_todo: $checklist_todo,
+      checklist_invalid: $checklist_invalid,
+      checklist_missing_signoff: $checklist_missing_signoff,
+      go_ready: $go_ready
     }
   }' > "$summary_json"
 
@@ -248,6 +339,8 @@ cat > "$summary_md" <<EOF
 - mode: ${MODE}
 - include_fuzz: ${INCLUDE_FUZZ}
 - require_go: ${REQUIRE_GO}
+- include_release_manifest: ${INCLUDE_RELEASE_MANIFEST}
+- release_manifest_skip_build: ${RELEASE_MANIFEST_SKIP_BUILD}
 - allow_dirty: ${ALLOW_DIRTY}
 - checklist_file: ${CHECKLIST_FILE}
 - overall_status: ${overall_status}
@@ -259,6 +352,9 @@ cat > "$summary_md" <<EOF
 - checklist_todo: ${checklist_todo}
 - checklist_invalid: ${checklist_invalid}
 - checklist_missing_signoff: ${checklist_missing_signoff}
+- release_manifest_status: ${release_manifest_status}
+- release_manifest_exit_code: ${release_manifest_exit_code}
+- release_manifest_dir: ${release_manifest_dir}
 - go_ready: ${go_ready}
 
 ## Artifacts
@@ -268,10 +364,17 @@ cat > "$summary_md" <<EOF
 - evidence/...
 EOF
 
+if [[ "$INCLUDE_RELEASE_MANIFEST" -eq 1 ]]; then
+  {
+    echo "- release-manifest.log"
+    echo "- release-manifests/..."
+  } >> "$summary_md"
+fi
+
 echo
 echo "Launch rehearsal complete: ${rehearsal_dir}"
 echo "Summary: ${summary_md}"
 
-if [[ "$rehearsal_exit_code" -ne 0 ]]; then
-  exit "$rehearsal_exit_code"
+if [[ "$overall_exit_code" -ne 0 ]]; then
+  exit "$overall_exit_code"
 fi
