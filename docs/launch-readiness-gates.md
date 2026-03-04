@@ -1,6 +1,6 @@
 # Launch Readiness Gates
 
-Last updated: March 3, 2026.
+Last updated: March 4, 2026.
 
 This document tracks launch-readiness progress for items in [issue #11](https://github.com/infinitoshi/near-bit/issues/11), with a strict split between:
 
@@ -40,6 +40,12 @@ Use one command path for repeatable local verification:
 | Release artifact checksum manifest generator | complete | `scripts/launch/generate_release_manifest.sh`, `docs/release-artifact-manifest.md` |
 | Documentation hub and technical guides | complete | `docs/documentation-hub.md` and linked docs |
 | Launch execution report for implementation phases | complete | `docs/issue-11-execution-report.md` |
+
+## Latest Verification Snapshot
+
+- `2026-03-04`: `./scripts/launch/run_readiness_gate.sh --full --include-fuzz` passed locally on commit `89a1a29d0`.
+- `2026-03-04`: `./scripts/launch/run_launch_rehearsal.sh --mode smoke` passed locally on commit `89a1a29d0`.
+- Rehearsal metadata now includes operator attribution via `--operator` (or workflow actor in CI).
 
 ## External Gates (Not Solvable by Repository Changes Alone)
 
