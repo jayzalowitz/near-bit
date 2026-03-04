@@ -6,6 +6,7 @@ This hub links all major documentation for building, integrating, operating, and
 
 - [Project README](../README.md): high-level overview, repository layout, and CI parity commands.
 - [Quick Start Guide](../QUICKSTART.md): stand up a local network and send the first transactions.
+- [Technical Whitepaper](technical-whitepaper.md): architecture, economics, launch model, and security assumptions.
 - [Architecture Overview](architecture-overview.md): component map and cross-layer data flow.
 
 ## Integration and API
@@ -47,18 +48,19 @@ This hub links all major documentation for building, integrating, operating, and
 
 1. `README.md`
 2. `QUICKSTART.md`
-3. `architecture-overview.md`
-4. `rpc-integration-playbook.md`
-5. `security-and-threat-model.md`
-6. `validator-operations-runbook.md`
-7. `incident-communication-templates.md`
-8. `benchmark-methodology.md`
-9. `launch-readiness-gates.md`
-10. `mainnet-go-no-go-checklist.md`
-11. `launch-evidence-bundle.md`
-12. `launch-rehearsal.md`
-13. `nightly-fuzz-health-check.md`
-14. `issue1-core-goal-check.md`
-15. `genesis-determinism-check.md`
-16. `snapshot-supply-reconciliation.md`
-17. `release-artifact-manifest.md`
+3. `technical-whitepaper.md`
+4. `architecture-overview.md`
+5. `rpc-integration-playbook.md`
+6. `security-and-threat-model.md`
+7. `validator-operations-runbook.md`
+8. `incident-communication-templates.md`
+9. `benchmark-methodology.md`
+10. `launch-readiness-gates.md`
+11. `mainnet-go-no-go-checklist.md`
+12. `launch-evidence-bundle.md`
+13. `launch-rehearsal.md`
+14. `nightly-fuzz-health-check.md`
+15. `issue1-core-goal-check.md`
+16. `genesis-determinism-check.md`
+17. `snapshot-supply-reconciliation.md`
+18. `release-artifact-manifest.md`
