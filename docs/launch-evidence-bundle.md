@@ -58,6 +58,7 @@ It executes readiness checks with checklist parsing disabled internally, then ru
   - `run_readiness_gate.sh`
   - `check_go_no_go_checklist.sh`
   - `check_nightly_fuzz_health.sh`
+  - `check_issue1_core_goals.sh`
   - `run_launch_rehearsal.sh`
   - `generate_release_manifest.sh`
 
@@ -97,6 +98,9 @@ It executes readiness checks with checklist parsing disabled internally, then ru
 
 # Permit in-progress nightly runs during active maintenance windows
 ./scripts/launch/generate_evidence_bundle.sh --check-nightly-fuzz-health --nightly-fuzz-allow-in-progress
+
+# Skip Issue #1 target suites for quick local iteration (not for signoff evidence)
+./scripts/launch/generate_evidence_bundle.sh --skip-issue1-goal-checks
 ```
 
 Use `--skip-gate` only for documentation snapshots, not for launch signoff evidence.
@@ -111,5 +115,6 @@ Use workflow `.github/workflows/launch-evidence.yml` via manual dispatch:
 2. optionally set `include_fuzz=true`
 3. optionally set `check_nightly_fuzz_health=true` and tune:
    `nightly_fuzz_branch`, `nightly_fuzz_workflow`, `nightly_fuzz_window_days`, `nightly_fuzz_min_runs`, `nightly_fuzz_max_runs`, `nightly_fuzz_allow_in_progress`
-4. set `require_go=true` for final signoff runs (will fail until checklist is fully complete)
-5. download the uploaded `launch-evidence-*` artifact for signoff records
+4. optionally set `skip_issue1_goal_checks=true` only for fast iteration runs
+5. set `require_go=true` for final signoff runs (will fail until checklist is fully complete)
+6. download the uploaded `launch-evidence-*` artifact for signoff records

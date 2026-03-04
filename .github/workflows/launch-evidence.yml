@@ -51,6 +51,11 @@ on:
         required: true
         default: false
         type: boolean
+      skip_issue1_goal_checks:
+        description: "Skip Issue #1 target suites in readiness gate"
+        required: true
+        default: false
+        type: boolean
       require_go:
         description: "Require GO criteria from checklist"
         required: true
@@ -101,6 +106,9 @@ jobs:
             if [[ "${{ inputs.nightly_fuzz_allow_in_progress }}" == "true" ]]; then
               EXTRA_ARGS+=(--nightly-fuzz-allow-in-progress)
             fi
+          fi
+          if [[ "${{ inputs.skip_issue1_goal_checks }}" == "true" ]]; then
+            EXTRA_ARGS+=(--skip-issue1-goal-checks)
           fi
           if [[ "${{ inputs.require_go }}" == "true" ]]; then
             EXTRA_ARGS+=(--require-go)

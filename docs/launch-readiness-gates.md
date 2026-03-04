@@ -26,6 +26,9 @@ Use one command path for repeatable local verification:
 
 # Full gate + explicit nightly fuzz criteria
 ./scripts/launch/run_readiness_gate.sh --full --check-nightly-fuzz-health --nightly-fuzz-branch main --nightly-fuzz-workflow "Nightly Fuzz" --nightly-fuzz-window-days 7 --nightly-fuzz-min-runs 1 --nightly-fuzz-max-runs 200
+
+# Optional for faster iteration only: skip Issue #1 target test suites
+./scripts/launch/run_readiness_gate.sh --smoke --skip-issue1-goal-checks
 ```
 
 ## Repository-Verifiable Gates
@@ -42,6 +45,7 @@ Use one command path for repeatable local verification:
 | Mainnet go/no-go decision checklist template | complete | `docs/mainnet-go-no-go-checklist.md` |
 | Go/no-go checklist validator script | complete | `scripts/launch/check_go_no_go_checklist.sh` |
 | Nightly fuzz 7-day health verifier script | complete | `scripts/launch/check_nightly_fuzz_health.sh`, `docs/nightly-fuzz-health-check.md` |
+| Issue #1 core-goal verification script | complete | `scripts/launch/check_issue1_core_goals.sh` |
 | Launch evidence bundle generator | complete | `scripts/launch/generate_evidence_bundle.sh`, `docs/launch-evidence-bundle.md` |
 | Launch rehearsal orchestration runner | complete | `scripts/launch/run_launch_rehearsal.sh`, `docs/launch-rehearsal.md` |
 | Release artifact checksum manifest generator | complete | `scripts/launch/generate_release_manifest.sh`, `docs/release-artifact-manifest.md` |
@@ -54,6 +58,7 @@ Use one command path for repeatable local verification:
 - `2026-03-04`: `./scripts/launch/run_launch_rehearsal.sh --mode smoke` passed locally on commit `89a1a29d0`.
 - Rehearsal metadata now includes operator attribution via `--operator` (or workflow actor in CI).
 - `2026-03-04`: CI run `22652391057` (commit `d1fd2c22d`) completed success across Build/Test/Clippy/Fuzz (smoke)/Security Audit/Format/Launch Readiness.
+- `2026-03-04`: `./scripts/launch/check_issue1_core_goals.sh` passed locally (`near-account-id`: `10 passed`; `bitinfinity-tools`: `22 passed`, `1 ignored`).
 - `2026-03-04`: `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist --check-nightly-fuzz-health --nightly-fuzz-workflow CI --nightly-fuzz-branch infinitoshi/btc-near-fork-plan --nightly-fuzz-window-days 0 --nightly-fuzz-min-runs 0 --nightly-fuzz-max-runs 50 --nightly-fuzz-allow-in-progress` passed locally.
 - `2026-03-04`: `./scripts/launch/run_launch_rehearsal.sh --mode smoke --check-nightly-fuzz-health --nightly-fuzz-workflow CI --nightly-fuzz-branch infinitoshi/btc-near-fork-plan --nightly-fuzz-window-days 0 --nightly-fuzz-min-runs 0 --nightly-fuzz-max-runs 50 --nightly-fuzz-allow-in-progress --skip-release-manifest --allow-dirty` passed locally.
 

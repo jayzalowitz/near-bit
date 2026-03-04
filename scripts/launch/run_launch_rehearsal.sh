@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/launch/run_launch_rehearsal.sh [--mode smoke|full] [--include-fuzz] [--check-nightly-fuzz-health] [--nightly-fuzz-branch <name>] [--nightly-fuzz-workflow <name>] [--nightly-fuzz-window-days <n>] [--nightly-fuzz-min-runs <n>] [--nightly-fuzz-max-runs <n>] [--nightly-fuzz-allow-in-progress] [--require-go] [--include-release-manifest|--skip-release-manifest] [--release-manifest-skip-build] [--operator <name>] [--allow-dirty] [--checklist-file <path>] [--out-dir <path>]
+Usage: ./scripts/launch/run_launch_rehearsal.sh [--mode smoke|full] [--include-fuzz] [--check-nightly-fuzz-health] [--nightly-fuzz-branch <name>] [--nightly-fuzz-workflow <name>] [--nightly-fuzz-window-days <n>] [--nightly-fuzz-min-runs <n>] [--nightly-fuzz-max-runs <n>] [--nightly-fuzz-allow-in-progress] [--skip-issue1-goal-checks] [--require-go] [--include-release-manifest|--skip-release-manifest] [--release-manifest-skip-build] [--operator <name>] [--allow-dirty] [--checklist-file <path>] [--out-dir <path>]
 
 Options:
   --mode <smoke|full>  Rehearsal mode passed to evidence generator. Default: full.
@@ -15,6 +15,7 @@ Options:
   --nightly-fuzz-min-runs <n> Minimum required runs in lookback window. Default: 1.
   --nightly-fuzz-max-runs <n> Max runs fetched from GitHub API. Default: 200.
   --nightly-fuzz-allow-in-progress Do not fail when in-progress runs are present.
+  --skip-issue1-goal-checks Skip targeted Issue #1 goal validation tests in readiness gate.
   --require-go         Enforce strict GO criteria from checklist.
   --include-release-manifest  Generate release artifact manifest during rehearsal.
                               Default: enabled for --mode full, disabled for --mode smoke.
@@ -38,6 +39,7 @@ NIGHTLY_FUZZ_WINDOW_DAYS=7
 NIGHTLY_FUZZ_MIN_RUNS=1
 NIGHTLY_FUZZ_MAX_RUNS=200
 NIGHTLY_FUZZ_ALLOW_IN_PROGRESS=0
+SKIP_ISSUE1_GOAL_CHECKS=0
 REQUIRE_GO=0
 INCLUDE_RELEASE_MANIFEST=-1
 RELEASE_MANIFEST_SKIP_BUILD=0
@@ -106,6 +108,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --nightly-fuzz-allow-in-progress)
       NIGHTLY_FUZZ_ALLOW_IN_PROGRESS=1
+      shift
+      ;;
+    --skip-issue1-goal-checks)
+      SKIP_ISSUE1_GOAL_CHECKS=1
       shift
       ;;
     --require-go)
@@ -257,6 +263,9 @@ if [[ "$CHECK_NIGHTLY_FUZZ_HEALTH" -eq 1 ]]; then
     evidence_cmd+=(--nightly-fuzz-allow-in-progress)
   fi
 fi
+if [[ "$SKIP_ISSUE1_GOAL_CHECKS" -eq 1 ]]; then
+  evidence_cmd+=(--skip-issue1-goal-checks)
+fi
 if [[ "$REQUIRE_GO" -eq 1 ]]; then
   evidence_cmd+=(--require-go)
 fi
@@ -388,6 +397,7 @@ jq -n \
   --argjson nightly_fuzz_min_runs "$NIGHTLY_FUZZ_MIN_RUNS" \
   --argjson nightly_fuzz_max_runs "$NIGHTLY_FUZZ_MAX_RUNS" \
   --argjson nightly_fuzz_allow_in_progress "$NIGHTLY_FUZZ_ALLOW_IN_PROGRESS" \
+  --argjson skip_issue1_goal_checks "$SKIP_ISSUE1_GOAL_CHECKS" \
   --argjson require_go "$REQUIRE_GO" \
   --argjson include_release_manifest "$INCLUDE_RELEASE_MANIFEST" \
   --argjson release_manifest_skip_build "$RELEASE_MANIFEST_SKIP_BUILD" \
@@ -421,6 +431,7 @@ jq -n \
       nightly_fuzz_min_runs: $nightly_fuzz_min_runs,
       nightly_fuzz_max_runs: $nightly_fuzz_max_runs,
       nightly_fuzz_allow_in_progress: ($nightly_fuzz_allow_in_progress == 1),
+      skip_issue1_goal_checks: ($skip_issue1_goal_checks == 1),
       require_go: $require_go,
       include_release_manifest: $include_release_manifest,
       release_manifest_skip_build: $release_manifest_skip_build,
@@ -465,6 +476,7 @@ cat > "$summary_md" <<EOF
 - nightly_fuzz_min_runs: ${NIGHTLY_FUZZ_MIN_RUNS}
 - nightly_fuzz_max_runs: ${NIGHTLY_FUZZ_MAX_RUNS}
 - nightly_fuzz_allow_in_progress: ${NIGHTLY_FUZZ_ALLOW_IN_PROGRESS}
+- skip_issue1_goal_checks: ${SKIP_ISSUE1_GOAL_CHECKS}
 - require_go: ${REQUIRE_GO}
 - include_release_manifest: ${INCLUDE_RELEASE_MANIFEST}
 - release_manifest_skip_build: ${RELEASE_MANIFEST_SKIP_BUILD}

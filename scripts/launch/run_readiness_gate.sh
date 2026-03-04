@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/launch/run_readiness_gate.sh [--smoke|--full] [--include-fuzz] [--check-nightly-fuzz-health] [--nightly-fuzz-branch <name>] [--nightly-fuzz-workflow <name>] [--nightly-fuzz-window-days <n>] [--nightly-fuzz-min-runs <n>] [--nightly-fuzz-max-runs <n>] [--nightly-fuzz-allow-in-progress] [--require-go] [--skip-checklist]
+Usage: ./scripts/launch/run_readiness_gate.sh [--smoke|--full] [--include-fuzz] [--check-nightly-fuzz-health] [--nightly-fuzz-branch <name>] [--nightly-fuzz-workflow <name>] [--nightly-fuzz-window-days <n>] [--nightly-fuzz-min-runs <n>] [--nightly-fuzz-max-runs <n>] [--nightly-fuzz-allow-in-progress] [--skip-issue1-goal-checks] [--require-go] [--skip-checklist]
 
 Modes:
   --smoke         Fast readiness checks (docs + script + benchmark/auth smoke).
@@ -18,6 +18,7 @@ Options:
   --nightly-fuzz-min-runs <n> Minimum required runs in lookback window. Default: 1.
   --nightly-fuzz-max-runs <n> Max runs fetched from GitHub API. Default: 200.
   --nightly-fuzz-allow-in-progress Do not fail when in-progress runs are present.
+  --skip-issue1-goal-checks Skip targeted Issue #1 goal validation tests.
   --require-go    Enforce GO criteria during checklist parse.
   --skip-checklist  Skip checklist parse step (used by higher-level orchestration).
   -h, --help      Show this help text.
@@ -33,6 +34,7 @@ NIGHTLY_FUZZ_WINDOW_DAYS=7
 NIGHTLY_FUZZ_MIN_RUNS=1
 NIGHTLY_FUZZ_MAX_RUNS=200
 NIGHTLY_FUZZ_ALLOW_IN_PROGRESS=0
+SKIP_ISSUE1_GOAL_CHECKS=0
 REQUIRE_GO=0
 SKIP_CHECKLIST=0
 HAS_RG=0
@@ -97,6 +99,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --nightly-fuzz-allow-in-progress)
       NIGHTLY_FUZZ_ALLOW_IN_PROGRESS=1
+      shift
+      ;;
+    --skip-issue1-goal-checks)
+      SKIP_ISSUE1_GOAL_CHECKS=1
       shift
       ;;
     --require-go)
@@ -269,6 +275,10 @@ run_cmd "Launch rehearsal script syntax" bash -n scripts/launch/run_launch_rehea
 run_cmd "Release artifact manifest script syntax" bash -n scripts/launch/generate_release_manifest.sh
 run_cmd "Go/no-go checklist script syntax" bash -n scripts/launch/check_go_no_go_checklist.sh
 run_cmd "Nightly fuzz health script syntax" bash -n scripts/launch/check_nightly_fuzz_health.sh
+run_cmd "Issue #1 core-goal checker script syntax" bash -n scripts/launch/check_issue1_core_goals.sh
+if [[ "$SKIP_ISSUE1_GOAL_CHECKS" -eq 0 ]]; then
+  run_cmd "Issue #1 core-goal checks" ./scripts/launch/check_issue1_core_goals.sh
+fi
 if [[ "$SKIP_CHECKLIST" -eq 0 ]]; then
   checklist_cmd=(./scripts/launch/check_go_no_go_checklist.sh)
   if [[ "$REQUIRE_GO" -eq 1 ]]; then
@@ -312,4 +322,4 @@ if [[ "$INCLUDE_FUZZ" -eq 1 ]]; then
 fi
 
 echo
-echo "Launch readiness gate passed: mode=${MODE}, include_fuzz=${INCLUDE_FUZZ}, check_nightly_fuzz_health=${CHECK_NIGHTLY_FUZZ_HEALTH}, nightly_fuzz_branch=${NIGHTLY_FUZZ_BRANCH}, nightly_fuzz_workflow=${NIGHTLY_FUZZ_WORKFLOW}, nightly_fuzz_window_days=${NIGHTLY_FUZZ_WINDOW_DAYS}, nightly_fuzz_min_runs=${NIGHTLY_FUZZ_MIN_RUNS}, nightly_fuzz_max_runs=${NIGHTLY_FUZZ_MAX_RUNS}, nightly_fuzz_allow_in_progress=${NIGHTLY_FUZZ_ALLOW_IN_PROGRESS}, require_go=${REQUIRE_GO}, skip_checklist=${SKIP_CHECKLIST}, at=$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+echo "Launch readiness gate passed: mode=${MODE}, include_fuzz=${INCLUDE_FUZZ}, check_nightly_fuzz_health=${CHECK_NIGHTLY_FUZZ_HEALTH}, nightly_fuzz_branch=${NIGHTLY_FUZZ_BRANCH}, nightly_fuzz_workflow=${NIGHTLY_FUZZ_WORKFLOW}, nightly_fuzz_window_days=${NIGHTLY_FUZZ_WINDOW_DAYS}, nightly_fuzz_min_runs=${NIGHTLY_FUZZ_MIN_RUNS}, nightly_fuzz_max_runs=${NIGHTLY_FUZZ_MAX_RUNS}, nightly_fuzz_allow_in_progress=${NIGHTLY_FUZZ_ALLOW_IN_PROGRESS}, skip_issue1_goal_checks=${SKIP_ISSUE1_GOAL_CHECKS}, require_go=${REQUIRE_GO}, skip_checklist=${SKIP_CHECKLIST}, at=$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
