@@ -5,6 +5,9 @@
 /target/
 **/target/
 /artifacts/benchmarks/
+/artifacts/launch-readiness/
+/artifacts/launch-rehearsals/
+/artifacts/release-manifests/
 
 # Fuzzing runtime outputs
 **/fuzz/artifacts/
