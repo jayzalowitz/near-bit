@@ -135,11 +135,14 @@ bash -n scripts/benchmark/run_tps_profiles.sh
 ## Run launch rehearsal
 
 ```bash
-# Full rehearsal orchestrator
+# Full rehearsal orchestrator (includes release manifest by default)
 ./scripts/launch/run_launch_rehearsal.sh
 
 # Fast rehearsal
 ./scripts/launch/run_launch_rehearsal.sh --mode smoke
+
+# Smoke rehearsal + release manifest using existing binaries
+./scripts/launch/run_launch_rehearsal.sh --mode smoke --include-release-manifest --release-manifest-skip-build
 
 # Strict signoff rehearsal
 ./scripts/launch/run_launch_rehearsal.sh --require-go
