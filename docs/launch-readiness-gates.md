@@ -31,7 +31,7 @@ Use one command path for repeatable local verification:
 ./scripts/launch/run_readiness_gate.sh --smoke --skip-issue1-goal-checks
 
 # Direct gate #9 deterministic genesis hash verification
-./scripts/launch/check_genesis_determinism.sh --testnet
+./scripts/launch/check_genesis_determinism.sh --testnet --expected-hash 95f3e2600eec0dcd3ca51bf530f46ac963fa3b5286e18c6401efdcae8066aa5d
 ```
 
 ## Repository-Verifiable Gates
@@ -71,6 +71,7 @@ Use one command path for repeatable local verification:
 - `2026-03-04`: `./scripts/launch/check_issue1_core_goals.sh` passed locally (`near-account-id`: `10 passed`; `bitinfinity-tools`: `22 passed`, `1 ignored`).
 - `2026-03-04`: `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist --check-nightly-fuzz-health --nightly-fuzz-workflow CI --nightly-fuzz-branch jayzalowitz/btc-near-fork-plan --nightly-fuzz-window-days 0 --nightly-fuzz-min-runs 0 --nightly-fuzz-max-runs 50 --nightly-fuzz-allow-in-progress` passed locally.
 - `2026-03-04`: `./scripts/launch/run_launch_rehearsal.sh --mode smoke --check-nightly-fuzz-health --nightly-fuzz-workflow CI --nightly-fuzz-branch jayzalowitz/btc-near-fork-plan --nightly-fuzz-window-days 0 --nightly-fuzz-min-runs 0 --nightly-fuzz-max-runs 50 --nightly-fuzz-allow-in-progress --skip-release-manifest --allow-dirty` passed locally.
+- `2026-03-04`: `./scripts/launch/check_genesis_determinism.sh --testnet --num-accounts 100 --chain-id bitinfinity-mainnet --genesis-time 2026-01-01T00:00:00Z --expected-hash 95f3e2600eec0dcd3ca51bf530f46ac963fa3b5286e18c6401efdcae8066aa5d` passed locally; readiness now enforces this pinned fixture hash.
 
 ## External Gates (Not Solvable by Repository Changes Alone)
 

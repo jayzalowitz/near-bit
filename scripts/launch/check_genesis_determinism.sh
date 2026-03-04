@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/launch/check_genesis_determinism.sh [--testnet] [--num-accounts <n>] [--utxo-snapshot <path>] [--patoshi-csv <path> --satoshi-address <btc-addr>] [--chain-id <id>] [--genesis-time <rfc3339>] [--validator-account <id>] [--validator-key <key>] [--json-out <path>] [--keep-tmp]
+Usage: ./scripts/launch/check_genesis_determinism.sh [--testnet] [--num-accounts <n>] [--utxo-snapshot <path>] [--patoshi-csv <path> --satoshi-address <btc-addr>] [--chain-id <id>] [--genesis-time <rfc3339>] [--validator-account <id>] [--validator-key <key>] [--expected-hash <sha256>] [--json-out <path>] [--keep-tmp]
 
 Purpose:
   Validate launch gate #9 by generating genesis twice with identical inputs and
@@ -22,6 +22,7 @@ Options:
   --genesis-time <ts>  Canonical genesis timestamp (RFC3339). Default: 2026-01-01T00:00:00Z.
   --validator-account <id> Validator account ID. Default: validator.bitinfinity.
   --validator-key <key> Validator ed25519 key used by genesis tool.
+  --expected-hash <sha256> Optional expected SHA256 for generated genesis.json.
   --json-out <path>    Write machine-readable summary JSON.
   --keep-tmp           Keep temporary run directory on success.
   -h, --help           Show this help text.
@@ -37,6 +38,7 @@ CHAIN_ID="bitinfinity-mainnet"
 GENESIS_TIME="2026-01-01T00:00:00Z"
 VALIDATOR_ACCOUNT="validator.bitinfinity"
 VALIDATOR_KEY="ed25519:6E8sCci9badyRkXb3JoRpBj5p8C6Tw41ELDZoiihKEtp"
+EXPECTED_HASH=""
 JSON_OUT=""
 KEEP_TMP=0
 
@@ -111,6 +113,14 @@ while [[ $# -gt 0 ]]; do
       VALIDATOR_KEY="$2"
       shift 2
       ;;
+    --expected-hash)
+      if [[ $# -lt 2 ]]; then
+        echo "--expected-hash requires a SHA256 value" >&2
+        exit 1
+      fi
+      EXPECTED_HASH="$2"
+      shift 2
+      ;;
     --json-out)
       if [[ $# -lt 2 ]]; then
         echo "--json-out requires a path value" >&2
@@ -138,6 +148,14 @@ done
 if [[ ! "$NUM_ACCOUNTS" =~ ^[0-9]+$ ]] || [[ "$NUM_ACCOUNTS" -eq 0 ]]; then
   echo "--num-accounts must be a positive integer." >&2
   exit 1
+fi
+
+if [[ -n "$EXPECTED_HASH" ]]; then
+  EXPECTED_HASH="$(echo "$EXPECTED_HASH" | tr '[:upper:]' '[:lower:]')"
+  if [[ ! "$EXPECTED_HASH" =~ ^[0-9a-f]{64}$ ]]; then
+    echo "--expected-hash must be a lowercase/uppercase 64-char hex SHA256 value." >&2
+    exit 1
+  fi
 fi
 
 if [[ "$MODE" == "snapshot" ]]; then
@@ -285,6 +303,7 @@ if [[ -n "$JSON_OUT" ]]; then
     --arg computed_total_supply "$computed_total_supply" \
     --arg hash1 "$hash1" \
     --arg hash2 "$hash2" \
+    --arg expected_hash "$EXPECTED_HASH" \
     --argjson deterministic "$([[ "$hash1" == "$hash2" ]] && echo true || echo false)" \
     --argjson records "$record_count" \
     --argjson account_records "$account_record_count" \
@@ -304,6 +323,8 @@ if [[ -n "$JSON_OUT" ]]; then
       hash_run1: $hash1,
       hash_run2: $hash2,
       deterministic: $deterministic,
+      expected_hash: (if $expected_hash == "" then null else $expected_hash end),
+      matches_expected_hash: (if $expected_hash == "" then null else ($hash1 == $expected_hash and $hash2 == $expected_hash) end),
       logs: {
         run1: $run1_log,
         run2: $run2_log
@@ -326,6 +347,17 @@ if [[ "$hash1" != "$hash2" ]]; then
   exit 1
 fi
 
+if [[ -n "$EXPECTED_HASH" && ( "$hash1" != "$EXPECTED_HASH" || "$hash2" != "$EXPECTED_HASH" ) ]]; then
+  echo "Genesis determinism check failed: hash does not match expected fixture value." >&2
+  echo "expected hash: $EXPECTED_HASH" >&2
+  echo "run1 hash:     $hash1" >&2
+  echo "run2 hash:     $hash2" >&2
+  echo "run1: $run1_genesis" >&2
+  echo "run2: $run2_genesis" >&2
+  echo "tmp dir kept for inspection: $tmp_root" >&2
+  exit 1
+fi
+
 echo "Genesis determinism check passed at $(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 echo "mode: $MODE"
 echo "chain_id: $CHAIN_ID"
@@ -334,6 +366,9 @@ echo "records: $record_count (account=$account_record_count, data=$data_record_c
 echo "declared_total_supply: $declared_total_supply"
 echo "computed_total_supply: $computed_total_supply"
 echo "sha256: $hash1"
+if [[ -n "$EXPECTED_HASH" ]]; then
+  echo "expected_sha256: $EXPECTED_HASH"
+fi
 
 if [[ "$KEEP_TMP" -eq 1 ]]; then
   echo "tmp dir kept: $tmp_root"

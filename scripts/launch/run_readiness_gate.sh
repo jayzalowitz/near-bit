@@ -38,6 +38,7 @@ SKIP_ISSUE1_GOAL_CHECKS=0
 REQUIRE_GO=0
 SKIP_CHECKLIST=0
 HAS_RG=0
+GENESIS_FIXTURE_EXPECTED_HASH="95f3e2600eec0dcd3ca51bf530f46ac963fa3b5286e18c6401efdcae8066aa5d"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -282,12 +283,13 @@ if [[ "$SKIP_ISSUE1_GOAL_CHECKS" -eq 0 ]]; then
   run_cmd "Issue #1 core-goal checks" ./scripts/launch/check_issue1_core_goals.sh
 fi
 run_cmd \
-  "Genesis determinism check (testnet fixture)" \
+  "Genesis determinism check (testnet fixture + pinned hash)" \
   ./scripts/launch/check_genesis_determinism.sh \
   --testnet \
   --num-accounts 100 \
   --chain-id bitinfinity-mainnet \
-  --genesis-time 2026-01-01T00:00:00Z
+  --genesis-time 2026-01-01T00:00:00Z \
+  --expected-hash "$GENESIS_FIXTURE_EXPECTED_HASH"
 if [[ "$SKIP_CHECKLIST" -eq 0 ]]; then
   checklist_cmd=(./scripts/launch/check_go_no_go_checklist.sh)
   if [[ "$REQUIRE_GO" -eq 1 ]]; then

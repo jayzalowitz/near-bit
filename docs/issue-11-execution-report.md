@@ -2292,3 +2292,19 @@ Verification:
 - `./scripts/launch/check_genesis_determinism.sh --testnet --num-accounts 32 --json-out /tmp/genesis-determinism.json` passed locally.
   - includes `declared_total_supply == computed_total_supply`.
 - `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist` passed locally with deterministic-genesis + reconciliation checks enabled.
+
+## Continuation (2026-03-04): pinned deterministic fixture hash regression gate
+
+Implemented:
+- Extended `scripts/launch/check_genesis_determinism.sh` with `--expected-hash <sha256>`:
+  - validates the expected hash format,
+  - fails if either rerun hash differs from expected,
+  - emits `expected_hash` and `matches_expected_hash` in `--json-out` output.
+- Tightened readiness execution:
+  - `scripts/launch/run_readiness_gate.sh` now enforces the canonical deterministic fixture hash in gate #9:
+    - `95f3e2600eec0dcd3ca51bf530f46ac963fa3b5286e18c6401efdcae8066aa5d`
+- Updated launch docs/README for the new pinned-hash workflow.
+
+Verification:
+- `./scripts/launch/check_genesis_determinism.sh --testnet --num-accounts 100 --chain-id bitinfinity-mainnet --genesis-time 2026-01-01T00:00:00Z --expected-hash 95f3e2600eec0dcd3ca51bf530f46ac963fa3b5286e18c6401efdcae8066aa5d --json-out /tmp/genesis-determinism-pinned.json` passed locally.
+- `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist` passed locally with pinned-hash enforcement active in deterministic-genesis gate execution.
