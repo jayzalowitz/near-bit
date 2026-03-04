@@ -7,7 +7,7 @@
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use base64::Engine;
 use borsh::{BorshDeserialize, BorshSerialize};
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fs;
@@ -139,6 +139,7 @@ struct PatoshiRecord {
 pub struct GenesisBuilder {
     chain_id: String,
     output_dir: std::path::PathBuf,
+    genesis_time: Option<String>,
 }
 
 /// Configuration for the validator that will produce blocks
@@ -155,7 +156,22 @@ impl GenesisBuilder {
         GenesisBuilder {
             chain_id,
             output_dir,
+            genesis_time: None,
         }
+    }
+
+    pub fn with_genesis_time(
+        mut self,
+        genesis_time: Option<String>,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        if let Some(raw) = genesis_time {
+            let canonical = DateTime::parse_from_rfc3339(&raw)
+                .map_err(|e| format!("Invalid --genesis-time (RFC3339 required): {}", e))?
+                .with_timezone(&Utc)
+                .to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+            self.genesis_time = Some(canonical);
+        }
+        Ok(self)
     }
 
     /// Build a complete nearcore-compatible genesis.json from UTXO data + validator config.
@@ -269,7 +285,10 @@ impl GenesisBuilder {
         // 5. Build the complete genesis
         let genesis = Genesis {
             protocol_version: 84,
-            genesis_time: Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true),
+            genesis_time: self
+                .genesis_time
+                .clone()
+                .unwrap_or_else(|| Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true)),
             chain_id: self.chain_id.clone(),
             genesis_height: 0,
             num_block_producer_seats: 1,

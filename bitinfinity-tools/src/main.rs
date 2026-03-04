@@ -55,6 +55,10 @@ enum Commands {
         #[arg(long, default_value = "bitinfinity-mainnet")]
         chain_id: String,
 
+        /// Explicit genesis time (RFC3339). If omitted, current UTC time is used.
+        #[arg(long)]
+        genesis_time: Option<String>,
+
         /// Validator account ID
         #[arg(long, default_value = "validator.bitinfinity")]
         validator_account: String,
@@ -84,6 +88,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             testnet,
             num_accounts,
             chain_id,
+            genesis_time,
             validator_account,
             validator_key,
         } => {
@@ -205,7 +210,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             // Build nearcore-compatible genesis
             let builder =
-                genesis_builder::GenesisBuilder::new(chain_id.clone(), output_dir.clone());
+                genesis_builder::GenesisBuilder::new(chain_id.clone(), output_dir.clone())
+                    .with_genesis_time(genesis_time)?;
             builder.build(&utxos, &validator, &patoshi_registry)?;
             println!();
             println!("✓ Genesis written to {}", output_dir.display());

@@ -163,6 +163,7 @@ check_required_docs() {
   local required_files=(
     "docs/launch-readiness-gates.md"
     "docs/mainnet-go-no-go-checklist.md"
+    "docs/genesis-determinism-check.md"
     "docs/launch-evidence-bundle.md"
     "docs/launch-rehearsal.md"
     "docs/release-artifact-manifest.md"
@@ -276,9 +277,17 @@ run_cmd "Release artifact manifest script syntax" bash -n scripts/launch/generat
 run_cmd "Go/no-go checklist script syntax" bash -n scripts/launch/check_go_no_go_checklist.sh
 run_cmd "Nightly fuzz health script syntax" bash -n scripts/launch/check_nightly_fuzz_health.sh
 run_cmd "Issue #1 core-goal checker script syntax" bash -n scripts/launch/check_issue1_core_goals.sh
+run_cmd "Genesis determinism checker script syntax" bash -n scripts/launch/check_genesis_determinism.sh
 if [[ "$SKIP_ISSUE1_GOAL_CHECKS" -eq 0 ]]; then
   run_cmd "Issue #1 core-goal checks" ./scripts/launch/check_issue1_core_goals.sh
 fi
+run_cmd \
+  "Genesis determinism check (testnet fixture)" \
+  ./scripts/launch/check_genesis_determinism.sh \
+  --testnet \
+  --num-accounts 100 \
+  --chain-id bitinfinity-mainnet \
+  --genesis-time 2026-01-01T00:00:00Z
 if [[ "$SKIP_CHECKLIST" -eq 0 ]]; then
   checklist_cmd=(./scripts/launch/check_go_no_go_checklist.sh)
   if [[ "$REQUIRE_GO" -eq 1 ]]; then
