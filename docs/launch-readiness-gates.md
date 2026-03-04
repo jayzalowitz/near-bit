@@ -45,7 +45,7 @@ Use one command path for repeatable local verification:
 | Mainnet go/no-go decision checklist template | complete | `docs/mainnet-go-no-go-checklist.md` |
 | Go/no-go checklist validator script | complete | `scripts/launch/check_go_no_go_checklist.sh` |
 | Nightly fuzz 7-day health verifier script | complete | `scripts/launch/check_nightly_fuzz_health.sh`, `docs/nightly-fuzz-health-check.md` |
-| Issue #1 core-goal verification script | complete | `scripts/launch/check_issue1_core_goals.sh` |
+| Issue #1 core-goal verification script | complete | `scripts/launch/check_issue1_core_goals.sh`, `docs/issue1-core-goal-check.md` |
 | Launch evidence bundle generator | complete | `scripts/launch/generate_evidence_bundle.sh`, `docs/launch-evidence-bundle.md` |
 | Launch rehearsal orchestration runner | complete | `scripts/launch/run_launch_rehearsal.sh`, `docs/launch-rehearsal.md` |
 | Release artifact checksum manifest generator | complete | `scripts/launch/generate_release_manifest.sh`, `docs/release-artifact-manifest.md` |

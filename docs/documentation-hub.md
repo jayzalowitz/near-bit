@@ -37,6 +37,7 @@ This hub links all major documentation for building, integrating, operating, and
 - [Launch Evidence Bundle](launch-evidence-bundle.md): reproducible artifact packaging for launch rehearsals and signoff.
 - [Launch Rehearsal Runner](launch-rehearsal.md): single-command orchestration for readiness, evidence, and checklist reporting.
 - [Nightly Fuzz Health Check](nightly-fuzz-health-check.md): enforce 7-day nightly fuzz stability gate for launch signoff.
+- [Issue #1 Core-Goal Check](issue1-core-goal-check.md): targeted verification for Bitcoin account-ID and Patoshi/genesis toolchain guarantees.
 - [Release Artifact Manifest](release-artifact-manifest.md): checksummed release binaries plus machine-readable metadata for candidate commits.
 - [Issue #11 Execution Report](issue-11-execution-report.md): launch-plan execution details and completion artifacts.
 
@@ -55,4 +56,5 @@ This hub links all major documentation for building, integrating, operating, and
 11. `launch-evidence-bundle.md`
 12. `launch-rehearsal.md`
 13. `nightly-fuzz-health-check.md`
-14. `release-artifact-manifest.md`
+14. `issue1-core-goal-check.md`
+15. `release-artifact-manifest.md`

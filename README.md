@@ -191,7 +191,7 @@ bash -n scripts/benchmark/run_tps_profiles.sh
 ./scripts/launch/generate_release_manifest.sh --skip-build
 ```
 
-See `docs/launch-readiness-gates.md` for gate status, `docs/mainnet-go-no-go-checklist.md` for decision signoff, `docs/incident-communication-templates.md` for incident messaging templates, `docs/launch-evidence-bundle.md` for evidence packaging details, `docs/nightly-fuzz-health-check.md` for 7-day fuzz health gating, and `docs/release-artifact-manifest.md` for release-binary checksum manifests.
+See `docs/launch-readiness-gates.md` for gate status, `docs/mainnet-go-no-go-checklist.md` for decision signoff, `docs/incident-communication-templates.md` for incident messaging templates, `docs/launch-evidence-bundle.md` for evidence packaging details, `docs/nightly-fuzz-health-check.md` for 7-day fuzz health gating, `docs/issue1-core-goal-check.md` for Issue #1 target verification, and `docs/release-artifact-manifest.md` for release-binary checksum manifests.
 
 ## Fuzzing
 
