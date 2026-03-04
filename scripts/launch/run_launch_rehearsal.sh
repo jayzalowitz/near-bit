@@ -209,6 +209,7 @@ require_cmd() {
 require_cmd git
 require_cmd jq
 require_cmd find
+require_cmd mktemp
 
 if [[ ! -f "$CHECKLIST_FILE" ]]; then
   echo "Checklist file not found: $CHECKLIST_FILE" >&2
@@ -239,13 +240,17 @@ release_manifest_log="${rehearsal_dir}/release-manifest.log"
 summary_json="${rehearsal_dir}/summary.json"
 summary_md="${rehearsal_dir}/SUMMARY.md"
 
-mkdir -p "$rehearsal_dir"
+tmp_root="$(mktemp -d "${TMPDIR:-/tmp}/launch-rehearsal.XXXXXX")"
+tmp_evidence_root="${tmp_root}/evidence"
+tmp_rehearsal_log="${tmp_root}/rehearsal.log"
+tmp_release_manifest_root="${tmp_root}/release-manifests"
+tmp_release_manifest_log="${tmp_root}/release-manifest.log"
 
 evidence_cmd=(
   ./scripts/launch/generate_evidence_bundle.sh
   --mode "$MODE"
   --checklist-file "$CHECKLIST_FILE"
-  --out-dir "$evidence_root"
+  --out-dir "$tmp_evidence_root"
 )
 if [[ "$INCLUDE_FUZZ" -eq 1 ]]; then
   evidence_cmd+=(--include-fuzz)
@@ -277,19 +282,23 @@ echo "Starting launch rehearsal: ${rehearsal_dir}"
 echo "Running: ${evidence_cmd[*]}"
 
 set +e
-"${evidence_cmd[@]}" 2>&1 | tee "$rehearsal_log"
+"${evidence_cmd[@]}" 2>&1 | tee "$tmp_rehearsal_log"
 rehearsal_exit_code=${PIPESTATUS[0]}
 set -e
 
 bundle_dir=""
-if [[ -d "$evidence_root" ]]; then
-  bundle_dir="$(find "$evidence_root" -mindepth 1 -maxdepth 1 -type d | sort | tail -n 1)"
+if [[ -d "$tmp_evidence_root" ]]; then
+  bundle_dir="$(find "$tmp_evidence_root" -mindepth 1 -maxdepth 1 -type d | sort | tail -n 1)"
 fi
 if [[ -z "$bundle_dir" ]]; then
-  bundle_dir="$(awk -F': ' '/Launch evidence bundle complete: /{print $2}' "$rehearsal_log" | tail -n 1)"
+  bundle_dir="$(awk -F': ' '/Launch evidence bundle complete: /{print $2}' "$tmp_rehearsal_log" | tail -n 1)"
 fi
 
 if [[ -z "$bundle_dir" || ! -d "$bundle_dir" ]]; then
+  mkdir -p "$rehearsal_dir"
+  if [[ -f "$tmp_rehearsal_log" ]]; then
+    cp "$tmp_rehearsal_log" "$rehearsal_log"
+  fi
   echo "Failed to resolve evidence bundle directory from rehearsal run." >&2
   echo "Rehearsal log: $rehearsal_log" >&2
   exit "${rehearsal_exit_code:-1}"
@@ -324,7 +333,7 @@ fi
 if [[ "$INCLUDE_RELEASE_MANIFEST" -eq 1 ]]; then
   release_manifest_cmd=(
     ./scripts/launch/generate_release_manifest.sh
-    --out-dir "$release_manifest_root"
+    --out-dir "$tmp_release_manifest_root"
   )
   if [[ "$RELEASE_MANIFEST_SKIP_BUILD" -eq 1 ]]; then
     release_manifest_cmd+=(--skip-build)
@@ -336,7 +345,7 @@ if [[ "$INCLUDE_RELEASE_MANIFEST" -eq 1 ]]; then
   echo "Running release manifest: ${release_manifest_cmd[*]}"
 
   set +e
-  "${release_manifest_cmd[@]}" 2>&1 | tee "$release_manifest_log"
+  "${release_manifest_cmd[@]}" 2>&1 | tee "$tmp_release_manifest_log"
   release_manifest_exit_code=${PIPESTATUS[0]}
   set -e
 
@@ -346,11 +355,11 @@ if [[ "$INCLUDE_RELEASE_MANIFEST" -eq 1 ]]; then
     release_manifest_status="failed"
   fi
 
-  if [[ -d "$release_manifest_root" ]]; then
-    release_manifest_dir="$(find "$release_manifest_root" -mindepth 1 -maxdepth 1 -type d | sort | tail -n 1)"
+  if [[ -d "$tmp_release_manifest_root" ]]; then
+    release_manifest_dir="$(find "$tmp_release_manifest_root" -mindepth 1 -maxdepth 1 -type d | sort | tail -n 1)"
   fi
-  if [[ -z "$release_manifest_dir" && -f "$release_manifest_log" ]]; then
-    release_manifest_dir="$(awk -F': ' '/Release artifact manifest complete: /{print $2}' "$release_manifest_log" | tail -n 1)"
+  if [[ -z "$release_manifest_dir" && -f "$tmp_release_manifest_log" ]]; then
+    release_manifest_dir="$(awk -F': ' '/Release artifact manifest complete: /{print $2}' "$tmp_release_manifest_log" | tail -n 1)"
   fi
 fi
 
@@ -369,6 +378,24 @@ if [[ "$INCLUDE_RELEASE_MANIFEST" -eq 1 && "$release_manifest_exit_code" -ne 0 ]
   overall_status="failed"
   if [[ "$overall_exit_code" -eq 0 ]]; then
     overall_exit_code="$release_manifest_exit_code"
+  fi
+fi
+
+mkdir -p "$evidence_root"
+cp -R "$tmp_evidence_root"/. "$evidence_root"/
+cp "$tmp_rehearsal_log" "$rehearsal_log"
+bundle_dir="${evidence_root}/$(basename "$bundle_dir")"
+
+if [[ "$INCLUDE_RELEASE_MANIFEST" -eq 1 ]]; then
+  mkdir -p "$release_manifest_root"
+  if [[ -d "$tmp_release_manifest_root" ]]; then
+    cp -R "$tmp_release_manifest_root"/. "$release_manifest_root"/
+  fi
+  if [[ -f "$tmp_release_manifest_log" ]]; then
+    cp "$tmp_release_manifest_log" "$release_manifest_log"
+  fi
+  if [[ -n "$release_manifest_dir" ]]; then
+    release_manifest_dir="${release_manifest_root}/$(basename "$release_manifest_dir")"
   fi
 fi
 
