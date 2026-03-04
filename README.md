@@ -154,6 +154,9 @@ bash -n scripts/benchmark/run_tps_profiles.sh
 
 # Genesis determinism verification (launch gate #9)
 ./scripts/launch/check_genesis_determinism.sh --testnet
+
+# Direct genesis supply reconciliation (launch gate #10 evidence primitive)
+cargo run -q -p bitinfinity-tools -- verify-genesis --genesis /path/to/genesis.json --json-out /tmp/genesis-verify.json
 ```
 
 ## Run launch rehearsal

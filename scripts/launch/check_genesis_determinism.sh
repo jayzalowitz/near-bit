@@ -221,6 +221,19 @@ run_once() {
   "${cmd[@]}" >"$log_file" 2>&1
 }
 
+verify_once() {
+  local genesis_file="$1"
+  local json_out="$2"
+  local log_file="$3"
+  local -a cmd=(
+    cargo run -q -p bitinfinity-tools -- verify-genesis
+    --genesis "$genesis_file"
+    --json-out "$json_out"
+  )
+  echo "Running: ${cmd[*]}"
+  "${cmd[@]}" >>"$log_file" 2>&1
+}
+
 tmp_root="$(mktemp -d "${TMPDIR:-/tmp}/genesis-determinism.XXXXXX")"
 run1_dir="${tmp_root}/run1"
 run2_dir="${tmp_root}/run2"
@@ -228,6 +241,8 @@ run1_log="${tmp_root}/run1.log"
 run2_log="${tmp_root}/run2.log"
 run1_genesis="${run1_dir}/genesis.json"
 run2_genesis="${run2_dir}/genesis.json"
+run1_verify_json="${tmp_root}/run1-verify.json"
+run2_verify_json="${tmp_root}/run2-verify.json"
 
 run_once "$run1_dir" "$run1_log"
 run_once "$run2_dir" "$run2_log"
@@ -240,21 +255,34 @@ if [[ ! -f "$run1_genesis" || ! -f "$run2_genesis" ]]; then
   exit 1
 fi
 
+verify_once "$run1_genesis" "$run1_verify_json" "$run1_log"
+verify_once "$run2_genesis" "$run2_verify_json" "$run2_log"
+
+if [[ "$(jq -r '.reconciled' "$run1_verify_json")" != "true" || "$(jq -r '.reconciled' "$run2_verify_json")" != "true" ]]; then
+  echo "Genesis supply reconciliation failed in verify-genesis step." >&2
+  echo "run1 verify: $run1_verify_json" >&2
+  echo "run2 verify: $run2_verify_json" >&2
+  echo "tmp dir kept for inspection: $tmp_root" >&2
+  exit 1
+fi
+
 hash1="$(sha256_file "$run1_genesis")"
 hash2="$(sha256_file "$run2_genesis")"
 
 genesis_time="$(jq -r '.genesis_time' "$run1_genesis")"
-total_supply="$(jq -r '.total_supply' "$run1_genesis")"
-record_count="$(jq '.records | length' "$run1_genesis")"
-account_record_count="$(jq '[.records[] | .Account? | select(.)] | length' "$run1_genesis")"
-data_record_count="$(jq '[.records[] | .Data? | select(.)] | length' "$run1_genesis")"
+declared_total_supply="$(jq -r '.declared_total_supply' "$run1_verify_json")"
+computed_total_supply="$(jq -r '.computed_total_supply' "$run1_verify_json")"
+record_count="$(jq '.records.total' "$run1_verify_json")"
+account_record_count="$(jq '.records.account' "$run1_verify_json")"
+data_record_count="$(jq '.records.data' "$run1_verify_json")"
 
 if [[ -n "$JSON_OUT" ]]; then
   jq -n \
     --arg mode "$MODE" \
     --arg chain_id "$CHAIN_ID" \
     --arg genesis_time "$genesis_time" \
-    --arg total_supply "$total_supply" \
+    --arg declared_total_supply "$declared_total_supply" \
+    --arg computed_total_supply "$computed_total_supply" \
     --arg hash1 "$hash1" \
     --arg hash2 "$hash2" \
     --argjson deterministic "$([[ "$hash1" == "$hash2" ]] && echo true || echo false)" \
@@ -268,7 +296,8 @@ if [[ -n "$JSON_OUT" ]]; then
       mode: $mode,
       chain_id: $chain_id,
       genesis_time: $genesis_time,
-      total_supply: $total_supply,
+      declared_total_supply: $declared_total_supply,
+      computed_total_supply: $computed_total_supply,
       records: $records,
       account_records: $account_records,
       data_records: $data_records,
@@ -302,7 +331,8 @@ echo "mode: $MODE"
 echo "chain_id: $CHAIN_ID"
 echo "genesis_time: $genesis_time"
 echo "records: $record_count (account=$account_record_count, data=$data_record_count)"
-echo "total_supply: $total_supply"
+echo "declared_total_supply: $declared_total_supply"
+echo "computed_total_supply: $computed_total_supply"
 echo "sha256: $hash1"
 
 if [[ "$KEEP_TMP" -eq 1 ]]; then

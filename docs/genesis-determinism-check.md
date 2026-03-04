@@ -4,7 +4,12 @@ This guide documents launch gate #9 verification:
 
 - same genesis input -> same `genesis.json` SHA256 hash across reruns.
 
-It also emits supply/record metadata useful for gate #10 evidence packaging.
+It also runs `bitinfinity-tools verify-genesis` on each generated file, providing gate #10 supply reconciliation evidence:
+
+- `declared_total_supply` from genesis metadata
+- `computed_total_supply` from `sum(account.amount + account.locked)` using `u128` arithmetic
+- reconciliation status (`reconciled=true`)
+- record counts (account/access-key/data)
 
 ## Run Determinism Check
 
@@ -40,3 +45,11 @@ It also emits supply/record metadata useful for gate #10 evidence packaging.
 ```
 
 For final launch signoff, run snapshot mode explicitly and attach the JSON/text output to go/no-go records.
+
+## Direct Supply Reconciliation
+
+You can verify any existing genesis artifact directly:
+
+```bash
+bitinfinity-tools verify-genesis --genesis /path/to/genesis.json --json-out /tmp/genesis-verify.json
+```

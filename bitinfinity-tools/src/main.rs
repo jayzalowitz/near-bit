@@ -72,6 +72,15 @@ enum Commands {
         #[arg(long)]
         output: Option<PathBuf>,
     },
+    VerifyGenesis {
+        /// Path to generated genesis.json
+        #[arg(long)]
+        genesis: PathBuf,
+
+        /// Optional path to write machine-readable summary JSON
+        #[arg(long)]
+        json_out: Option<PathBuf>,
+    },
 }
 
 #[tokio::main]
@@ -229,6 +238,84 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 println!("Wrote keypair to {}", path.display());
             } else {
                 println!("{}", rendered);
+            }
+        }
+        Commands::VerifyGenesis { genesis, json_out } => {
+            let content = std::fs::read_to_string(&genesis)?;
+            let parsed: genesis_builder::Genesis = serde_json::from_str(&content)?;
+
+            let declared_total = parsed
+                .total_supply
+                .parse::<u128>()
+                .map_err(|e| format!("Invalid genesis total_supply: {}", e))?;
+
+            let mut computed_total: u128 = 0;
+            let mut account_records: usize = 0;
+            let mut access_key_records: usize = 0;
+            let mut data_records: usize = 0;
+
+            for record in &parsed.records {
+                match record {
+                    genesis_builder::StateRecord::Account { account, .. } => {
+                        let amount = account
+                            .amount
+                            .parse::<u128>()
+                            .map_err(|e| format!("Invalid account.amount: {}", e))?;
+                        let locked = account
+                            .locked
+                            .parse::<u128>()
+                            .map_err(|e| format!("Invalid account.locked: {}", e))?;
+                        computed_total = computed_total
+                            .checked_add(amount)
+                            .and_then(|x| x.checked_add(locked))
+                            .ok_or("Computed account total overflowed u128")?;
+                        account_records += 1;
+                    }
+                    genesis_builder::StateRecord::AccessKey { .. } => {
+                        access_key_records += 1;
+                    }
+                    genesis_builder::StateRecord::Data { .. } => {
+                        data_records += 1;
+                    }
+                }
+            }
+
+            let reconciled = declared_total == computed_total;
+
+            println!("Genesis verification summary");
+            println!("  file: {}", genesis.display());
+            println!("  chain_id: {}", parsed.chain_id);
+            println!("  genesis_time: {}", parsed.genesis_time);
+            println!("  declared_total_supply: {}", declared_total);
+            println!("  computed_total_supply: {}", computed_total);
+            println!("  reconciled: {}", reconciled);
+            println!("  records: {}", parsed.records.len());
+            println!("    account: {}", account_records);
+            println!("    access_key: {}", access_key_records);
+            println!("    data: {}", data_records);
+
+            if let Some(path) = json_out {
+                let payload = serde_json::json!({
+                    "file": genesis.display().to_string(),
+                    "chain_id": parsed.chain_id,
+                    "genesis_time": parsed.genesis_time,
+                    "declared_total_supply": declared_total.to_string(),
+                    "computed_total_supply": computed_total.to_string(),
+                    "reconciled": reconciled,
+                    "records": {
+                        "total": parsed.records.len(),
+                        "account": account_records,
+                        "access_key": access_key_records,
+                        "data": data_records
+                    }
+                });
+                let rendered = serde_json::to_string_pretty(&payload)?;
+                std::fs::write(&path, rendered)?;
+                println!("  summary_json: {}", path.display());
+            }
+
+            if !reconciled {
+                return Err("Genesis total supply reconciliation failed".into());
             }
         }
     }
