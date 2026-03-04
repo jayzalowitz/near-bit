@@ -2252,3 +2252,24 @@ Verification:
   - launch evidence bundle,
   - release artifact manifest,
   - rehearsal summary artifacts.
+
+## Continuation (2026-03-04): genesis determinism launch gate automation
+
+Implemented:
+- Added explicit deterministic genesis-time support to genesis tooling:
+  - `bitinfinity-tools generate-genesis --genesis-time <RFC3339>`.
+  - tool normalizes provided timestamp to canonical UTC RFC3339-second format.
+- Added launch gate #9 verifier:
+  - `scripts/launch/check_genesis_determinism.sh`.
+  - executes two genesis generation runs with identical input/config and asserts `genesis.json` SHA256 hash equality.
+  - emits machine-readable metadata (`--json-out`) including hash pair, record counts, and total supply string.
+  - requires explicit `--satoshi-address` when using `--patoshi-csv` to prevent nondeterministic auto-key generation in Patoshi reassignment flow.
+- Wired deterministic-genesis check into launch readiness:
+  - `scripts/launch/run_readiness_gate.sh` now runs deterministic testnet-fixture verification in smoke/full modes.
+- Included deterministic-genesis artifacts in evidence bundling snapshots:
+  - `scripts/launch/generate_evidence_bundle.sh` now captures `docs/genesis-determinism-check.md` and `scripts/launch/check_genesis_determinism.sh`.
+
+Verification:
+- `cargo test -p bitinfinity-tools` passed locally (`22 passed`, `0 failed`, `1 ignored`).
+- `./scripts/launch/check_genesis_determinism.sh --testnet --num-accounts 32 --json-out /tmp/genesis-determinism.json` passed locally on commit `5437c6dc7`.
+- `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist` passed locally on commit `5437c6dc7`, including deterministic-genesis gate execution.
