@@ -206,7 +206,7 @@ cargo run -q -p bitinfinity-tools -- verify-genesis --genesis /path/to/genesis.j
 ./scripts/launch/generate_release_manifest.sh --skip-build
 ```
 
-See `docs/launch-readiness-gates.md` for gate status, `docs/mainnet-go-no-go-checklist.md` for decision signoff, `docs/incident-communication-templates.md` for incident messaging templates, `docs/launch-evidence-bundle.md` for evidence packaging details, `docs/nightly-fuzz-health-check.md` for 7-day fuzz health gating, `docs/issue1-core-goal-check.md` for Issue #1 target verification, `docs/genesis-determinism-check.md` for gate #9 hash-stability checks, `docs/snapshot-supply-reconciliation.md` for gate #10 snapshot supply checks, and `docs/release-artifact-manifest.md` for release-binary checksum manifests.
+See `docs/technical-whitepaper.md` for the architecture/economic/security baseline, `docs/launch-readiness-gates.md` for gate status, `docs/mainnet-go-no-go-checklist.md` for decision signoff, `docs/incident-communication-templates.md` for incident messaging templates, `docs/launch-evidence-bundle.md` for evidence packaging details, `docs/nightly-fuzz-health-check.md` for 7-day fuzz health gating, `docs/issue1-core-goal-check.md` for Issue #1 target verification, `docs/genesis-determinism-check.md` for gate #9 hash-stability checks, `docs/snapshot-supply-reconciliation.md` for gate #10 snapshot supply checks, and `docs/release-artifact-manifest.md` for release-binary checksum manifests.
 
 ## Fuzzing
 
