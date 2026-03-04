@@ -51,6 +51,7 @@ It executes readiness checks with checklist parsing disabled internally, then ru
 - `SHA256SUMS.txt`: checksums for captured policy/workflow/script snapshots.
 - launch-critical snapshots:
   - `launch-readiness-gates.md`
+  - `technical-whitepaper.md`
   - `mainnet-go-no-go-checklist.md`
   - `genesis-determinism-check.md`
   - `snapshot-supply-reconciliation.md`
