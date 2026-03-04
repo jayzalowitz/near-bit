@@ -17,6 +17,7 @@ This reduces manual sequencing errors and gives a single artifact root for each 
 In strict mode (no `--allow-dirty`), the runner stages evidence and release-manifest generation in a temporary directory first, then copies results to `artifacts/launch-rehearsals/...` after those checks complete. This avoids false dirty-worktree failures caused by rehearsal-created output directories.
 Before strict release-manifest execution, it also restores any tracked `target/` files changed by readiness execution so generated build artifacts do not block manifest generation.
 Readiness execution in this flow includes the deterministic genesis-hash verifier (`check_genesis_determinism.sh`) for launch gate #9.
+Optional gate #10 snapshot-vs-genesis supply reconciliation can be enforced in this flow with `--check-snapshot-supply` and snapshot input paths.
 
 ## Run a Rehearsal
 
@@ -41,6 +42,9 @@ Readiness execution in this flow includes the deterministic genesis-hash verifie
 
 # Enforce nightly fuzz health with explicit workflow/window criteria
 ./scripts/launch/run_launch_rehearsal.sh --check-nightly-fuzz-health --nightly-fuzz-branch main --nightly-fuzz-workflow "Nightly Fuzz" --nightly-fuzz-window-days 7 --nightly-fuzz-min-runs 1 --nightly-fuzz-max-runs 200
+
+# Enforce gate #10 snapshot reconciliation during rehearsal readiness checks
+./scripts/launch/run_launch_rehearsal.sh --mode smoke --check-snapshot-supply --snapshot-genesis /path/to/genesis.json --snapshot-txoutsetinfo /path/to/gettxoutsetinfo.json --snapshot-tolerance-sats 1 --snapshot-json-out /tmp/snapshot-supply-check.json
 
 # Allow in-progress nightly runs during maintenance windows
 ./scripts/launch/run_launch_rehearsal.sh --check-nightly-fuzz-health --nightly-fuzz-allow-in-progress
@@ -77,6 +81,7 @@ Operator metadata:
 
 - `--operator <name>` records ownership/signoff context in `SUMMARY.md` and `summary.json`.
 - If omitted, the script uses `git config user.name`, then `$USER`, then `unknown`.
+- Snapshot-check execution parameters (`check_snapshot_supply`, snapshot input paths, tolerance, and optional JSON output path) are recorded in `SUMMARY.md` and `summary.json`.
 
 `go_ready=true` in `summary.json` is only set when:
 

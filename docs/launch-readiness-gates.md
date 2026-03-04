@@ -38,6 +38,9 @@ GENESIS_FIXTURE_EXPECTED_HASH=<new_sha256> ./scripts/launch/run_readiness_gate.s
 
 # Direct gate #10 snapshot-vs-genesis supply reconciliation
 ./scripts/launch/check_snapshot_supply_reconciliation.sh --genesis /path/to/genesis.json --txoutsetinfo /path/to/gettxoutsetinfo.json --tolerance-sats 1
+
+# Readiness gate with enforced gate #10 snapshot reconciliation
+./scripts/launch/run_readiness_gate.sh --smoke --check-snapshot-supply --snapshot-genesis /path/to/genesis.json --snapshot-txoutsetinfo /path/to/gettxoutsetinfo.json --snapshot-tolerance-sats 1 --snapshot-json-out /tmp/snapshot-supply-check.json
 ```
 
 ## Repository-Verifiable Gates
@@ -85,6 +88,9 @@ GENESIS_FIXTURE_EXPECTED_HASH=<new_sha256> ./scripts/launch/run_readiness_gate.s
 - `2026-03-04`: `./scripts/launch/check_snapshot_supply_reconciliation.sh --genesis <generated genesis> --txoutsetinfo <fixture gettxoutsetinfo.json> --tolerance-sats 0 --json-out <summary>` passed locally (`difference_satoshis=0`, `within_tolerance=true`).
 - `2026-03-04`: `scripts/launch/run_launch_rehearsal.sh` strict-mode pre-manifest cleanup generalized to restore all tracked `target/` file diffs (not only `target/.rustc_info.json`), preventing smoke/full rehearsal test artifacts from blocking manifest generation.
 - `2026-03-04`: `./scripts/launch/run_launch_rehearsal.sh --mode smoke --include-release-manifest --release-manifest-skip-build --operator "launch-readiness"` passed locally on commit `196b0f43d` in strict mode after tracked-`target/` restore generalization.
+- `2026-03-04`: `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist --check-snapshot-supply --snapshot-genesis <generated genesis> --snapshot-txoutsetinfo <generated gettxoutsetinfo.json> --snapshot-tolerance-sats 0 --snapshot-json-out <summary>` passed locally (`difference_satoshis=0`, `within_tolerance=true`).
+- `2026-03-04`: `./scripts/launch/generate_evidence_bundle.sh --mode smoke --allow-dirty --check-snapshot-supply --snapshot-genesis <generated genesis> --snapshot-txoutsetinfo <generated gettxoutsetinfo.json> --snapshot-tolerance-sats 0 --snapshot-json-out <summary> --out-dir <tmp>` passed locally; evidence bundle captured `snapshot-inputs.txt`, `snapshot-gettxoutsetinfo.json`, and `snapshot-supply-check.json`.
+- `2026-03-04`: `./scripts/launch/run_launch_rehearsal.sh --mode smoke --allow-dirty --skip-release-manifest --check-snapshot-supply --snapshot-genesis <generated genesis> --snapshot-txoutsetinfo <generated gettxoutsetinfo.json> --snapshot-tolerance-sats 0 --snapshot-json-out <summary> --out-dir <tmp>` passed locally, confirming snapshot pass-through from rehearsal -> evidence -> readiness.
 
 ## External Gates (Not Solvable by Repository Changes Alone)
 

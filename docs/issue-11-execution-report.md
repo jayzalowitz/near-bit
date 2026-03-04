@@ -2370,3 +2370,24 @@ Verification:
 - Rerun on clean commit `fb113bc50`:
   - `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist` passed locally.
   - `./scripts/launch/check_snapshot_supply_reconciliation.sh --genesis <generated genesis> --txoutsetinfo <fixture gettxoutsetinfo.json> --tolerance-sats 0 --json-out <summary>` passed locally (`difference_satoshis=0`, `within_tolerance=true`).
+
+## Continuation (2026-03-04): snapshot gate pass-through in evidence/rehearsal orchestration
+
+Implemented:
+- Extended `scripts/launch/run_readiness_gate.sh` with optional gate #10 enforcement flags:
+  - `--check-snapshot-supply`
+  - `--snapshot-genesis`
+  - `--snapshot-txoutsetinfo`
+  - `--snapshot-tolerance-sats`
+  - `--snapshot-json-out`
+- Extended `scripts/launch/generate_evidence_bundle.sh` to pass the same snapshot flags into readiness execution and capture snapshot artifacts in the evidence bundle:
+  - `snapshot-inputs.txt` (input paths + SHA256 hashes + tolerance),
+  - `snapshot-gettxoutsetinfo.json`,
+  - `snapshot-supply-check.json`.
+- Extended `scripts/launch/run_launch_rehearsal.sh` to parse/validate/pass through the same snapshot flags to evidence generation and to record snapshot execution parameters in rehearsal `SUMMARY.md` / `summary.json`.
+- Updated launch docs/README for the new orchestration-level gate #10 usage.
+
+Verification:
+- `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist --check-snapshot-supply --snapshot-genesis <generated genesis> --snapshot-txoutsetinfo <generated gettxoutsetinfo.json> --snapshot-tolerance-sats 0 --snapshot-json-out <summary>` passed locally (`difference_satoshis=0`, `within_tolerance=true`).
+- `./scripts/launch/generate_evidence_bundle.sh --mode smoke --allow-dirty --check-snapshot-supply --snapshot-genesis <generated genesis> --snapshot-txoutsetinfo <generated gettxoutsetinfo.json> --snapshot-tolerance-sats 0 --snapshot-json-out <summary> --out-dir <tmp>` passed locally and produced snapshot artifacts in the bundle.
+- `./scripts/launch/run_launch_rehearsal.sh --mode smoke --allow-dirty --skip-release-manifest --check-snapshot-supply --snapshot-genesis <generated genesis> --snapshot-txoutsetinfo <generated gettxoutsetinfo.json> --snapshot-tolerance-sats 0 --snapshot-json-out <summary> --out-dir <tmp>` passed locally, confirming end-to-end snapshot gate pass-through.
