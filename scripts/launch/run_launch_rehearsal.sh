@@ -331,6 +331,11 @@ if [[ -f "$checklist_report_json" ]]; then
 fi
 
 if [[ "$INCLUDE_RELEASE_MANIFEST" -eq 1 ]]; then
+  if [[ "$ALLOW_DIRTY" -eq 0 ]] && [[ -n "$(git status --porcelain -- target/.rustc_info.json)" ]]; then
+    echo "Restoring generated target/.rustc_info.json before strict release manifest run."
+    git restore --worktree -- target/.rustc_info.json
+  fi
+
   release_manifest_cmd=(
     ./scripts/launch/generate_release_manifest.sh
     --out-dir "$tmp_release_manifest_root"
