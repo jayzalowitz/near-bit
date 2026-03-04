@@ -39,6 +39,7 @@ This hub links all major documentation for building, integrating, operating, and
 - [Nightly Fuzz Health Check](nightly-fuzz-health-check.md): enforce 7-day nightly fuzz stability gate for launch signoff.
 - [Issue #1 Core-Goal Check](issue1-core-goal-check.md): targeted verification for Bitcoin account-ID and Patoshi/genesis toolchain guarantees.
 - [Genesis Determinism Check](genesis-determinism-check.md): enforce same-input genesis hash stability and capture supply metadata.
+- [Snapshot Supply Reconciliation](snapshot-supply-reconciliation.md): compare genesis supply against `bitcoin-cli gettxoutsetinfo` snapshot totals.
 - [Release Artifact Manifest](release-artifact-manifest.md): checksummed release binaries plus machine-readable metadata for candidate commits.
 - [Issue #11 Execution Report](issue-11-execution-report.md): launch-plan execution details and completion artifacts.
 
@@ -59,4 +60,5 @@ This hub links all major documentation for building, integrating, operating, and
 13. `nightly-fuzz-health-check.md`
 14. `issue1-core-goal-check.md`
 15. `genesis-determinism-check.md`
-16. `release-artifact-manifest.md`
+16. `snapshot-supply-reconciliation.md`
+17. `release-artifact-manifest.md`

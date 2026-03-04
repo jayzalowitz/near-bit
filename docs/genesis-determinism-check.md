@@ -59,3 +59,5 @@ You can verify any existing genesis artifact directly:
 ```bash
 bitinfinity-tools verify-genesis --genesis /path/to/genesis.json --json-out /tmp/genesis-verify.json
 ```
+
+To reconcile against Bitcoin snapshot metadata (`gettxoutsetinfo`) for launch gate #10 signoff, see `snapshot-supply-reconciliation.md`.

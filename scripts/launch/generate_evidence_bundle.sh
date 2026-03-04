@@ -281,6 +281,7 @@ copy_and_checksum "docs/launch-readiness-gates.md" "${bundle_dir}/launch-readine
 checklist_basename="$(basename "$CHECKLIST_FILE")"
 copy_and_checksum "$CHECKLIST_FILE" "${bundle_dir}/${checklist_basename}"
 copy_and_checksum "docs/genesis-determinism-check.md" "${bundle_dir}/genesis-determinism-check.md"
+copy_and_checksum "docs/snapshot-supply-reconciliation.md" "${bundle_dir}/snapshot-supply-reconciliation.md"
 copy_and_checksum "docs/incident-communication-templates.md" "${bundle_dir}/incident-communication-templates.md"
 copy_and_checksum ".github/workflows/ci.yml" "${bundle_dir}/ci.yml"
 copy_and_checksum ".github/workflows/nightly-fuzz.yml" "${bundle_dir}/nightly-fuzz.yml"
@@ -292,6 +293,7 @@ copy_and_checksum "scripts/launch/check_go_no_go_checklist.sh" "${bundle_dir}/ch
 copy_and_checksum "scripts/launch/check_nightly_fuzz_health.sh" "${bundle_dir}/check_nightly_fuzz_health.sh"
 copy_and_checksum "scripts/launch/check_issue1_core_goals.sh" "${bundle_dir}/check_issue1_core_goals.sh"
 copy_and_checksum "scripts/launch/check_genesis_determinism.sh" "${bundle_dir}/check_genesis_determinism.sh"
+copy_and_checksum "scripts/launch/check_snapshot_supply_reconciliation.sh" "${bundle_dir}/check_snapshot_supply_reconciliation.sh"
 copy_and_checksum "scripts/launch/run_launch_rehearsal.sh" "${bundle_dir}/run_launch_rehearsal.sh"
 copy_and_checksum "scripts/launch/generate_release_manifest.sh" "${bundle_dir}/generate_release_manifest.sh"
 
@@ -402,6 +404,7 @@ cat > "${bundle_dir}/SUMMARY.md" <<EOF
 - launch-readiness-gates.md
 - ${checklist_basename}
 - genesis-determinism-check.md
+- snapshot-supply-reconciliation.md
 - incident-communication-templates.md
 - ci.yml
 - nightly-fuzz.yml
@@ -413,6 +416,7 @@ cat > "${bundle_dir}/SUMMARY.md" <<EOF
 - check_nightly_fuzz_health.sh
 - check_issue1_core_goals.sh
 - check_genesis_determinism.sh
+- check_snapshot_supply_reconciliation.sh
 - run_launch_rehearsal.sh
 - generate_release_manifest.sh
 - go-no-go-checklist-report.txt
