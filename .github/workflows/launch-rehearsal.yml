@@ -92,7 +92,7 @@ jobs:
             fi
             EXTRA_ARGS+=(--release-manifest-skip-build)
           fi
-          ./scripts/launch/run_launch_rehearsal.sh --mode "${{ inputs.mode }}" --out-dir "${RUNNER_TEMP}/launch-rehearsals" "${EXTRA_ARGS[@]}"
+          ./scripts/launch/run_launch_rehearsal.sh --mode "${{ inputs.mode }}" --operator "${{ github.actor }}" --out-dir "${RUNNER_TEMP}/launch-rehearsals" "${EXTRA_ARGS[@]}"
 
       - name: Upload rehearsal artifacts
         uses: actions/upload-artifact@v4

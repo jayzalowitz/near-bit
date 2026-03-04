@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/launch/run_launch_rehearsal.sh [--mode smoke|full] [--include-fuzz] [--require-go] [--include-release-manifest|--skip-release-manifest] [--release-manifest-skip-build] [--allow-dirty] [--checklist-file <path>] [--out-dir <path>]
+Usage: ./scripts/launch/run_launch_rehearsal.sh [--mode smoke|full] [--include-fuzz] [--require-go] [--include-release-manifest|--skip-release-manifest] [--release-manifest-skip-build] [--operator <name>] [--allow-dirty] [--checklist-file <path>] [--out-dir <path>]
 
 Options:
   --mode <smoke|full>  Rehearsal mode passed to evidence generator. Default: full.
@@ -13,6 +13,8 @@ Options:
                               Default: enabled for --mode full, disabled for --mode smoke.
   --skip-release-manifest     Skip release artifact manifest generation.
   --release-manifest-skip-build  Skip release build when generating manifest.
+  --operator <name>    Operator/signoff owner for rehearsal metadata.
+                       Default: git user.name, else $USER, else "unknown".
   --allow-dirty        Allow running on dirty worktree (default: fail).
   --checklist-file     Checklist file path. Default: docs/mainnet-go-no-go-checklist.md
   --out-dir <path>     Rehearsal output root. Default: artifacts/launch-rehearsals
@@ -25,6 +27,7 @@ INCLUDE_FUZZ=0
 REQUIRE_GO=0
 INCLUDE_RELEASE_MANIFEST=-1
 RELEASE_MANIFEST_SKIP_BUILD=0
+OPERATOR=""
 ALLOW_DIRTY=0
 CHECKLIST_FILE="docs/mainnet-go-no-go-checklist.md"
 OUT_ROOT="artifacts/launch-rehearsals"
@@ -58,6 +61,14 @@ while [[ $# -gt 0 ]]; do
     --release-manifest-skip-build)
       RELEASE_MANIFEST_SKIP_BUILD=1
       shift
+      ;;
+    --operator)
+      if [[ $# -lt 2 ]]; then
+        echo "--operator requires a value" >&2
+        exit 1
+      fi
+      OPERATOR="$2"
+      shift 2
       ;;
     --allow-dirty)
       ALLOW_DIRTY=1
@@ -127,6 +138,16 @@ require_cmd find
 if [[ ! -f "$CHECKLIST_FILE" ]]; then
   echo "Checklist file not found: $CHECKLIST_FILE" >&2
   exit 1
+fi
+
+if [[ -z "$OPERATOR" ]]; then
+  OPERATOR="$(git config user.name 2>/dev/null || true)"
+fi
+if [[ -z "$OPERATOR" ]]; then
+  OPERATOR="${USER:-unknown}"
+fi
+if [[ -z "${OPERATOR// }" ]]; then
+  OPERATOR="unknown"
 fi
 
 timestamp="$(date -u +"%Y%m%dT%H%M%SZ")"
@@ -269,6 +290,7 @@ jq -n \
   --arg short_sha "$short_sha" \
   --arg branch "$branch_name" \
   --arg mode "$MODE" \
+  --arg operator "$OPERATOR" \
   --arg checklist_file "$CHECKLIST_FILE" \
   --arg overall_status "$overall_status" \
   --arg gate_status "$gate_status" \
@@ -301,6 +323,7 @@ jq -n \
     },
     execution: {
       mode: $mode,
+      operator: $operator,
       include_fuzz: $include_fuzz,
       require_go: $require_go,
       include_release_manifest: $include_release_manifest,
@@ -337,6 +360,7 @@ cat > "$summary_md" <<EOF
 - commit: ${commit_sha}
 - branch: ${branch_name}
 - mode: ${MODE}
+- operator: ${OPERATOR}
 - include_fuzz: ${INCLUDE_FUZZ}
 - require_go: ${REQUIRE_GO}
 - include_release_manifest: ${INCLUDE_RELEASE_MANIFEST}

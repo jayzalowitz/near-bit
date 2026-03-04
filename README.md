@@ -146,6 +146,9 @@ bash -n scripts/benchmark/run_tps_profiles.sh
 
 # Strict signoff rehearsal
 ./scripts/launch/run_launch_rehearsal.sh --require-go
+
+# Attribute rehearsal to an operator in summary artifacts
+./scripts/launch/run_launch_rehearsal.sh --operator "launch-operator"
 ```
 
 ## Generate release artifact manifest

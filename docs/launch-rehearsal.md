@@ -28,6 +28,9 @@ This reduces manual sequencing errors and gives a single artifact root for each 
 
 # Strict signoff rehearsal (fails unless checklist is fully GO)
 ./scripts/launch/run_launch_rehearsal.sh --require-go
+
+# Set explicit operator/signoff owner in rehearsal metadata
+./scripts/launch/run_launch_rehearsal.sh --operator "launch-operator"
 ```
 
 Release-manifest behavior defaults:
@@ -54,6 +57,11 @@ Key files:
 - `release-manifests/`: nested release artifact manifest bundle (when enabled).
 - `release-manifest.log`: release manifest command output (when enabled).
 
+Operator metadata:
+
+- `--operator <name>` records ownership/signoff context in `SUMMARY.md` and `summary.json`.
+- If omitted, the script uses `git config user.name`, then `$USER`, then `unknown`.
+
 `go_ready=true` in `summary.json` is only set when:
 
 - readiness gate passed
@@ -65,3 +73,4 @@ Key files:
 
 Use workflow `.github/workflows/launch-rehearsal.yml` (manual dispatch) to run and archive rehearsal artifacts in CI.
 The workflow exposes `release_manifest` (`auto|include|skip`) and `release_manifest_skip_build` inputs to control manifest behavior explicitly.
+CI rehearsals automatically set `--operator` to `${{ github.actor }}` for attribution.
