@@ -2237,3 +2237,18 @@ Verification:
   - evidence bundle,
   - release artifact manifest,
   - rehearsal summary artifacts.
+
+## Continuation (2026-03-04): full-mode strict rehearsal release-manifest fix
+
+Implemented:
+- Fixed a follow-on strict-mode failure in `run_launch_rehearsal.sh` where full-gate execution mutated tracked `target/.rustc_info.json`, causing `generate_release_manifest.sh` to reject the worktree as dirty.
+- Added targeted pre-manifest cleanup in strict mode:
+  - restore generated `target/.rustc_info.json` before invoking release-manifest generation.
+
+Verification:
+- `./scripts/launch/run_launch_rehearsal.sh --mode full --include-fuzz --release-manifest-skip-build --operator "launch-readiness"` passed locally on commit `783a956b1` with strict clean-worktree behavior (without `--allow-dirty`).
+- The run produced:
+  - full readiness-gate pass (`--full --include-fuzz`),
+  - launch evidence bundle,
+  - release artifact manifest,
+  - rehearsal summary artifacts.
