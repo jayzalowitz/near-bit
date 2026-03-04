@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/launch/run_launch_rehearsal.sh [--mode smoke|full] [--include-fuzz] [--check-nightly-fuzz-health] [--nightly-fuzz-branch <name>] [--nightly-fuzz-workflow <name>] [--nightly-fuzz-window-days <n>] [--nightly-fuzz-min-runs <n>] [--nightly-fuzz-max-runs <n>] [--nightly-fuzz-allow-in-progress] [--skip-issue1-goal-checks] [--require-go] [--include-release-manifest|--skip-release-manifest] [--release-manifest-skip-build] [--operator <name>] [--allow-dirty] [--checklist-file <path>] [--out-dir <path>]
+Usage: ./scripts/launch/run_launch_rehearsal.sh [--mode smoke|full] [--include-fuzz] [--check-nightly-fuzz-health] [--nightly-fuzz-branch <name>] [--nightly-fuzz-workflow <name>] [--nightly-fuzz-window-days <n>] [--nightly-fuzz-min-runs <n>] [--nightly-fuzz-max-runs <n>] [--nightly-fuzz-allow-in-progress] [--check-snapshot-supply] [--snapshot-genesis <path>] [--snapshot-txoutsetinfo <path>] [--snapshot-tolerance-sats <n>] [--snapshot-json-out <path>] [--skip-issue1-goal-checks] [--require-go] [--include-release-manifest|--skip-release-manifest] [--release-manifest-skip-build] [--operator <name>] [--allow-dirty] [--checklist-file <path>] [--out-dir <path>]
 
 Options:
   --mode <smoke|full>  Rehearsal mode passed to evidence generator. Default: full.
@@ -15,6 +15,11 @@ Options:
   --nightly-fuzz-min-runs <n> Minimum required runs in lookback window. Default: 1.
   --nightly-fuzz-max-runs <n> Max runs fetched from GitHub API. Default: 200.
   --nightly-fuzz-allow-in-progress Do not fail when in-progress runs are present.
+  --check-snapshot-supply Enforce gate #10 snapshot-vs-genesis reconciliation in readiness.
+  --snapshot-genesis <path> Path to genesis.json used for snapshot reconciliation.
+  --snapshot-txoutsetinfo <path> Path to bitcoin-cli gettxoutsetinfo JSON.
+  --snapshot-tolerance-sats <n> Allowed satoshi diff for snapshot check. Default: 1.
+  --snapshot-json-out <path> Copy snapshot-check JSON summary to this path.
   --skip-issue1-goal-checks Skip targeted Issue #1 goal validation tests in readiness gate.
   --require-go         Enforce strict GO criteria from checklist.
   --include-release-manifest  Generate release artifact manifest during rehearsal.
@@ -39,6 +44,11 @@ NIGHTLY_FUZZ_WINDOW_DAYS=7
 NIGHTLY_FUZZ_MIN_RUNS=1
 NIGHTLY_FUZZ_MAX_RUNS=200
 NIGHTLY_FUZZ_ALLOW_IN_PROGRESS=0
+CHECK_SNAPSHOT_SUPPLY=0
+SNAPSHOT_GENESIS=""
+SNAPSHOT_TXOUTSETINFO=""
+SNAPSHOT_TOLERANCE_SATS=1
+SNAPSHOT_JSON_OUT=""
 SKIP_ISSUE1_GOAL_CHECKS=0
 REQUIRE_GO=0
 INCLUDE_RELEASE_MANIFEST=-1
@@ -110,6 +120,42 @@ while [[ $# -gt 0 ]]; do
       NIGHTLY_FUZZ_ALLOW_IN_PROGRESS=1
       shift
       ;;
+    --check-snapshot-supply)
+      CHECK_SNAPSHOT_SUPPLY=1
+      shift
+      ;;
+    --snapshot-genesis)
+      if [[ $# -lt 2 ]]; then
+        echo "--snapshot-genesis requires a path value" >&2
+        exit 1
+      fi
+      SNAPSHOT_GENESIS="$2"
+      shift 2
+      ;;
+    --snapshot-txoutsetinfo)
+      if [[ $# -lt 2 ]]; then
+        echo "--snapshot-txoutsetinfo requires a path value" >&2
+        exit 1
+      fi
+      SNAPSHOT_TXOUTSETINFO="$2"
+      shift 2
+      ;;
+    --snapshot-tolerance-sats)
+      if [[ $# -lt 2 ]]; then
+        echo "--snapshot-tolerance-sats requires a numeric value" >&2
+        exit 1
+      fi
+      SNAPSHOT_TOLERANCE_SATS="$2"
+      shift 2
+      ;;
+    --snapshot-json-out)
+      if [[ $# -lt 2 ]]; then
+        echo "--snapshot-json-out requires a path value" >&2
+        exit 1
+      fi
+      SNAPSHOT_JSON_OUT="$2"
+      shift 2
+      ;;
     --skip-issue1-goal-checks)
       SKIP_ISSUE1_GOAL_CHECKS=1
       shift
@@ -177,6 +223,11 @@ for num in "$NIGHTLY_FUZZ_WINDOW_DAYS" "$NIGHTLY_FUZZ_MIN_RUNS" "$NIGHTLY_FUZZ_M
   fi
 done
 
+if [[ ! "$SNAPSHOT_TOLERANCE_SATS" =~ ^[0-9]+$ ]]; then
+  echo "--snapshot-tolerance-sats must be a non-negative integer." >&2
+  exit 1
+fi
+
 if [[ "$MODE" != "smoke" && "$MODE" != "full" ]]; then
   echo "Invalid --mode value: $MODE (expected smoke or full)" >&2
   exit 1
@@ -234,6 +285,25 @@ if [[ ! -f "$CHECKLIST_FILE" ]]; then
   exit 1
 fi
 
+if [[ "$CHECK_SNAPSHOT_SUPPLY" -eq 1 ]]; then
+  if [[ -z "$SNAPSHOT_GENESIS" || -z "$SNAPSHOT_TXOUTSETINFO" ]]; then
+    echo "--check-snapshot-supply requires --snapshot-genesis and --snapshot-txoutsetinfo." >&2
+    exit 1
+  fi
+  if [[ ! -f "$SNAPSHOT_GENESIS" ]]; then
+    echo "Snapshot-check genesis file not found: $SNAPSHOT_GENESIS" >&2
+    exit 1
+  fi
+  if [[ ! -f "$SNAPSHOT_TXOUTSETINFO" ]]; then
+    echo "Snapshot-check txoutsetinfo file not found: $SNAPSHOT_TXOUTSETINFO" >&2
+    exit 1
+  fi
+elif [[ -n "$SNAPSHOT_GENESIS" || -n "$SNAPSHOT_TXOUTSETINFO" || -n "$SNAPSHOT_JSON_OUT" ]]; then
+  echo "Snapshot parameters provided without --check-snapshot-supply." >&2
+  echo "Use --check-snapshot-supply to enforce gate #10 snapshot reconciliation." >&2
+  exit 1
+fi
+
 if [[ -z "$OPERATOR" ]]; then
   OPERATOR="$(git config user.name 2>/dev/null || true)"
 fi
@@ -284,6 +354,17 @@ if [[ "$CHECK_NIGHTLY_FUZZ_HEALTH" -eq 1 ]]; then
   )
   if [[ "$NIGHTLY_FUZZ_ALLOW_IN_PROGRESS" -eq 1 ]]; then
     evidence_cmd+=(--nightly-fuzz-allow-in-progress)
+  fi
+fi
+if [[ "$CHECK_SNAPSHOT_SUPPLY" -eq 1 ]]; then
+  evidence_cmd+=(
+    --check-snapshot-supply
+    --snapshot-genesis "$SNAPSHOT_GENESIS"
+    --snapshot-txoutsetinfo "$SNAPSHOT_TXOUTSETINFO"
+    --snapshot-tolerance-sats "$SNAPSHOT_TOLERANCE_SATS"
+  )
+  if [[ -n "$SNAPSHOT_JSON_OUT" ]]; then
+    evidence_cmd+=(--snapshot-json-out "$SNAPSHOT_JSON_OUT")
   fi
 fi
 if [[ "$SKIP_ISSUE1_GOAL_CHECKS" -eq 1 ]]; then
@@ -446,6 +527,11 @@ jq -n \
   --argjson nightly_fuzz_min_runs "$NIGHTLY_FUZZ_MIN_RUNS" \
   --argjson nightly_fuzz_max_runs "$NIGHTLY_FUZZ_MAX_RUNS" \
   --argjson nightly_fuzz_allow_in_progress "$NIGHTLY_FUZZ_ALLOW_IN_PROGRESS" \
+  --argjson check_snapshot_supply "$CHECK_SNAPSHOT_SUPPLY" \
+  --arg snapshot_genesis "$SNAPSHOT_GENESIS" \
+  --arg snapshot_txoutsetinfo "$SNAPSHOT_TXOUTSETINFO" \
+  --argjson snapshot_tolerance_sats "$SNAPSHOT_TOLERANCE_SATS" \
+  --arg snapshot_json_out "$SNAPSHOT_JSON_OUT" \
   --argjson skip_issue1_goal_checks "$SKIP_ISSUE1_GOAL_CHECKS" \
   --argjson require_go "$REQUIRE_GO" \
   --argjson include_release_manifest "$INCLUDE_RELEASE_MANIFEST" \
@@ -480,6 +566,11 @@ jq -n \
       nightly_fuzz_min_runs: $nightly_fuzz_min_runs,
       nightly_fuzz_max_runs: $nightly_fuzz_max_runs,
       nightly_fuzz_allow_in_progress: ($nightly_fuzz_allow_in_progress == 1),
+      check_snapshot_supply: ($check_snapshot_supply == 1),
+      snapshot_genesis: (if $snapshot_genesis == "" then null else $snapshot_genesis end),
+      snapshot_txoutsetinfo: (if $snapshot_txoutsetinfo == "" then null else $snapshot_txoutsetinfo end),
+      snapshot_tolerance_sats: $snapshot_tolerance_sats,
+      snapshot_json_out: (if $snapshot_json_out == "" then null else $snapshot_json_out end),
       skip_issue1_goal_checks: ($skip_issue1_goal_checks == 1),
       require_go: $require_go,
       include_release_manifest: $include_release_manifest,
@@ -525,6 +616,11 @@ cat > "$summary_md" <<EOF
 - nightly_fuzz_min_runs: ${NIGHTLY_FUZZ_MIN_RUNS}
 - nightly_fuzz_max_runs: ${NIGHTLY_FUZZ_MAX_RUNS}
 - nightly_fuzz_allow_in_progress: ${NIGHTLY_FUZZ_ALLOW_IN_PROGRESS}
+- check_snapshot_supply: ${CHECK_SNAPSHOT_SUPPLY}
+- snapshot_genesis: ${SNAPSHOT_GENESIS}
+- snapshot_txoutsetinfo: ${SNAPSHOT_TXOUTSETINFO}
+- snapshot_tolerance_sats: ${SNAPSHOT_TOLERANCE_SATS}
+- snapshot_json_out: ${SNAPSHOT_JSON_OUT}
 - skip_issue1_goal_checks: ${SKIP_ISSUE1_GOAL_CHECKS}
 - require_go: ${REQUIRE_GO}
 - include_release_manifest: ${INCLUDE_RELEASE_MANIFEST}
