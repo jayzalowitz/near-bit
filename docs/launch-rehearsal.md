@@ -15,7 +15,7 @@ This guide covers the end-to-end launch rehearsal command.
 This reduces manual sequencing errors and gives a single artifact root for each rehearsal.
 
 In strict mode (no `--allow-dirty`), the runner stages evidence and release-manifest generation in a temporary directory first, then copies results to `artifacts/launch-rehearsals/...` after those checks complete. This avoids false dirty-worktree failures caused by rehearsal-created output directories.
-For full-mode rehearsals, the runner also restores generated `target/.rustc_info.json` before strict release-manifest execution so build metadata churn does not block manifest generation.
+Before strict release-manifest execution, it also restores any tracked `target/` files changed by readiness execution so generated build artifacts do not block manifest generation.
 Readiness execution in this flow includes the deterministic genesis-hash verifier (`check_genesis_determinism.sh`) for launch gate #9.
 
 ## Run a Rehearsal

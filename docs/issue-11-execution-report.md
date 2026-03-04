@@ -2308,3 +2308,17 @@ Implemented:
 Verification:
 - `./scripts/launch/check_genesis_determinism.sh --testnet --num-accounts 100 --chain-id bitinfinity-mainnet --genesis-time 2026-01-01T00:00:00Z --expected-hash 95f3e2600eec0dcd3ca51bf530f46ac963fa3b5286e18c6401efdcae8066aa5d --json-out /tmp/genesis-determinism-pinned.json` passed locally.
 - `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist` passed locally with pinned-hash enforcement active in deterministic-genesis gate execution.
+
+## Continuation (2026-03-04): strict rehearsal manifest guard generalized for tracked target artifacts
+
+Implemented:
+- Fixed a strict-mode launch-rehearsal regression where smoke/full readiness execution modified tracked files under `target/` (for example, `target/debug/bitinfinity-tools`), causing `generate_release_manifest.sh` to fail dirty-worktree checks.
+- Updated `scripts/launch/run_launch_rehearsal.sh` to restore all tracked `target/` diffs before strict release-manifest execution (instead of only `target/.rustc_info.json`).
+
+Verification:
+- `./scripts/launch/run_launch_rehearsal.sh --mode smoke --include-release-manifest --release-manifest-skip-build --operator "launch-readiness"` passed locally on commit `196b0f43d` in strict mode (no `--allow-dirty`).
+- Run output included:
+  - readiness gate pass,
+  - checklist report generation,
+  - release manifest generation (`--skip-build`),
+  - rehearsal summary artifact creation.
