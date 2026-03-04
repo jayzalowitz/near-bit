@@ -62,6 +62,9 @@ It executes readiness checks with checklist parsing disabled internally, then ru
 
 # Enforce GO criteria (all gates done + signoff populated)
 ./scripts/launch/check_go_no_go_checklist.sh --require-go
+
+# Validate expected checklist structure (default is 16 gates)
+./scripts/launch/check_go_no_go_checklist.sh --expected-gates 16
 ```
 
 ## Optional Modes

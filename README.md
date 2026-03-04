@@ -130,6 +130,9 @@ bash -n scripts/benchmark/run_tps_profiles.sh
 
 # Emit machine-readable checklist summary
 ./scripts/launch/check_go_no_go_checklist.sh --json-out /tmp/go-no-go-summary.json
+
+# Enforce checklist row count (defaults to 16; override for custom templates)
+./scripts/launch/check_go_no_go_checklist.sh --expected-gates 16
 ```
 
 ## Run launch rehearsal
