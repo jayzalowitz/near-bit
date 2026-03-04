@@ -3,11 +3,13 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/launch/run_launch_rehearsal.sh [--mode smoke|full] [--include-fuzz] [--require-go] [--include-release-manifest|--skip-release-manifest] [--release-manifest-skip-build] [--operator <name>] [--allow-dirty] [--checklist-file <path>] [--out-dir <path>]
+Usage: ./scripts/launch/run_launch_rehearsal.sh [--mode smoke|full] [--include-fuzz] [--check-nightly-fuzz-health] [--nightly-fuzz-branch <name>] [--require-go] [--include-release-manifest|--skip-release-manifest] [--release-manifest-skip-build] [--operator <name>] [--allow-dirty] [--checklist-file <path>] [--out-dir <path>]
 
 Options:
   --mode <smoke|full>  Rehearsal mode passed to evidence generator. Default: full.
   --include-fuzz       Include fuzz smoke in readiness execution.
+  --check-nightly-fuzz-health  Enforce 7-day nightly fuzz health gate.
+  --nightly-fuzz-branch <name> Branch used by nightly fuzz health check. Default: main.
   --require-go         Enforce strict GO criteria from checklist.
   --include-release-manifest  Generate release artifact manifest during rehearsal.
                               Default: enabled for --mode full, disabled for --mode smoke.
@@ -24,6 +26,8 @@ EOF
 
 MODE="full"
 INCLUDE_FUZZ=0
+CHECK_NIGHTLY_FUZZ_HEALTH=0
+NIGHTLY_FUZZ_BRANCH="main"
 REQUIRE_GO=0
 INCLUDE_RELEASE_MANIFEST=-1
 RELEASE_MANIFEST_SKIP_BUILD=0
@@ -45,6 +49,18 @@ while [[ $# -gt 0 ]]; do
     --include-fuzz)
       INCLUDE_FUZZ=1
       shift
+      ;;
+    --check-nightly-fuzz-health)
+      CHECK_NIGHTLY_FUZZ_HEALTH=1
+      shift
+      ;;
+    --nightly-fuzz-branch)
+      if [[ $# -lt 2 ]]; then
+        echo "--nightly-fuzz-branch requires a value" >&2
+        exit 1
+      fi
+      NIGHTLY_FUZZ_BRANCH="$2"
+      shift 2
       ;;
     --require-go)
       REQUIRE_GO=1
@@ -175,6 +191,9 @@ evidence_cmd=(
 if [[ "$INCLUDE_FUZZ" -eq 1 ]]; then
   evidence_cmd+=(--include-fuzz)
 fi
+if [[ "$CHECK_NIGHTLY_FUZZ_HEALTH" -eq 1 ]]; then
+  evidence_cmd+=(--check-nightly-fuzz-health --nightly-fuzz-branch "$NIGHTLY_FUZZ_BRANCH")
+fi
 if [[ "$REQUIRE_GO" -eq 1 ]]; then
   evidence_cmd+=(--require-go)
 fi
@@ -291,6 +310,7 @@ jq -n \
   --arg branch "$branch_name" \
   --arg mode "$MODE" \
   --arg operator "$OPERATOR" \
+  --arg nightly_fuzz_branch "$NIGHTLY_FUZZ_BRANCH" \
   --arg checklist_file "$CHECKLIST_FILE" \
   --arg overall_status "$overall_status" \
   --arg gate_status "$gate_status" \
@@ -299,6 +319,7 @@ jq -n \
   --argjson gate_exit_code "$gate_exit_code" \
   --argjson checklist_exit_code "$checklist_exit_code" \
   --argjson include_fuzz "$INCLUDE_FUZZ" \
+  --argjson check_nightly_fuzz_health "$CHECK_NIGHTLY_FUZZ_HEALTH" \
   --argjson require_go "$REQUIRE_GO" \
   --argjson include_release_manifest "$INCLUDE_RELEASE_MANIFEST" \
   --argjson release_manifest_skip_build "$RELEASE_MANIFEST_SKIP_BUILD" \
@@ -325,6 +346,8 @@ jq -n \
       mode: $mode,
       operator: $operator,
       include_fuzz: $include_fuzz,
+      check_nightly_fuzz_health: $check_nightly_fuzz_health,
+      nightly_fuzz_branch: $nightly_fuzz_branch,
       require_go: $require_go,
       include_release_manifest: $include_release_manifest,
       release_manifest_skip_build: $release_manifest_skip_build,
@@ -362,6 +385,8 @@ cat > "$summary_md" <<EOF
 - mode: ${MODE}
 - operator: ${OPERATOR}
 - include_fuzz: ${INCLUDE_FUZZ}
+- check_nightly_fuzz_health: ${CHECK_NIGHTLY_FUZZ_HEALTH}
+- nightly_fuzz_branch: ${NIGHTLY_FUZZ_BRANCH}
 - require_go: ${REQUIRE_GO}
 - include_release_manifest: ${INCLUDE_RELEASE_MANIFEST}
 - release_manifest_skip_build: ${RELEASE_MANIFEST_SKIP_BUILD}

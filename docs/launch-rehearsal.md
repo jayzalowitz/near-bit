@@ -31,6 +31,9 @@ This reduces manual sequencing errors and gives a single artifact root for each 
 
 # Set explicit operator/signoff owner in rehearsal metadata
 ./scripts/launch/run_launch_rehearsal.sh --operator "launch-operator"
+
+# Enforce nightly fuzz 7-day health gate during rehearsal readiness checks
+./scripts/launch/run_launch_rehearsal.sh --check-nightly-fuzz-health
 ```
 
 Release-manifest behavior defaults:
@@ -74,3 +77,4 @@ Operator metadata:
 Use workflow `.github/workflows/launch-rehearsal.yml` (manual dispatch) to run and archive rehearsal artifacts in CI.
 The workflow exposes `release_manifest` (`auto|include|skip`) and `release_manifest_skip_build` inputs to control manifest behavior explicitly.
 CI rehearsals automatically set `--operator` to `${{ github.actor }}` for attribution.
+The workflow also exposes `check_nightly_fuzz_health` and `nightly_fuzz_branch` inputs for gate #4 enforcement.

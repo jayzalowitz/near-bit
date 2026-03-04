@@ -16,6 +16,16 @@ on:
         required: true
         default: false
         type: boolean
+      check_nightly_fuzz_health:
+        description: "Enforce 7-day nightly fuzz health gate"
+        required: true
+        default: false
+        type: boolean
+      nightly_fuzz_branch:
+        description: "Branch used by nightly fuzz health check"
+        required: true
+        default: "main"
+        type: string
       require_go:
         description: "Require GO checklist criteria"
         required: true
@@ -67,6 +77,9 @@ jobs:
           EXTRA_ARGS=()
           if [[ "${{ inputs.include_fuzz }}" == "true" ]]; then
             EXTRA_ARGS+=(--include-fuzz)
+          fi
+          if [[ "${{ inputs.check_nightly_fuzz_health }}" == "true" ]]; then
+            EXTRA_ARGS+=(--check-nightly-fuzz-health --nightly-fuzz-branch "${{ inputs.nightly_fuzz_branch }}")
           fi
           if [[ "${{ inputs.require_go }}" == "true" ]]; then
             EXTRA_ARGS+=(--require-go)

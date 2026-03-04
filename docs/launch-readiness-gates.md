@@ -20,6 +20,9 @@ Use one command path for repeatable local verification:
 
 # Full gate + optional fuzz smoke
 ./scripts/launch/run_readiness_gate.sh --full --include-fuzz
+
+# Full gate + enforced 7-day nightly fuzz health
+./scripts/launch/run_readiness_gate.sh --full --check-nightly-fuzz-health
 ```
 
 ## Repository-Verifiable Gates
@@ -35,6 +38,7 @@ Use one command path for repeatable local verification:
 | Incident communication templates | complete | `docs/incident-communication-templates.md` |
 | Mainnet go/no-go decision checklist template | complete | `docs/mainnet-go-no-go-checklist.md` |
 | Go/no-go checklist validator script | complete | `scripts/launch/check_go_no_go_checklist.sh` |
+| Nightly fuzz 7-day health verifier script | complete | `scripts/launch/check_nightly_fuzz_health.sh`, `docs/nightly-fuzz-health-check.md` |
 | Launch evidence bundle generator | complete | `scripts/launch/generate_evidence_bundle.sh`, `docs/launch-evidence-bundle.md` |
 | Launch rehearsal orchestration runner | complete | `scripts/launch/run_launch_rehearsal.sh`, `docs/launch-rehearsal.md` |
 | Release artifact checksum manifest generator | complete | `scripts/launch/generate_release_manifest.sh`, `docs/release-artifact-manifest.md` |
@@ -62,7 +66,7 @@ These remain launch blockers until completed by operations/legal/security workst
 
 Before each launch rehearsal, require all of:
 
-1. `./scripts/launch/run_readiness_gate.sh --full` passes on the target commit.
+1. `./scripts/launch/run_readiness_gate.sh --full --check-nightly-fuzz-health` passes on the target commit.
 2. Latest benchmark artifact and summary are attached to the rehearsal record.
 3. Incident communication templates are pre-filled for current version/epoch window.
 4. A launch evidence bundle is generated for the target commit and attached to the rehearsal record.
