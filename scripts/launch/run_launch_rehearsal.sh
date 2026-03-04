@@ -211,6 +211,24 @@ require_cmd jq
 require_cmd find
 require_cmd mktemp
 
+restore_tracked_target_changes() {
+  local -a dirty_target_files=()
+  local file=""
+
+  while IFS= read -r file; do
+    if [[ -n "$file" ]]; then
+      dirty_target_files+=("$file")
+    fi
+  done < <(git diff --name-only -- target)
+
+  if [[ "${#dirty_target_files[@]}" -eq 0 ]]; then
+    return
+  fi
+
+  echo "Restoring tracked target/ files before strict release manifest run."
+  git restore --worktree -- "${dirty_target_files[@]}"
+}
+
 if [[ ! -f "$CHECKLIST_FILE" ]]; then
   echo "Checklist file not found: $CHECKLIST_FILE" >&2
   exit 1
@@ -331,9 +349,8 @@ if [[ -f "$checklist_report_json" ]]; then
 fi
 
 if [[ "$INCLUDE_RELEASE_MANIFEST" -eq 1 ]]; then
-  if [[ "$ALLOW_DIRTY" -eq 0 ]] && [[ -n "$(git status --porcelain -- target/.rustc_info.json)" ]]; then
-    echo "Restoring generated target/.rustc_info.json before strict release manifest run."
-    git restore --worktree -- target/.rustc_info.json
+  if [[ "$ALLOW_DIRTY" -eq 0 ]]; then
+    restore_tracked_target_changes
   fi
 
   release_manifest_cmd=(
