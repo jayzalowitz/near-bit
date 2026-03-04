@@ -154,6 +154,32 @@ run_fuzz_smoke() {
     "cd nearcore/core/crypto && cargo +nightly fuzz run fuzz_secp256k1_recover -- -runs=100"
 }
 
+verify_release_versions() {
+  local binaries=(
+    "target/release/bitinfinity-btcrpc"
+    "target/release/bitinfinity-tools"
+    "target/release/bitinfinity-neard"
+  )
+  local version_line
+
+  for bin in "${binaries[@]}"; do
+    if [[ ! -x "$bin" ]]; then
+      echo "Missing release binary for version check: $bin" >&2
+      exit 1
+    fi
+    version_line="$("$bin" --version 2>/dev/null | head -n 1 || true)"
+    if [[ -z "$version_line" ]]; then
+      echo "Release binary version check failed (empty --version): $bin" >&2
+      exit 1
+    fi
+    if [[ "$version_line" == "unknown" ]]; then
+      echo "Release binary version check failed (unknown --version): $bin" >&2
+      exit 1
+    fi
+    echo "$bin -> $version_line"
+  done
+}
+
 require_cmd bash
 require_cmd cargo
 require_cmd jq
@@ -184,6 +210,7 @@ run_cmd "Benchmark runner dry-run smoke" ./scripts/benchmark/run_tps_profiles.sh
 
 if [[ "$MODE" == "full" ]]; then
   run_cmd "Build release binaries" cargo build --release -p bitinfinity-btcrpc -p bitinfinity-tools -p bitinfinity-neard
+  run_cmd "Verify release binary --version metadata" verify_release_versions
   run_cmd "Run tests (workspace)" cargo test --workspace
   run_cmd "Run tests (near-account-id)" cargo test --manifest-path near-account-id/Cargo.toml
   run_cmd "Clippy (workspace)" cargo clippy --workspace --all-targets -- -D warnings
