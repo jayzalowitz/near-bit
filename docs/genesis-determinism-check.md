@@ -48,6 +48,7 @@ It also runs `bitinfinity-tools verify-genesis` on each generated file, providin
 ```
 
 The pinned fixture hash catches deterministic-but-unintended genesis output drift in CI and local readiness runs.
+If the fixture hash is intentionally rotated, override the readiness default with `GENESIS_FIXTURE_EXPECTED_HASH=<new_sha256>`.
 
 For final launch signoff, run snapshot mode explicitly and attach the JSON/text output to go/no-go records.
 
