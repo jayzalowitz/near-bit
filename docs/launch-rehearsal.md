@@ -9,22 +9,33 @@ This guide covers the end-to-end launch rehearsal command.
 1. readiness execution
 2. evidence bundle generation
 3. checklist validation
-4. rehearsal-level summary output
+4. optional release artifact manifest generation
+5. rehearsal-level summary output
 
 This reduces manual sequencing errors and gives a single artifact root for each rehearsal.
 
 ## Run a Rehearsal
 
 ```bash
-# Full rehearsal (default mode is full)
+# Full rehearsal (default mode is full; includes release manifest)
 ./scripts/launch/run_launch_rehearsal.sh
 
 # Faster iteration rehearsal
 ./scripts/launch/run_launch_rehearsal.sh --mode smoke
 
+# Smoke rehearsal + release manifest from existing binaries
+./scripts/launch/run_launch_rehearsal.sh --mode smoke --include-release-manifest --release-manifest-skip-build
+
 # Strict signoff rehearsal (fails unless checklist is fully GO)
 ./scripts/launch/run_launch_rehearsal.sh --require-go
 ```
+
+Release-manifest behavior defaults:
+
+- `--mode full`: manifest generation enabled
+- `--mode smoke`: manifest generation disabled
+
+Override with `--include-release-manifest` or `--skip-release-manifest`.
 
 ## Outputs
 
@@ -40,6 +51,8 @@ Key files:
 - `summary.json`: machine-readable rehearsal result.
 - `rehearsal.log`: full command output.
 - `evidence/`: nested launch evidence bundle artifacts.
+- `release-manifests/`: nested release artifact manifest bundle (when enabled).
+- `release-manifest.log`: release manifest command output (when enabled).
 
 `go_ready=true` in `summary.json` is only set when:
 
@@ -51,4 +64,4 @@ Key files:
 ## GitHub Actions
 
 Use workflow `.github/workflows/launch-rehearsal.yml` (manual dispatch) to run and archive rehearsal artifacts in CI.
-For release-binary checksums and metadata, pair rehearsal output with `./scripts/launch/generate_release_manifest.sh`.
+The workflow exposes `release_manifest` (`auto|include|skip`) and `release_manifest_skip_build` inputs to control manifest behavior explicitly.
