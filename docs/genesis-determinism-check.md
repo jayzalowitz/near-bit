@@ -17,6 +17,9 @@ It also runs `bitinfinity-tools verify-genesis` on each generated file, providin
 # Default deterministic fixture (synthetic testnet input)
 ./scripts/launch/check_genesis_determinism.sh --testnet
 
+# Default deterministic fixture + pinned expected SHA256
+./scripts/launch/check_genesis_determinism.sh --testnet --expected-hash 95f3e2600eec0dcd3ca51bf530f46ac963fa3b5286e18c6401efdcae8066aa5d
+
 # Explicit deterministic fixture size/time
 ./scripts/launch/check_genesis_determinism.sh --testnet --num-accounts 100 --genesis-time 2026-01-01T00:00:00Z
 
@@ -41,8 +44,10 @@ It also runs `bitinfinity-tools verify-genesis` on each generated file, providin
 `run_readiness_gate.sh` runs this checker in smoke/full modes using a deterministic synthetic fixture:
 
 ```bash
-./scripts/launch/check_genesis_determinism.sh --testnet --num-accounts 100 --chain-id bitinfinity-mainnet --genesis-time 2026-01-01T00:00:00Z
+./scripts/launch/check_genesis_determinism.sh --testnet --num-accounts 100 --chain-id bitinfinity-mainnet --genesis-time 2026-01-01T00:00:00Z --expected-hash 95f3e2600eec0dcd3ca51bf530f46ac963fa3b5286e18c6401efdcae8066aa5d
 ```
+
+The pinned fixture hash catches deterministic-but-unintended genesis output drift in CI and local readiness runs.
 
 For final launch signoff, run snapshot mode explicitly and attach the JSON/text output to go/no-go records.
 

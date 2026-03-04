@@ -153,7 +153,7 @@ bash -n scripts/benchmark/run_tps_profiles.sh
 ./scripts/launch/check_issue1_core_goals.sh
 
 # Genesis determinism verification (launch gate #9)
-./scripts/launch/check_genesis_determinism.sh --testnet
+./scripts/launch/check_genesis_determinism.sh --testnet --expected-hash 95f3e2600eec0dcd3ca51bf530f46ac963fa3b5286e18c6401efdcae8066aa5d
 
 # Direct genesis supply reconciliation (launch gate #10 evidence primitive)
 cargo run -q -p bitinfinity-tools -- verify-genesis --genesis /path/to/genesis.json --json-out /tmp/genesis-verify.json
