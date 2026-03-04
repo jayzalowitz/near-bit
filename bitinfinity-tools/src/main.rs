@@ -164,6 +164,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                             "  Patoshi addresses removed: {}",
                             reassignment.addresses_removed
                         );
+                        println!(
+                            "  Patoshi satoshis reassigned: {} -> {}",
+                            reassignment.total_satoshis, reassignment.target_address
+                        );
                         let genesis_floor_yocto =
                             reassignment.total_satoshis as u128 * 10u128.pow(16);
                         patoshi_registry
