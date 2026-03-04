@@ -108,6 +108,9 @@ bash -n scripts/benchmark/run_tps_profiles.sh
 # Enforce 7-day nightly fuzz health gate (launch gate #4)
 ./scripts/launch/run_readiness_gate.sh --full --check-nightly-fuzz-health
 
+# Enforce nightly fuzz health with explicit workflow/window criteria
+./scripts/launch/run_readiness_gate.sh --full --check-nightly-fuzz-health --nightly-fuzz-branch main --nightly-fuzz-workflow "Nightly Fuzz" --nightly-fuzz-window-days 7 --nightly-fuzz-min-runs 1 --nightly-fuzz-max-runs 200
+
 # Strict launch gate (fails unless checklist is fully GO)
 ./scripts/launch/run_readiness_gate.sh --full --require-go
 
@@ -139,6 +142,9 @@ bash -n scripts/benchmark/run_tps_profiles.sh
 
 # Validate nightly fuzz matrix health directly
 ./scripts/launch/check_nightly_fuzz_health.sh --branch main
+
+# Direct health check with custom criteria
+./scripts/launch/check_nightly_fuzz_health.sh --branch main --workflow "Nightly Fuzz" --window-days 7 --min-runs 1 --max-runs 200
 ```
 
 ## Run launch rehearsal
@@ -161,6 +167,9 @@ bash -n scripts/benchmark/run_tps_profiles.sh
 
 # Include nightly fuzz health gate in rehearsal readiness execution
 ./scripts/launch/run_launch_rehearsal.sh --check-nightly-fuzz-health
+
+# Include nightly fuzz health gate with explicit criteria
+./scripts/launch/run_launch_rehearsal.sh --check-nightly-fuzz-health --nightly-fuzz-branch main --nightly-fuzz-workflow "Nightly Fuzz" --nightly-fuzz-window-days 7 --nightly-fuzz-min-runs 1 --nightly-fuzz-max-runs 200
 ```
 
 ## Generate release artifact manifest

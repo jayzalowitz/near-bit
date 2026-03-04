@@ -25,6 +25,12 @@ Defaults:
 # Check another branch
 ./scripts/launch/check_nightly_fuzz_health.sh --branch infinitoshi/btc-near-fork-plan
 
+# Check a different workflow name
+./scripts/launch/check_nightly_fuzz_health.sh --workflow CI
+
+# Tighten or relax lookback criteria
+./scripts/launch/check_nightly_fuzz_health.sh --window-days 14 --min-runs 10 --max-runs 500
+
 # Require at least 7 runs in the window
 ./scripts/launch/check_nightly_fuzz_health.sh --min-runs 7
 
@@ -41,6 +47,7 @@ Use strict readiness mode when preparing final signoff evidence:
 
 ```bash
 ./scripts/launch/run_readiness_gate.sh --full --check-nightly-fuzz-health
+./scripts/launch/run_readiness_gate.sh --full --check-nightly-fuzz-health --nightly-fuzz-branch main --nightly-fuzz-workflow "Nightly Fuzz" --nightly-fuzz-window-days 7 --nightly-fuzz-min-runs 1 --nightly-fuzz-max-runs 200
 ```
 
 For rehearsal/evidence flows, pass the same check through orchestration:

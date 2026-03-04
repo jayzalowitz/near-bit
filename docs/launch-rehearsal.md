@@ -34,6 +34,12 @@ This reduces manual sequencing errors and gives a single artifact root for each 
 
 # Enforce nightly fuzz 7-day health gate during rehearsal readiness checks
 ./scripts/launch/run_launch_rehearsal.sh --check-nightly-fuzz-health
+
+# Enforce nightly fuzz health with explicit workflow/window criteria
+./scripts/launch/run_launch_rehearsal.sh --check-nightly-fuzz-health --nightly-fuzz-branch main --nightly-fuzz-workflow "Nightly Fuzz" --nightly-fuzz-window-days 7 --nightly-fuzz-min-runs 1 --nightly-fuzz-max-runs 200
+
+# Allow in-progress nightly runs during maintenance windows
+./scripts/launch/run_launch_rehearsal.sh --check-nightly-fuzz-health --nightly-fuzz-allow-in-progress
 ```
 
 Release-manifest behavior defaults:
@@ -77,4 +83,4 @@ Operator metadata:
 Use workflow `.github/workflows/launch-rehearsal.yml` (manual dispatch) to run and archive rehearsal artifacts in CI.
 The workflow exposes `release_manifest` (`auto|include|skip`) and `release_manifest_skip_build` inputs to control manifest behavior explicitly.
 CI rehearsals automatically set `--operator` to `${{ github.actor }}` for attribution.
-The workflow also exposes `check_nightly_fuzz_health` and `nightly_fuzz_branch` inputs for gate #4 enforcement.
+The workflow also exposes `check_nightly_fuzz_health`, `nightly_fuzz_branch`, `nightly_fuzz_workflow`, `nightly_fuzz_window_days`, `nightly_fuzz_min_runs`, `nightly_fuzz_max_runs`, and `nightly_fuzz_allow_in_progress` inputs for gate #4 enforcement.

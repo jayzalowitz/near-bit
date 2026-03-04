@@ -24,6 +24,9 @@ The bundle is designed to support launch rehearsal and go/no-go review by captur
 
 # Enforce nightly fuzz 7-day health gate in readiness execution
 ./scripts/launch/generate_evidence_bundle.sh --mode full --check-nightly-fuzz-health
+
+# Enforce nightly fuzz health gate with explicit criteria
+./scripts/launch/generate_evidence_bundle.sh --mode full --check-nightly-fuzz-health --nightly-fuzz-branch main --nightly-fuzz-workflow "Nightly Fuzz" --nightly-fuzz-window-days 7 --nightly-fuzz-min-runs 1 --nightly-fuzz-max-runs 200
 ```
 
 Output is written under:
@@ -88,6 +91,12 @@ It executes readiness checks with checklist parsing disabled internally, then ru
 
 # Override nightly fuzz health branch target
 ./scripts/launch/generate_evidence_bundle.sh --check-nightly-fuzz-health --nightly-fuzz-branch main
+
+# Override nightly fuzz workflow/window criteria
+./scripts/launch/generate_evidence_bundle.sh --check-nightly-fuzz-health --nightly-fuzz-workflow "Nightly Fuzz" --nightly-fuzz-window-days 14 --nightly-fuzz-min-runs 10 --nightly-fuzz-max-runs 500
+
+# Permit in-progress nightly runs during active maintenance windows
+./scripts/launch/generate_evidence_bundle.sh --check-nightly-fuzz-health --nightly-fuzz-allow-in-progress
 ```
 
 Use `--skip-gate` only for documentation snapshots, not for launch signoff evidence.
@@ -100,6 +109,7 @@ Use workflow `.github/workflows/launch-evidence.yml` via manual dispatch:
 
 1. choose `mode` (`smoke` or `full`)
 2. optionally set `include_fuzz=true`
-3. optionally set `check_nightly_fuzz_health=true` (defaults to `nightly_fuzz_branch=main`)
+3. optionally set `check_nightly_fuzz_health=true` and tune:
+   `nightly_fuzz_branch`, `nightly_fuzz_workflow`, `nightly_fuzz_window_days`, `nightly_fuzz_min_runs`, `nightly_fuzz_max_runs`, `nightly_fuzz_allow_in_progress`
 4. set `require_go=true` for final signoff runs (will fail until checklist is fully complete)
 5. download the uploaded `launch-evidence-*` artifact for signoff records

@@ -23,6 +23,9 @@ Use one command path for repeatable local verification:
 
 # Full gate + enforced 7-day nightly fuzz health
 ./scripts/launch/run_readiness_gate.sh --full --check-nightly-fuzz-health
+
+# Full gate + explicit nightly fuzz criteria
+./scripts/launch/run_readiness_gate.sh --full --check-nightly-fuzz-health --nightly-fuzz-branch main --nightly-fuzz-workflow "Nightly Fuzz" --nightly-fuzz-window-days 7 --nightly-fuzz-min-runs 1 --nightly-fuzz-max-runs 200
 ```
 
 ## Repository-Verifiable Gates
@@ -50,6 +53,9 @@ Use one command path for repeatable local verification:
 - `2026-03-04`: `./scripts/launch/run_readiness_gate.sh --full --include-fuzz` passed locally on commit `89a1a29d0`.
 - `2026-03-04`: `./scripts/launch/run_launch_rehearsal.sh --mode smoke` passed locally on commit `89a1a29d0`.
 - Rehearsal metadata now includes operator attribution via `--operator` (or workflow actor in CI).
+- `2026-03-04`: CI run `22652391057` (commit `d1fd2c22d`) completed success across Build/Test/Clippy/Fuzz (smoke)/Security Audit/Format/Launch Readiness.
+- `2026-03-04`: `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist --check-nightly-fuzz-health --nightly-fuzz-workflow CI --nightly-fuzz-branch infinitoshi/btc-near-fork-plan --nightly-fuzz-window-days 0 --nightly-fuzz-min-runs 0 --nightly-fuzz-max-runs 50 --nightly-fuzz-allow-in-progress` passed locally.
+- `2026-03-04`: `./scripts/launch/run_launch_rehearsal.sh --mode smoke --check-nightly-fuzz-health --nightly-fuzz-workflow CI --nightly-fuzz-branch infinitoshi/btc-near-fork-plan --nightly-fuzz-window-days 0 --nightly-fuzz-min-runs 0 --nightly-fuzz-max-runs 50 --nightly-fuzz-allow-in-progress --skip-release-manifest --allow-dirty` passed locally.
 
 ## External Gates (Not Solvable by Repository Changes Alone)
 

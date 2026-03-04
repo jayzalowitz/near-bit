@@ -3,13 +3,18 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/launch/generate_evidence_bundle.sh [--mode smoke|full] [--include-fuzz] [--check-nightly-fuzz-health] [--nightly-fuzz-branch <name>] [--skip-gate] [--require-go] [--checklist-file <path>] [--out-dir <path>]
+Usage: ./scripts/launch/generate_evidence_bundle.sh [--mode smoke|full] [--include-fuzz] [--check-nightly-fuzz-health] [--nightly-fuzz-branch <name>] [--nightly-fuzz-workflow <name>] [--nightly-fuzz-window-days <n>] [--nightly-fuzz-min-runs <n>] [--nightly-fuzz-max-runs <n>] [--nightly-fuzz-allow-in-progress] [--skip-gate] [--require-go] [--checklist-file <path>] [--out-dir <path>]
 
 Options:
   --mode <smoke|full>  Readiness gate mode to run. Default: full.
   --include-fuzz       Pass --include-fuzz to readiness gate.
   --check-nightly-fuzz-health  Enforce 7-day nightly fuzz health check in readiness gate.
   --nightly-fuzz-branch <name> Branch used by nightly fuzz health check. Default: main.
+  --nightly-fuzz-workflow <name> Workflow name used by nightly fuzz health check. Default: Nightly Fuzz.
+  --nightly-fuzz-window-days <n> Lookback window in days for nightly fuzz health. Default: 7.
+  --nightly-fuzz-min-runs <n> Minimum required runs in lookback window. Default: 1.
+  --nightly-fuzz-max-runs <n> Max runs fetched from GitHub API. Default: 200.
+  --nightly-fuzz-allow-in-progress Do not fail when in-progress runs are present.
   --skip-gate          Skip executing readiness gate and only snapshot metadata/docs.
   --require-go         Enforce GO criteria in checklist validation.
   --checklist-file     Checklist file path. Default: docs/mainnet-go-no-go-checklist.md
@@ -23,6 +28,11 @@ MODE="full"
 INCLUDE_FUZZ=0
 CHECK_NIGHTLY_FUZZ_HEALTH=0
 NIGHTLY_FUZZ_BRANCH="main"
+NIGHTLY_FUZZ_WORKFLOW="Nightly Fuzz"
+NIGHTLY_FUZZ_WINDOW_DAYS=7
+NIGHTLY_FUZZ_MIN_RUNS=1
+NIGHTLY_FUZZ_MAX_RUNS=200
+NIGHTLY_FUZZ_ALLOW_IN_PROGRESS=0
 SKIP_GATE=0
 REQUIRE_GO=0
 ALLOW_DIRTY=0
@@ -54,6 +64,42 @@ while [[ $# -gt 0 ]]; do
       fi
       NIGHTLY_FUZZ_BRANCH="$2"
       shift 2
+      ;;
+    --nightly-fuzz-workflow)
+      if [[ $# -lt 2 ]]; then
+        echo "--nightly-fuzz-workflow requires a value" >&2
+        exit 1
+      fi
+      NIGHTLY_FUZZ_WORKFLOW="$2"
+      shift 2
+      ;;
+    --nightly-fuzz-window-days)
+      if [[ $# -lt 2 ]]; then
+        echo "--nightly-fuzz-window-days requires a numeric value" >&2
+        exit 1
+      fi
+      NIGHTLY_FUZZ_WINDOW_DAYS="$2"
+      shift 2
+      ;;
+    --nightly-fuzz-min-runs)
+      if [[ $# -lt 2 ]]; then
+        echo "--nightly-fuzz-min-runs requires a numeric value" >&2
+        exit 1
+      fi
+      NIGHTLY_FUZZ_MIN_RUNS="$2"
+      shift 2
+      ;;
+    --nightly-fuzz-max-runs)
+      if [[ $# -lt 2 ]]; then
+        echo "--nightly-fuzz-max-runs requires a numeric value" >&2
+        exit 1
+      fi
+      NIGHTLY_FUZZ_MAX_RUNS="$2"
+      shift 2
+      ;;
+    --nightly-fuzz-allow-in-progress)
+      NIGHTLY_FUZZ_ALLOW_IN_PROGRESS=1
+      shift
       ;;
     --skip-gate)
       SKIP_GATE=1
@@ -93,6 +139,13 @@ while [[ $# -gt 0 ]]; do
       exit 1
       ;;
   esac
+done
+
+for num in "$NIGHTLY_FUZZ_WINDOW_DAYS" "$NIGHTLY_FUZZ_MIN_RUNS" "$NIGHTLY_FUZZ_MAX_RUNS"; do
+  if [[ ! "$num" =~ ^[0-9]+$ ]]; then
+    echo "Nightly fuzz numeric options must be non-negative integers." >&2
+    exit 1
+  fi
 done
 
 if [[ "$MODE" != "smoke" && "$MODE" != "full" ]]; then
@@ -157,6 +210,11 @@ jq -n \
   --argjson include_fuzz "$INCLUDE_FUZZ" \
   --argjson check_nightly_fuzz_health "$CHECK_NIGHTLY_FUZZ_HEALTH" \
   --arg nightly_fuzz_branch "$NIGHTLY_FUZZ_BRANCH" \
+  --arg nightly_fuzz_workflow "$NIGHTLY_FUZZ_WORKFLOW" \
+  --argjson nightly_fuzz_window_days "$NIGHTLY_FUZZ_WINDOW_DAYS" \
+  --argjson nightly_fuzz_min_runs "$NIGHTLY_FUZZ_MIN_RUNS" \
+  --argjson nightly_fuzz_max_runs "$NIGHTLY_FUZZ_MAX_RUNS" \
+  --argjson nightly_fuzz_allow_in_progress "$NIGHTLY_FUZZ_ALLOW_IN_PROGRESS" \
   --argjson skip_gate "$SKIP_GATE" \
   --argjson require_go "$REQUIRE_GO" \
   --argjson allow_dirty "$ALLOW_DIRTY" \
@@ -178,6 +236,11 @@ jq -n \
       include_fuzz: $include_fuzz,
       check_nightly_fuzz_health: $check_nightly_fuzz_health,
       nightly_fuzz_branch: $nightly_fuzz_branch,
+      nightly_fuzz_workflow: $nightly_fuzz_workflow,
+      nightly_fuzz_window_days: $nightly_fuzz_window_days,
+      nightly_fuzz_min_runs: $nightly_fuzz_min_runs,
+      nightly_fuzz_max_runs: $nightly_fuzz_max_runs,
+      nightly_fuzz_allow_in_progress: ($nightly_fuzz_allow_in_progress == 1),
       skipped: $skip_gate
     },
     checklist: {
@@ -234,7 +297,17 @@ if [[ "$SKIP_GATE" -eq 0 ]]; then
     gate_cmd+=(--include-fuzz)
   fi
   if [[ "$CHECK_NIGHTLY_FUZZ_HEALTH" -eq 1 ]]; then
-    gate_cmd+=(--check-nightly-fuzz-health --nightly-fuzz-branch "$NIGHTLY_FUZZ_BRANCH")
+    gate_cmd+=(
+      --check-nightly-fuzz-health
+      --nightly-fuzz-branch "$NIGHTLY_FUZZ_BRANCH"
+      --nightly-fuzz-workflow "$NIGHTLY_FUZZ_WORKFLOW"
+      --nightly-fuzz-window-days "$NIGHTLY_FUZZ_WINDOW_DAYS"
+      --nightly-fuzz-min-runs "$NIGHTLY_FUZZ_MIN_RUNS"
+      --nightly-fuzz-max-runs "$NIGHTLY_FUZZ_MAX_RUNS"
+    )
+    if [[ "$NIGHTLY_FUZZ_ALLOW_IN_PROGRESS" -eq 1 ]]; then
+      gate_cmd+=(--nightly-fuzz-allow-in-progress)
+    fi
   fi
 
   echo "Running readiness gate: ${gate_cmd[*]}"
@@ -293,6 +366,11 @@ cat > "${bundle_dir}/SUMMARY.md" <<EOF
 - readiness_gate_include_fuzz: ${INCLUDE_FUZZ}
 - readiness_gate_check_nightly_fuzz_health: ${CHECK_NIGHTLY_FUZZ_HEALTH}
 - readiness_gate_nightly_fuzz_branch: ${NIGHTLY_FUZZ_BRANCH}
+- readiness_gate_nightly_fuzz_workflow: ${NIGHTLY_FUZZ_WORKFLOW}
+- readiness_gate_nightly_fuzz_window_days: ${NIGHTLY_FUZZ_WINDOW_DAYS}
+- readiness_gate_nightly_fuzz_min_runs: ${NIGHTLY_FUZZ_MIN_RUNS}
+- readiness_gate_nightly_fuzz_max_runs: ${NIGHTLY_FUZZ_MAX_RUNS}
+- readiness_gate_nightly_fuzz_allow_in_progress: ${NIGHTLY_FUZZ_ALLOW_IN_PROGRESS}
 - readiness_gate_status: ${gate_status}
 - readiness_gate_exit_code: ${gate_exit_code}
 - checklist_file: ${CHECKLIST_FILE}
