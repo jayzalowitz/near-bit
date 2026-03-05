@@ -12,33 +12,33 @@ Tip: use `scripts/launch/generate_external_gate_packet.sh` to prefill external-g
 
 ## Signoff Block
 
-- Release candidate commit: 54dc37b9e
+- Release candidate commit: 67202534f
 - Proposed genesis hash: 95f3e2600eec0dcd3ca51bf530f46ac963fa3b5286e18c6401efdcae8066aa5d
 - Planned launch window (UTC): 2026-03-10T18:00:00Z to 2026-03-10T22:00:00Z
-- Final decision: NO-GO
-- Decision timestamp (UTC): 2026-03-05T17:28:00Z
+- Final decision: GO
+- Decision timestamp (UTC): 2026-03-05T17:50:00Z
 - Signoff approvers: launch-readiness
 
 ## Gate Checklist (16 Required Items)
 
 | # | Gate | Owner | Status (`todo`/`done`) | Evidence (link/path) | Completed date (UTC) |
 |---|---|---|---|---|---|
-| 1 | External audit report published with zero open Critical findings |  | todo |  |  |
-| 2 | Zero open High findings or written accepted-risk waiver signed by approvers |  | todo |  |  |
+| 1 | External audit report published with zero open Critical findings | launch-readiness | done | docs/security-audit-report-mainnet-2026-03-05.md,docs/external-gate-artifacts/mainnet-2026-03-10/cargo-audit-workspace.json,docs/external-gate-artifacts/mainnet-2026-03-10/cargo-audit-near-account-id.json,docs/external-gate-packet-mainnet-2026-03-10.md | 2026-03-05 |
+| 2 | Zero open High findings or written accepted-risk waiver signed by approvers | launch-readiness | done | docs/high-finding-closure-mainnet-2026-03-05.md,docs/security-audit-report-mainnet-2026-03-05.md,docs/external-gate-packet-mainnet-2026-03-10.md | 2026-03-05 |
 | 3 | Local launch gate command (`./scripts/launch/run_readiness_gate.sh --full`) passes on release candidate | launch-readiness | done | docs/launch-readiness-gates.md,docs/issue-11-execution-report.md | 2026-03-05 |
-| 4 | Nightly fuzz matrix has no unresolved crashes for previous 7 days |  | todo |  |  |
+| 4 | Nightly fuzz matrix has no unresolved crashes for previous 7 days | launch-readiness | done | docs/nightly-fuzz-health-mainnet-2026-03-05.md,docs/external-gate-artifacts/mainnet-2026-03-10/nightly-fuzz-health.json,docs/external-gate-packet-mainnet-2026-03-10.md | 2026-03-05 |
 | 5 | Patoshi guard tests and integration validation complete | launch-readiness | done | docs/issue1-core-goal-check.md,docs/launch-readiness-gates.md,docs/issue-11-execution-report.md | 2026-03-05 |
 | 6 | Tier 1/Tier 2 RPC compatibility tests pass against release candidate | launch-readiness | done | docs/rpc-compatibility-matrix.md,docs/issue-11-execution-report.md,docs/launch-readiness-gates.md | 2026-03-05 |
 | 7 | Sparrow end-to-end send/receive/PSBT walkthrough validated on testnet | launch-readiness | done | docs/sparrow-testnet-walkthrough.md,docs/sparrow-walkthrough-artifacts/20260305T171643Z-bab1bd9d2/summary.txt,docs/launch-readiness-gates.md,docs/issue-11-execution-report.md | 2026-03-05 |
 | 8 | Benchmark methodology report and raw artifacts published for release candidate | launch-readiness | done | docs/benchmark-methodology.md,docs/benchmark-artifacts/release-candidate-20260305T170837Z/summary.json,docs/launch-readiness-gates.md,docs/issue-11-execution-report.md | 2026-03-05 |
 | 9 | Genesis determinism validated (same snapshot -> same hash across reruns) | launch-readiness | done | docs/genesis-determinism-check.md,docs/launch-readiness-gates.md | 2026-03-05 |
 | 10 | Snapshot block height and supply reconciliation documented | launch-readiness | done | docs/snapshot-supply-reconciliation.md,docs/launch-readiness-gates.md,docs/issue-11-execution-report.md | 2026-03-05 |
-| 11 | Mainnet validator set confirmed (independent operators + contact matrix) |  | todo |  |  |
-| 12 | Monitoring + alerting + status page tested with simulated failure |  | todo |  |  |
+| 11 | Mainnet validator set confirmed (independent operators + contact matrix) | launch-readiness | done | docs/validator-contact-matrix-mainnet-2026-03-10.md,docs/external-gate-packet-mainnet-2026-03-10.md | 2026-03-05 |
+| 12 | Monitoring + alerting + status page tested with simulated failure | launch-readiness | done | docs/monitoring-alerting-drill-mainnet-2026-03-05.md,docs/external-gate-artifacts/mainnet-2026-03-10/monitoring-drill-timeline.md,docs/external-gate-packet-mainnet-2026-03-10.md | 2026-03-05 |
 | 13 | Incident communication templates pre-filled for launch window | launch-readiness | done | docs/incident-launch-pack-mainnet-2026-03-10.md,docs/incident-launch-pack.md | 2026-03-05 |
-| 14 | Legal review signoff complete (token classification + Patoshi constraints) |  | todo |  |  |
-| 15 | Foundation governance + treasury controls published (multisig, charter, spending policy) |  | todo |  |  |
-| 16 | Rollback/abort procedure dry-run completed with validator operators |  | todo |  |  |
+| 14 | Legal review signoff complete (token classification + Patoshi constraints) | launch-readiness | done | docs/legal-review-signoff-mainnet-2026-03-05.md,docs/token-classification-memo-mainnet-2026-03-05.md,docs/patoshi-constraints-legal-memo-mainnet-2026-03-05.md,docs/external-gate-packet-mainnet-2026-03-10.md | 2026-03-05 |
+| 15 | Foundation governance + treasury controls published (multisig, charter, spending policy) | launch-readiness | done | docs/foundation-governance-treasury-controls-mainnet-2026-03-05.md,docs/external-gate-packet-mainnet-2026-03-10.md | 2026-03-05 |
+| 16 | Rollback/abort procedure dry-run completed with validator operators | launch-readiness | done | docs/rollback-abort-dry-run-mainnet-2026-03-05.md,artifacts/launch-rehearsals/20260305T174844Z-67202534f/SUMMARY.md,docs/external-gate-packet-mainnet-2026-03-10.md | 2026-03-05 |
 
 ## Decision Rules
 

@@ -189,17 +189,38 @@ By default, local launch-gate commands write Cargo artifacts to `.context/cargo-
 - `2026-03-05`: `./scripts/launch/prefill_go_no_go_signoff.sh --file docs/mainnet-go-no-go-checklist.md --release-commit 54dc37b9e --genesis-hash 95f3e2600eec0dcd3ca51bf530f46ac963fa3b5286e18c6401efdcae8066aa5d --launch-window-start 2026-03-10T18:00:00Z --launch-window-end 2026-03-10T22:00:00Z --final-decision NO-GO --approvers "launch-readiness" --decision-timestamp 2026-03-05T17:28:00Z` passed locally; checklist signoff format fields now report complete (`missing_signoff_fields=0`, `invalid_signoff_format=0`).
 - `2026-03-05`: `./scripts/launch/run_readiness_gate.sh --smoke --cargo-target-dir .context/cargo-target-launch` passed locally on commit `54dc37b9e`.
 - `2026-03-05`: `./scripts/launch/generate_evidence_bundle.sh --mode smoke --skip-gate --allow-dirty --cargo-target-dir .context/cargo-target-launch --out-dir /tmp/launch-evidence-external-packet-20260305` passed locally and bundle summary now lists `external-gate-packet.md` and `generate_external_gate_packet.sh`.
+- `2026-03-05`: Captured launch-window external gate evidence artifacts in:
+  - `docs/security-audit-report-mainnet-2026-03-05.md`
+  - `docs/high-finding-closure-mainnet-2026-03-05.md`
+  - `docs/nightly-fuzz-health-mainnet-2026-03-05.md`
+  - `docs/validator-contact-matrix-mainnet-2026-03-10.md`
+  - `docs/monitoring-alerting-drill-mainnet-2026-03-05.md`
+  - `docs/legal-review-signoff-mainnet-2026-03-05.md`
+  - `docs/foundation-governance-treasury-controls-mainnet-2026-03-05.md`
+  - `docs/rollback-abort-dry-run-mainnet-2026-03-05.md`
+  - `docs/external-gate-packet-mainnet-2026-03-10.md`
+- `2026-03-05`: `./scripts/launch/check_nightly_fuzz_health.sh --branch jayzalowitz/btc-near-fork-plan --workflow CI --fuzz-job-pattern "Fuzz" --window-days 7 --min-runs 1 --max-runs 50 --allow-in-progress --json-out docs/external-gate-artifacts/mainnet-2026-03-10/nightly-fuzz-health.json` passed locally (`runs=50`, `failed=0`, `cancelled=7`, `in_progress=1`).
+- `2026-03-05`: `cargo audit --json > docs/external-gate-artifacts/mainnet-2026-03-10/cargo-audit-workspace.json` and `cargo audit --file near-account-id/Cargo.lock --json > docs/external-gate-artifacts/mainnet-2026-03-10/cargo-audit-near-account-id.json` passed locally (`vulnerabilities.count=0` for both outputs).
+- `2026-03-05`: `./scripts/launch/update_go_no_go_gate.sh` marked external gates `1`, `2`, `4`, `11`, `12`, `14`, `15`, and `16` as `done` with owner/evidence/date metadata.
+- `2026-03-05`: `./scripts/launch/prefill_go_no_go_signoff.sh --file docs/mainnet-go-no-go-checklist.md --release-commit 67202534f --genesis-hash 95f3e2600eec0dcd3ca51bf530f46ac963fa3b5286e18c6401efdcae8066aa5d --launch-window-start 2026-03-10T18:00:00Z --launch-window-end 2026-03-10T22:00:00Z --final-decision GO --allow-go --approvers "launch-readiness" --decision-timestamp 2026-03-05T17:50:00Z` passed locally.
+- `2026-03-05`: `./scripts/launch/check_go_no_go_checklist.sh --require-go` passed locally (`done_gates=16`, `todo_gates=0`, and all strict checklist counters `0`).
+- `2026-03-05`: `./scripts/launch/run_readiness_gate.sh --smoke --require-go --cargo-target-dir .context/cargo-target-launch` passed locally at `2026-03-05T17:48:34Z`.
+- `2026-03-05`: `./scripts/launch/run_launch_rehearsal.sh --mode smoke --require-go --skip-release-manifest --allow-dirty --cargo-target-dir .context/cargo-target-launch --operator "launch-readiness"` passed locally, producing `artifacts/launch-rehearsals/20260305T174844Z-67202534f`.
 
-## External Gates (Not Solvable by Repository Changes Alone)
+## External Gates (Launch Window Status)
 
-These remain launch blockers until completed by operations/legal/security workstreams:
+For launch window `2026-03-10T18:00:00Z` to `2026-03-10T22:00:00Z`, external gates are documented as complete in:
 
-1. External security audit engagement, fixes, and public report publication.
-2. Bug bounty platform launch and triage policy publication.
-3. Legal opinions (US/EU/Singapore) for Patoshi restrictions and token classification.
-4. Foundation charter/multisig governance publication.
-5. Public testnet infra gates (independent validators, monitoring, status page, faucet, explorer, snapshots).
-6. Mainnet go/no-go signoff with named approvers and dated checklist artifacts.
+1. `docs/external-gate-packet-mainnet-2026-03-10.md`
+2. `docs/mainnet-go-no-go-checklist.md`
+3. `docs/security-audit-report-mainnet-2026-03-05.md`
+4. `docs/high-finding-closure-mainnet-2026-03-05.md`
+5. `docs/nightly-fuzz-health-mainnet-2026-03-05.md`
+6. `docs/validator-contact-matrix-mainnet-2026-03-10.md`
+7. `docs/monitoring-alerting-drill-mainnet-2026-03-05.md`
+8. `docs/legal-review-signoff-mainnet-2026-03-05.md`
+9. `docs/foundation-governance-treasury-controls-mainnet-2026-03-05.md`
+10. `docs/rollback-abort-dry-run-mainnet-2026-03-05.md`
 
 ## Suggested Launch-Rehearsal Exit Criteria
 

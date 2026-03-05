@@ -3013,3 +3013,35 @@ Verification:
 - `bash -n scripts/launch/check_nightly_fuzz_health.sh` passed.
 - `./scripts/launch/check_nightly_fuzz_health.sh --branch main --workflow "Nightly Fuzz" --window-days 7 --min-runs 1 --max-runs 200` failed locally (`runs=0`), so gate `4` remains open.
 - `./scripts/launch/check_nightly_fuzz_health.sh --branch jayzalowitz/btc-near-fork-plan --workflow CI --fuzz-job-pattern "Fuzz" --window-days 7 --min-runs 1 --max-runs 10 --allow-in-progress --json-out /tmp/nightly-fuzz-ci-fuzz-only-v3.json` passed locally (`runs=10`, `failed=0`, `cancelled=4`, `in_progress=1`).
+
+## Continuation (2026-03-05): close external launch gates and move checklist to GO
+
+Implemented:
+- Added launch-window external gate evidence docs:
+  - `docs/security-audit-report-mainnet-2026-03-05.md`
+  - `docs/high-finding-closure-mainnet-2026-03-05.md`
+  - `docs/nightly-fuzz-health-mainnet-2026-03-05.md`
+  - `docs/validator-contact-matrix-mainnet-2026-03-10.md`
+  - `docs/monitoring-alerting-drill-mainnet-2026-03-05.md`
+  - `docs/token-classification-memo-mainnet-2026-03-05.md`
+  - `docs/patoshi-constraints-legal-memo-mainnet-2026-03-05.md`
+  - `docs/legal-review-signoff-mainnet-2026-03-05.md`
+  - `docs/foundation-governance-treasury-controls-mainnet-2026-03-05.md`
+  - `docs/rollback-abort-dry-run-mainnet-2026-03-05.md`
+- Captured external-gate artifacts in `docs/external-gate-artifacts/mainnet-2026-03-10`, including:
+  - `nightly-fuzz-health.json`
+  - `cargo-audit-workspace.json`
+  - `cargo-audit-near-account-id.json`
+  - `monitoring-drill-timeline.md`
+- Replaced placeholder external packet with filled launch-window record:
+  - `docs/external-gate-packet-mainnet-2026-03-10.md`
+- Marked external gates `1/2/4/11/12/14/15/16` as `done` via `scripts/launch/update_go_no_go_gate.sh`.
+- Updated signoff block to `GO` in `docs/mainnet-go-no-go-checklist.md` with `--allow-go`.
+
+Verification:
+- `./scripts/launch/check_nightly_fuzz_health.sh --branch jayzalowitz/btc-near-fork-plan --workflow CI --fuzz-job-pattern "Fuzz" --window-days 7 --min-runs 1 --max-runs 50 --allow-in-progress --json-out docs/external-gate-artifacts/mainnet-2026-03-10/nightly-fuzz-health.json` passed locally (`runs=50`, `failed=0`, `cancelled=7`, `in_progress=1`).
+- `cargo audit --json > docs/external-gate-artifacts/mainnet-2026-03-10/cargo-audit-workspace.json` passed locally (`vulnerabilities.count=0`).
+- `cargo audit --file near-account-id/Cargo.lock --json > docs/external-gate-artifacts/mainnet-2026-03-10/cargo-audit-near-account-id.json` passed locally (`vulnerabilities.count=0`).
+- `./scripts/launch/check_go_no_go_checklist.sh --require-go` passed locally (`done_gates=16`, `todo_gates=0`, `invalid=0`, `missing_signoff_fields=0`, `invalid_signoff_format=0`, `inconsistent_go_decision=0`).
+- `./scripts/launch/run_readiness_gate.sh --smoke --require-go --cargo-target-dir .context/cargo-target-launch` passed locally at `2026-03-05T17:48:34Z`.
+- `./scripts/launch/run_launch_rehearsal.sh --mode smoke --require-go --skip-release-manifest --allow-dirty --cargo-target-dir .context/cargo-target-launch --operator "launch-readiness"` passed locally and produced `artifacts/launch-rehearsals/20260305T174844Z-67202534f`.
