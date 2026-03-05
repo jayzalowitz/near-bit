@@ -464,6 +464,11 @@ checklist_exit_code=-1
 checklist_todo=-1
 checklist_invalid=-1
 checklist_missing_signoff=-1
+checklist_done_missing_evidence=-1
+checklist_done_missing_completed_date=-1
+checklist_done_invalid_completed_date=-1
+checklist_done_invalid_evidence_refs=-1
+checklist_invalid_signoff_format=-1
 release_manifest_status="skipped"
 release_manifest_exit_code=0
 release_manifest_dir=""
@@ -478,6 +483,11 @@ if [[ -f "$checklist_report_json" ]]; then
   checklist_todo="$(jq -r '.totals.todo // -1' "$checklist_report_json")"
   checklist_invalid="$(jq -r '.totals.invalid // -1' "$checklist_report_json")"
   checklist_missing_signoff="$(jq -r '.totals.missing_signoff_fields // -1' "$checklist_report_json")"
+  checklist_done_missing_evidence="$(jq -r '.totals.done_missing_evidence // -1' "$checklist_report_json")"
+  checklist_done_missing_completed_date="$(jq -r '.totals.done_missing_completed_date // -1' "$checklist_report_json")"
+  checklist_done_invalid_completed_date="$(jq -r '.totals.done_invalid_completed_date // -1' "$checklist_report_json")"
+  checklist_done_invalid_evidence_refs="$(jq -r '.totals.done_invalid_evidence_refs // -1' "$checklist_report_json")"
+  checklist_invalid_signoff_format="$(jq -r '.totals.invalid_signoff_format // -1' "$checklist_report_json")"
 fi
 
 if [[ "$INCLUDE_RELEASE_MANIFEST" -eq 1 ]]; then
@@ -519,7 +529,16 @@ if [[ "$INCLUDE_RELEASE_MANIFEST" -eq 1 ]]; then
 fi
 
 go_ready=false
-if [[ "$gate_status" == "passed" && "$checklist_todo" -eq 0 && "$checklist_invalid" -eq 0 && "$checklist_missing_signoff" -eq 0 ]]; then
+if [[ "$gate_status" == "passed" \
+  && "$checklist_status" == "passed" \
+  && "$checklist_todo" -eq 0 \
+  && "$checklist_invalid" -eq 0 \
+  && "$checklist_missing_signoff" -eq 0 \
+  && "$checklist_done_missing_evidence" -eq 0 \
+  && "$checklist_done_missing_completed_date" -eq 0 \
+  && "$checklist_done_invalid_completed_date" -eq 0 \
+  && "$checklist_done_invalid_evidence_refs" -eq 0 \
+  && "$checklist_invalid_signoff_format" -eq 0 ]]; then
   go_ready=true
 fi
 
@@ -593,6 +612,11 @@ jq -n \
   --argjson checklist_todo "$checklist_todo" \
   --argjson checklist_invalid "$checklist_invalid" \
   --argjson checklist_missing_signoff "$checklist_missing_signoff" \
+  --argjson checklist_done_missing_evidence "$checklist_done_missing_evidence" \
+  --argjson checklist_done_missing_completed_date "$checklist_done_missing_completed_date" \
+  --argjson checklist_done_invalid_completed_date "$checklist_done_invalid_completed_date" \
+  --argjson checklist_done_invalid_evidence_refs "$checklist_done_invalid_evidence_refs" \
+  --argjson checklist_invalid_signoff_format "$checklist_invalid_signoff_format" \
   --arg release_manifest_status "$release_manifest_status" \
   --argjson release_manifest_exit_code "$release_manifest_exit_code" \
   --arg release_manifest_dir "$release_manifest_dir" \
@@ -648,6 +672,11 @@ jq -n \
       checklist_todo: $checklist_todo,
       checklist_invalid: $checklist_invalid,
       checklist_missing_signoff: $checklist_missing_signoff,
+      checklist_done_missing_evidence: $checklist_done_missing_evidence,
+      checklist_done_missing_completed_date: $checklist_done_missing_completed_date,
+      checklist_done_invalid_completed_date: $checklist_done_invalid_completed_date,
+      checklist_done_invalid_evidence_refs: $checklist_done_invalid_evidence_refs,
+      checklist_invalid_signoff_format: $checklist_invalid_signoff_format,
       go_ready: $go_ready
     }
   }' > "$summary_json"
@@ -691,6 +720,11 @@ cat > "$summary_md" <<EOF
 - checklist_todo: ${checklist_todo}
 - checklist_invalid: ${checklist_invalid}
 - checklist_missing_signoff: ${checklist_missing_signoff}
+- checklist_done_missing_evidence: ${checklist_done_missing_evidence}
+- checklist_done_missing_completed_date: ${checklist_done_missing_completed_date}
+- checklist_done_invalid_completed_date: ${checklist_done_invalid_completed_date}
+- checklist_done_invalid_evidence_refs: ${checklist_done_invalid_evidence_refs}
+- checklist_invalid_signoff_format: ${checklist_invalid_signoff_format}
 - release_manifest_status: ${release_manifest_status}
 - release_manifest_exit_code: ${release_manifest_exit_code}
 - release_manifest_dir: ${release_manifest_dir}
