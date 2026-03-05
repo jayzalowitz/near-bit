@@ -2443,3 +2443,12 @@ Verification:
   - `blog-what-is-bitcoin-infinity.md`
   - `blog-utxo-to-genesis-deep-dive.md`
   - `blog-patoshi-balance-floor-explainer.md`
+
+## Continuation (2026-03-05): strict full launch rehearsal rerun + CI confirmation
+
+Verification:
+- `./scripts/launch/run_launch_rehearsal.sh --mode full --include-fuzz --include-release-manifest --release-manifest-skip-build --operator "launch-readiness"` passed locally on commit `31ba10e99` in strict mode (no `--allow-dirty`).
+  - Rehearsal artifact root: `artifacts/launch-rehearsals/20260305T145305Z-31ba10e99`.
+  - Nested evidence bundle and release-manifest stages both completed successfully.
+- CI run `22723211541` (push) on commit `31ba10e99` completed `success`.
+- CI run `22723216772` (PR) on commit `31ba10e99` completed `success`.
