@@ -2779,3 +2779,18 @@ Verification:
 - `./scripts/launch/check_go_no_go_checklist.sh --json-out /tmp/go-no-go-base.json` passed locally on current checklist.
 - `./scripts/launch/prefill_go_no_go_signoff.sh --file /tmp/mainnet-go-no-go-checklist.go-invalid.md --release-commit 1a6189961 --genesis-hash 95f3e2600eec0dcd3ca51bf530f46ac963fa3b5286e18c6401efdcae8066aa5d --launch-window-start 2026-03-10T18:00:00Z --launch-window-end 2026-03-10T22:00:00Z --final-decision GO --approvers "alice,bob" --decision-timestamp 2026-03-10T17:55:00Z` passed locally.
 - `./scripts/launch/check_go_no_go_checklist.sh --file /tmp/mainnet-go-no-go-checklist.go-invalid.md --json-out /tmp/go-no-go-go-invalid.json` correctly failed locally (`exit=1`, `totals.inconsistent_go_decision=1`, `signoff_final_decision="go"`).
+
+## Continuation (2026-03-05): require explicit override for GO signoff prefill
+
+Implemented:
+- Hardened `scripts/launch/prefill_go_no_go_signoff.sh` with a safety override:
+  - setting `--final-decision GO` now requires explicit `--allow-go`.
+- Updated usage/help text and docs:
+  - `docs/go-no-go-signoff-prefill.md`
+  - `README.md`
+  - `docs/launch-readiness-gates.md`
+
+Verification:
+- `bash -n scripts/launch/prefill_go_no_go_signoff.sh` passed.
+- `./scripts/launch/prefill_go_no_go_signoff.sh --file /tmp/mainnet-go-no-go-checklist.go-no-allow.md --release-commit 1a6189961 --genesis-hash 95f3e2600eec0dcd3ca51bf530f46ac963fa3b5286e18c6401efdcae8066aa5d --launch-window-start 2026-03-10T18:00:00Z --launch-window-end 2026-03-10T22:00:00Z --final-decision GO --approvers "alice,bob" --decision-timestamp 2026-03-10T17:55:00Z` correctly failed without `--allow-go`.
+- Re-running the same command with `--allow-go` succeeded locally.

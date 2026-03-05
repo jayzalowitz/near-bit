@@ -152,6 +152,9 @@ bash -n scripts/benchmark/run_tps_profiles.sh
 # Prefill checklist signoff block with format-valid launch metadata
 ./scripts/launch/prefill_go_no_go_signoff.sh --release-commit <sha> --genesis-hash <sha256> --launch-window-start <YYYY-MM-DDTHH:MM:SSZ> --launch-window-end <YYYY-MM-DDTHH:MM:SSZ> --final-decision NO-GO --approvers "<name1>, <name2>"
 
+# Safety override is required when setting final decision GO
+./scripts/launch/prefill_go_no_go_signoff.sh --release-commit <sha> --genesis-hash <sha256> --launch-window-start <YYYY-MM-DDTHH:MM:SSZ> --launch-window-end <YYYY-MM-DDTHH:MM:SSZ> --final-decision GO --allow-go --approvers "<name1>, <name2>"
+
 # Update one checklist gate row with validated owner/evidence/date metadata
 ./scripts/launch/update_go_no_go_gate.sh --gate 13 --status done --owner "<name>" --evidence "<path-or-url>" --completed-date <YYYY-MM-DD>
 
