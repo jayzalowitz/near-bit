@@ -225,6 +225,9 @@ By default, local launch-gate commands write Cargo artifacts to `.context/cargo-
 - `2026-03-05`: `./scripts/launch/run_readiness_gate.sh --full --require-go --cargo-target-dir .context/cargo-target-launch` passed locally at `2026-03-05T18:14:06Z` on commit `ee902670a`.
 - `2026-03-05`: `./scripts/launch/run_launch_rehearsal.sh --mode full --require-go --include-release-manifest --allow-dirty --operator "launch-readiness" --cargo-target-dir .context/cargo-target-launch` passed locally and produced `artifacts/launch-rehearsals/20260305T181426Z-ee902670a`.
 - `2026-03-05`: CI run `22730068601` completed `success` on commit `ee902670a`, including `Launch Readiness (smoke)`, `Security Audit`, and `Fuzz (smoke)`.
+- `2026-03-05`: `./scripts/launch/check_issue1_core_goals.sh` passed locally at `2026-03-05T18:32:10Z` on commit `b0aab34ce` (`near-account-id`: `10 passed`; `bitinfinity-tools`: `26 passed`, `1 ignored`).
+- `2026-03-05`: `./scripts/launch/run_readiness_gate.sh --smoke --require-go --cargo-target-dir .context/cargo-target-launch` passed locally at `2026-03-05T18:32:25Z` on commit `b0aab34ce`.
+- `2026-03-05`: CI run `22730496031` completed `success` on commit `b0aab34ce` with all jobs green (`Build`, `Test`, `Clippy`, `Format`, `Security Audit`, `Fuzz (smoke)`, `Launch Readiness (smoke)`).
 
 ## External Gates (Launch Window Status)
 
