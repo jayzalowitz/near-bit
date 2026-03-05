@@ -90,9 +90,15 @@ Operator metadata:
 `go_ready=true` in `summary.json` is only set when:
 
 - readiness gate passed
+- checklist parser status is `passed`
 - checklist has zero todo items
 - checklist has zero invalid statuses
 - checklist has zero missing signoff fields
+- checklist has zero invalid signoff-format fields
+- checklist has zero done-gates missing evidence
+- checklist has zero done-gates missing completed dates
+- checklist has zero done-gates with invalid completed-date formats
+- checklist has zero done-gates with invalid evidence refs
 
 ## GitHub Actions
 

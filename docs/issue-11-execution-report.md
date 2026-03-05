@@ -2638,3 +2638,25 @@ Verification:
 - `./scripts/launch/check_go_no_go_checklist.sh --file /tmp/mainnet-go-no-go-checklist.prefill.md --json-out /tmp/go-no-go-prefill-check.json` passed locally (`missing_signoff=0`, `invalid_signoff_format=0` on prefilled copy).
 - `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist --skip-issue1-goal-checks --cargo-target-dir .context/cargo-target-launch` passed locally with signoff-prefill doc/script checks enabled.
 - `./scripts/launch/generate_evidence_bundle.sh --mode smoke --skip-gate --allow-dirty --cargo-target-dir .context/cargo-target-launch --out-dir /tmp/evidence-signoff-prefill` passed locally with new signoff-prefill artifacts captured.
+
+## Continuation (2026-03-05): rehearsal go-ready strictness parity with checklist validator
+
+Implemented:
+- Hardened `scripts/launch/run_launch_rehearsal.sh` to carry all strict checklist-quality counters from `go-no-go-checklist-report.json` into rehearsal summaries:
+  - `checklist_done_missing_evidence`
+  - `checklist_done_missing_completed_date`
+  - `checklist_done_invalid_completed_date`
+  - `checklist_done_invalid_evidence_refs`
+  - `checklist_invalid_signoff_format`
+- Updated `go_ready` computation to require:
+  - readiness gate status `passed`,
+  - checklist status `passed`,
+  - zero values for every strict counter above plus existing `todo`, `invalid`, and `missing_signoff`.
+- Updated output surfaces so both `summary.json` and `SUMMARY.md` expose these additional counters for operator review/automation.
+- Updated docs:
+  - `docs/launch-rehearsal.md` now documents the full strict `go_ready` criteria.
+  - `docs/launch-readiness-gates.md` verification snapshot records this hardening.
+
+Verification:
+- `bash -n scripts/launch/run_launch_rehearsal.sh` passed.
+- `./scripts/launch/run_launch_rehearsal.sh --mode smoke --skip-release-manifest --allow-dirty --skip-issue1-goal-checks --cargo-target-dir .context/cargo-target-launch --operator "launch-readiness"` passed locally with updated summary fields.

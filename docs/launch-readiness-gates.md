@@ -142,6 +142,7 @@ By default, local launch-gate commands write Cargo artifacts to `.context/cargo-
 - `2026-03-05`: Added signoff prefill helper `scripts/launch/prefill_go_no_go_signoff.sh` and companion guide `docs/go-no-go-signoff-prefill.md`; readiness/evidence checks now include them.
 - `2026-03-05`: `./scripts/launch/prefill_go_no_go_signoff.sh --file /tmp/mainnet-go-no-go-checklist.prefill.md --release-commit 3dcd38186 --genesis-hash 95f3e2600eec0dcd3ca51bf530f46ac963fa3b5286e18c6401efdcae8066aa5d --launch-window-start 2026-03-10T18:00:00Z --launch-window-end 2026-03-10T22:00:00Z --final-decision NO-GO --approvers \"alice,bob\" --decision-timestamp 2026-03-10T17:55:00Z` passed locally.
 - `2026-03-05`: `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist --skip-issue1-goal-checks --cargo-target-dir .context/cargo-target-launch` and `./scripts/launch/generate_evidence_bundle.sh --mode smoke --skip-gate --allow-dirty --cargo-target-dir .context/cargo-target-launch --out-dir /tmp/evidence-signoff-prefill` passed locally with signoff-prefill wiring enabled.
+- `2026-03-05`: `run_launch_rehearsal.sh` now computes `go_ready=true` only when all strict checklist quality counters are zero (including `invalid_signoff_format`, `done_missing_evidence`, `done_missing_completed_date`, `done_invalid_completed_date`, and `done_invalid_evidence_refs`), not just todo/invalid/missing-signoff.
 
 ## External Gates (Not Solvable by Repository Changes Alone)
 
