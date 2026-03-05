@@ -8,6 +8,11 @@ on:
         required: true
         default: false
         type: boolean
+      cargo_target_dir:
+        description: "Optional Cargo target directory override"
+        required: false
+        default: ""
+        type: string
 
 env:
   CARGO_TERM_COLOR: always
@@ -30,6 +35,9 @@ jobs:
           EXTRA_ARGS=()
           if [[ "${{ inputs.skip_build }}" == "true" ]]; then
             EXTRA_ARGS+=(--skip-build)
+          fi
+          if [[ -n "${{ inputs.cargo_target_dir }}" ]]; then
+            EXTRA_ARGS+=(--cargo-target-dir "${{ inputs.cargo_target_dir }}")
           fi
           ./scripts/launch/generate_release_manifest.sh --out-dir "${RUNNER_TEMP}/release-manifests" "${EXTRA_ARGS[@]}"
 

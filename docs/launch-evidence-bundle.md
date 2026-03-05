@@ -140,5 +140,6 @@ Use workflow `.github/workflows/launch-evidence.yml` via manual dispatch:
 3. optionally set `check_nightly_fuzz_health=true` and tune:
    `nightly_fuzz_branch`, `nightly_fuzz_workflow`, `nightly_fuzz_window_days`, `nightly_fuzz_min_runs`, `nightly_fuzz_max_runs`, `nightly_fuzz_allow_in_progress`
 4. optionally set `skip_issue1_goal_checks=true` only for fast iteration runs
-5. set `require_go=true` for final signoff runs (will fail until checklist is fully complete)
-6. download the uploaded `launch-evidence-*` artifact for signoff records
+5. optionally set `cargo_target_dir` to override Cargo build output path (default CI behavior remains `target/`)
+6. set `require_go=true` for final signoff runs (will fail until checklist is fully complete)
+7. download the uploaded `launch-evidence-*` artifact for signoff records

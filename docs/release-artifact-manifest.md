@@ -66,3 +66,4 @@ done < SHA256SUMS.txt
 ## GitHub Actions
 
 Use workflow `.github/workflows/release-manifest.yml` (manual dispatch) to generate and archive manifest artifacts in CI.
+Use optional `cargo_target_dir` workflow input to override the default CI Cargo output path (`target/`) when needed.

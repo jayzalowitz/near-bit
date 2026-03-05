@@ -117,6 +117,10 @@ By default, local launch-gate commands write Cargo artifacts to `.context/cargo-
 - `2026-03-05`: `./scripts/launch/generate_release_manifest.sh --skip-build --allow-dirty --cargo-target-dir target --out-dir /tmp/bitinfinity-release-manifests` passed locally on commit `4f9bfc7c4`.
 - `2026-03-05`: `check_go_no_go_checklist.sh` now enforces Evidence + Completed-date metadata for any gate marked `done`, including machine-readable reporting (`done_missing_evidence`, `done_missing_completed_date`, `done_invalid_completed_date`).
 - `2026-03-05`: `./scripts/launch/check_go_no_go_checklist.sh --json-out /tmp/go-no-go-summary.json` passed locally on commit `1fc0cdace`.
+- `2026-03-05`: Manual dispatch workflows now expose optional `cargo_target_dir` inputs and pass-through:
+  - `.github/workflows/launch-evidence.yml`
+  - `.github/workflows/launch-rehearsal.yml`
+  - `.github/workflows/release-manifest.yml`
 
 ## External Gates (Not Solvable by Repository Changes Alone)
 
