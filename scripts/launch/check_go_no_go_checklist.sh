@@ -232,6 +232,15 @@ required_signoff_fields=(
   "Signoff approvers:"
 )
 
+has_git=0
+is_git_repo=0
+if command -v git >/dev/null 2>&1; then
+  has_git=1
+  if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    is_git_repo=1
+  fi
+fi
+
 missing_signoff=0
 declare -a missing_signoff_lines
 signoff_final_decision=""
@@ -259,6 +268,11 @@ for field in "${required_signoff_fields[@]}"; do
         if [[ ! "$value" =~ ^[0-9a-fA-F]{7,40}$ ]]; then
           invalid_signoff_format=$((invalid_signoff_format + 1))
           invalid_signoff_format_lines+=("${field} expected 7-40 hex commit SHA, got: ${value}")
+        elif [[ "$has_git" -eq 1 && "$is_git_repo" -eq 1 ]]; then
+          if ! git cat-file -e "${value}^{commit}" >/dev/null 2>&1; then
+            invalid_signoff_format=$((invalid_signoff_format + 1))
+            invalid_signoff_format_lines+=("${field} commit not found in repository: ${value}")
+          fi
         fi
         ;;
       "Proposed genesis hash:")

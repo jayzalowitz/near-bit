@@ -48,6 +48,7 @@ Tip: use `scripts/launch/update_go_no_go_gate.sh` to update gate rows with valid
 5. Evidence entries for `done` gates must be resolvable repo paths or `http(s)` links.
 6. Signoff block format requirements:
    - Release candidate commit: 7-40 char hex SHA
+     - must resolve to an existing commit in this repository
    - Proposed genesis hash: 64-char hex
    - Planned launch window: RFC3339 UTC timestamp or `start to end` RFC3339 UTC range
    - Final decision: `GO` or `NO-GO`

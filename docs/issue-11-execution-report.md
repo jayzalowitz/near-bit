@@ -2815,3 +2815,19 @@ Verification:
 - `bash -n scripts/launch/run_launch_rehearsal.sh` passed.
 - `./scripts/launch/generate_evidence_bundle.sh --mode smoke --skip-gate --allow-dirty --cargo-target-dir .context/cargo-target-launch --out-dir /tmp/evidence-checklist-inconsistent-go` passed locally; bundle summary/metadata include `checklist_inconsistent_go_decision`.
 - `./scripts/launch/run_launch_rehearsal.sh --mode smoke --skip-release-manifest --allow-dirty --skip-issue1-goal-checks --cargo-target-dir .context/cargo-target-launch --operator "launch-readiness"` passed locally; rehearsal summary JSON/Markdown include `checklist_inconsistent_go_decision`.
+
+## Continuation (2026-03-05): validate signoff release commit exists in repository
+
+Implemented:
+- Hardened `scripts/launch/check_go_no_go_checklist.sh` release-commit signoff validation:
+  - after SHA format check, validator now verifies commit resolution via `git cat-file -e <sha>^{commit}` when running inside a git repo.
+  - unresolved/non-existent commit SHAs now fail signoff-format validation.
+- Updated docs:
+  - `docs/mainnet-go-no-go-checklist.md`
+  - `docs/launch-evidence-bundle.md`
+  - `docs/launch-readiness-gates.md`
+
+Verification:
+- `bash -n scripts/launch/check_go_no_go_checklist.sh` passed.
+- `./scripts/launch/prefill_go_no_go_signoff.sh --file /tmp/mainnet-go-no-go-checklist.bad-commit.md --release-commit deadbee --genesis-hash 95f3e2600eec0dcd3ca51bf530f46ac963fa3b5286e18c6401efdcae8066aa5d --launch-window-start 2026-03-10T18:00:00Z --launch-window-end 2026-03-10T22:00:00Z --final-decision GO --allow-go --approvers "alice,bob" --decision-timestamp 2026-03-10T17:55:00Z` passed locally (prefill only).
+- `./scripts/launch/check_go_no_go_checklist.sh --file /tmp/mainnet-go-no-go-checklist.bad-commit.md --json-out /tmp/go-no-go-bad-commit.json` correctly failed locally with invalid signoff format due unresolved commit SHA.
