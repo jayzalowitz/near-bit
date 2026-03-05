@@ -400,6 +400,7 @@ copy_and_checksum "docs/genesis-determinism-check.md" "${bundle_dir}/genesis-det
 copy_and_checksum "docs/snapshot-supply-reconciliation.md" "${bundle_dir}/snapshot-supply-reconciliation.md"
 copy_and_checksum "docs/incident-communication-templates.md" "${bundle_dir}/incident-communication-templates.md"
 copy_and_checksum "docs/incident-launch-pack.md" "${bundle_dir}/incident-launch-pack.md"
+copy_and_checksum "docs/go-no-go-gate-update.md" "${bundle_dir}/go-no-go-gate-update.md"
 copy_and_checksum "docs/go-no-go-signoff-prefill.md" "${bundle_dir}/go-no-go-signoff-prefill.md"
 copy_and_checksum ".github/workflows/ci.yml" "${bundle_dir}/ci.yml"
 copy_and_checksum ".github/workflows/nightly-fuzz.yml" "${bundle_dir}/nightly-fuzz.yml"
@@ -413,6 +414,7 @@ copy_and_checksum "scripts/launch/check_issue1_core_goals.sh" "${bundle_dir}/che
 copy_and_checksum "scripts/launch/check_genesis_determinism.sh" "${bundle_dir}/check_genesis_determinism.sh"
 copy_and_checksum "scripts/launch/check_snapshot_supply_reconciliation.sh" "${bundle_dir}/check_snapshot_supply_reconciliation.sh"
 copy_and_checksum "scripts/launch/generate_incident_launch_pack.sh" "${bundle_dir}/generate_incident_launch_pack.sh"
+copy_and_checksum "scripts/launch/update_go_no_go_gate.sh" "${bundle_dir}/update_go_no_go_gate.sh"
 copy_and_checksum "scripts/launch/prefill_go_no_go_signoff.sh" "${bundle_dir}/prefill_go_no_go_signoff.sh"
 copy_and_checksum "scripts/launch/run_launch_rehearsal.sh" "${bundle_dir}/run_launch_rehearsal.sh"
 copy_and_checksum "scripts/launch/generate_release_manifest.sh" "${bundle_dir}/generate_release_manifest.sh"
@@ -567,6 +569,7 @@ cat > "${bundle_dir}/SUMMARY.md" <<EOF
 - snapshot-supply-reconciliation.md
 - incident-communication-templates.md
 - incident-launch-pack.md
+- go-no-go-gate-update.md
 - go-no-go-signoff-prefill.md
 - ci.yml
 - nightly-fuzz.yml
@@ -580,6 +583,7 @@ cat > "${bundle_dir}/SUMMARY.md" <<EOF
 - check_genesis_determinism.sh
 - check_snapshot_supply_reconciliation.sh
 - generate_incident_launch_pack.sh
+- update_go_no_go_gate.sh
 - prefill_go_no_go_signoff.sh
 - run_launch_rehearsal.sh
 - generate_release_manifest.sh

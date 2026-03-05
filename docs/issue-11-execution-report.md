@@ -2698,3 +2698,35 @@ Implemented:
 Verification:
 - `bash -n scripts/launch/run_readiness_gate.sh` passed.
 - `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist --skip-issue1-goal-checks --cargo-target-dir .context/cargo-target-launch` passed locally with expanded placeholder enforcement enabled.
+
+## Continuation (2026-03-05): checklist gate-row update helper + launch artifact wiring
+
+Implemented:
+- Added `scripts/launch/update_go_no_go_gate.sh` to update checklist gate rows by id with guardrails:
+  - supports `--status done|todo`,
+  - requires Owner/Evidence/Completed-date for `done`,
+  - validates completed-date format,
+  - validates evidence refs as repo paths or `http(s)` URLs,
+  - clears owner/evidence/date when setting `todo`.
+- Added operator guide:
+  - `docs/go-no-go-gate-update.md`
+- Wired launch readiness/evidence flows:
+  - `scripts/launch/run_readiness_gate.sh` now requires the new doc and syntax-checks the helper script.
+  - `scripts/launch/generate_evidence_bundle.sh` now snapshots both the new doc and script.
+- Updated launch docs/discovery:
+  - `README.md`
+  - `docs/documentation-hub.md`
+  - `docs/mainnet-go-no-go-checklist.md`
+  - `docs/launch-evidence-bundle.md`
+  - `docs/launch-readiness-gates.md`
+- Follow-up fixes during verification:
+  - corrected table parsing in helper script by setting `awk -F '|'` for markdown row updates,
+  - removed literal placeholder marker keywords from required launch docs so expanded placeholder enforcement remains passable.
+
+Verification:
+- `bash -n scripts/launch/update_go_no_go_gate.sh` passed.
+- `bash -n scripts/launch/run_readiness_gate.sh` passed.
+- `bash -n scripts/launch/generate_evidence_bundle.sh` passed.
+- `./scripts/launch/update_go_no_go_gate.sh --file /tmp/mainnet-go-no-go-checklist.update.md --gate 13 --status done --owner "ops-lead" --evidence "docs/incident-launch-pack.md" --completed-date 2026-03-05` passed locally.
+- `./scripts/launch/check_go_no_go_checklist.sh --file /tmp/mainnet-go-no-go-checklist.update.md --json-out /tmp/go-no-go-gate-update-check.json` passed locally (`done=1`, `todo=15`, `invalid=0`, `done_missing_owner=0`).
+- `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist --skip-issue1-goal-checks --cargo-target-dir .context/cargo-target-launch` passed locally with new helper doc/script checks enabled.
