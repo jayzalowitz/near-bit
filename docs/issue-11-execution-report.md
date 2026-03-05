@@ -2497,3 +2497,24 @@ Verification:
 - `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist --cargo-target-dir .context/cargo-target-launch` passed locally.
 - `./scripts/launch/run_launch_rehearsal.sh --mode smoke --skip-release-manifest --skip-issue1-goal-checks --allow-dirty --cargo-target-dir .context/cargo-target-launch --operator "launch-readiness"` passed locally.
 - `./scripts/launch/generate_release_manifest.sh --skip-build --allow-dirty --cargo-target-dir target --out-dir /tmp/bitinfinity-release-manifests` passed locally.
+
+## Continuation (2026-03-05): stricter done-gate metadata enforcement in go/no-go checklist validator
+
+Implemented:
+- Hardened `scripts/launch/check_go_no_go_checklist.sh` to require additional metadata quality for any gate marked `done`:
+  - Evidence field must be populated,
+  - Completed date must be populated,
+  - Completed date format must be `YYYY-MM-DD` or UTC timestamp `YYYY-MM-DDTHH:MM:SSZ`.
+- Extended text and JSON output with new counters and row lists:
+  - `done_missing_evidence`,
+  - `done_missing_completed_date`,
+  - `done_invalid_completed_date`.
+- Updated GO enforcement to fail when any of the above done-gate metadata checks fail.
+- Updated docs:
+  - `docs/mainnet-go-no-go-checklist.md` decision rules now explicitly require Evidence + Completed date for all `done` gates.
+  - `docs/launch-evidence-bundle.md` now documents this validator behavior.
+  - `docs/launch-readiness-gates.md` verification snapshot includes the new checks.
+
+Verification:
+- `bash -n scripts/launch/check_go_no_go_checklist.sh` passed.
+- `./scripts/launch/check_go_no_go_checklist.sh --json-out /tmp/go-no-go-summary.json` passed locally (current checklist remains all `todo`, so done-gate metadata counters are zero).
