@@ -162,6 +162,11 @@ By default, local launch-gate commands write Cargo artifacts to `.context/cargo-
 - `2026-03-05`: `./scripts/launch/run_readiness_gate.sh --smoke --cargo-target-dir .context/cargo-target-launch` passed locally (`at=2026-03-05T16:35:01Z`) after CI manual-dispatch support was added.
 - `2026-03-05`: `./scripts/launch/run_readiness_gate.sh --full --cargo-target-dir .context/cargo-target-launch` passed locally on commit `c28a8a5fa` (`at=2026-03-05T16:40:57Z`), including release builds, workspace tests, Clippy, format checks, and cargo-audit.
 - `2026-03-05`: `./scripts/launch/update_go_no_go_gate.sh` marked gate `3` (full local launch-gate pass) and gate `9` (genesis determinism) as `done` with owner/evidence/date metadata; `./scripts/launch/check_go_no_go_checklist.sh` now reports `done_gates=2`, `todo_gates=14`, and zero done-metadata validation errors.
+- `2026-03-05`: `./scripts/launch/check_issue1_core_goals.sh` passed locally at `2026-03-05T16:49:24Z` (`near-account-id`: `10 passed`; `bitinfinity-tools`: `26 passed`, `1 ignored`).
+- `2026-03-05`: `./scripts/launch/check_snapshot_supply_reconciliation.sh --genesis /tmp/launch-gate10.m2981A/genesis/genesis.json --txoutsetinfo /tmp/launch-gate10.m2981A/gettxoutsetinfo.json --tolerance-sats 0 --json-out /tmp/launch-gate10.m2981A/snapshot-supply-check.json` passed locally (`difference_satoshis=0`, `within_tolerance=true`).
+- `2026-03-05`: `./scripts/launch/generate_incident_launch_pack.sh --release-version a266f01e4 --launch-window-start 2026-03-10T18:00:00Z --launch-window-end 2026-03-10T22:00:00Z --status-page-url https://status.bitcoininfinity.io --coordination-channel '#validators-bridge' --out-file docs/incident-launch-pack-mainnet-2026-03-10.md` generated a committed launch-window prefill artifact for gate `13`.
+- `2026-03-05`: `./scripts/launch/update_go_no_go_gate.sh` marked gates `5`, `10`, and `13` as `done`; `./scripts/launch/check_go_no_go_checklist.sh` now reports `done_gates=5`, `todo_gates=11`, and zero done-metadata validation errors.
+- `2026-03-05`: `.github/workflows/ci.yml` now enforces branch-scoped concurrency (`cancel-in-progress: true`) so stale queued CI runs are auto-cancelled when newer commits are pushed.
 
 ## External Gates (Not Solvable by Repository Changes Alone)
 
