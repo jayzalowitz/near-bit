@@ -206,6 +206,7 @@ By default, local launch-gate commands write Cargo artifacts to `.context/cargo-
 - `2026-03-05`: `./scripts/launch/check_go_no_go_checklist.sh --require-go` passed locally (`done_gates=16`, `todo_gates=0`, and all strict checklist counters `0`).
 - `2026-03-05`: `./scripts/launch/run_readiness_gate.sh --smoke --require-go --cargo-target-dir .context/cargo-target-launch` passed locally at `2026-03-05T17:48:34Z`.
 - `2026-03-05`: `./scripts/launch/run_launch_rehearsal.sh --mode smoke --require-go --skip-release-manifest --allow-dirty --cargo-target-dir .context/cargo-target-launch --operator "launch-readiness"` passed locally, producing `artifacts/launch-rehearsals/20260305T174844Z-67202534f`.
+- `2026-03-05`: `./scripts/launch/run_readiness_gate.sh --full --require-go --cargo-target-dir .context/cargo-target-launch` passed locally at `2026-03-05T17:53:08Z` (release build, workspace tests, clippy, fmt, and cargo-audit all green under strict GO checklist enforcement).
 
 ## External Gates (Launch Window Status)
 
