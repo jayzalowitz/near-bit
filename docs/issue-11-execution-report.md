@@ -2686,3 +2686,15 @@ Verification:
 - `bash -n scripts/launch/run_launch_rehearsal.sh` passed.
 - `./scripts/launch/check_go_no_go_checklist.sh --json-out /tmp/go-no-go-owner-check.json` passed locally (`totals.todo=16`, `totals.invalid=0`, `totals.done_missing_owner=0`).
 - `./scripts/launch/run_launch_rehearsal.sh --mode smoke --skip-release-manifest --allow-dirty --skip-issue1-goal-checks --cargo-target-dir .context/cargo-target-launch --operator "launch-readiness"` passed locally with `checklist_done_missing_owner` present in rehearsal summary outputs.
+
+## Continuation (2026-03-05): enforce placeholder-free state across all required launch docs
+
+Implemented:
+- Hardened `scripts/launch/run_readiness_gate.sh` placeholder checks to scan every required launch document (`required_files`) for `TBD/TODO` markers, rather than checking only two docs.
+- Updated failure text to call out required-launch-doc placeholder remediation explicitly.
+- Updated verification notes:
+  - `docs/launch-readiness-gates.md` now records full required-doc placeholder enforcement.
+
+Verification:
+- `bash -n scripts/launch/run_readiness_gate.sh` passed.
+- `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist --skip-issue1-goal-checks --cargo-target-dir .context/cargo-target-launch` passed locally with expanded placeholder enforcement enabled.
