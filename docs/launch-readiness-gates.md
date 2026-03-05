@@ -158,6 +158,8 @@ By default, local launch-gate commands write Cargo artifacts to `.context/cargo-
 - `2026-03-05`: `./scripts/launch/generate_evidence_bundle.sh --mode smoke --skip-gate --allow-dirty --cargo-target-dir .context/cargo-target-launch --out-dir /tmp/evidence-checklist-inconsistent-go` and `./scripts/launch/run_launch_rehearsal.sh --mode smoke --skip-release-manifest --allow-dirty --skip-issue1-goal-checks --cargo-target-dir .context/cargo-target-launch --operator "launch-readiness"` passed locally with `checklist_inconsistent_go_decision` recorded in bundle/rehearsal summaries.
 - `2026-03-05`: `check_go_no_go_checklist.sh` now validates that the signoff release candidate commit SHA resolves to an actual commit in this repository (not just format-valid hex).
 - `2026-03-05`: `./scripts/launch/check_go_no_go_checklist.sh --file /tmp/mainnet-go-no-go-checklist.bad-commit.md --json-out /tmp/go-no-go-bad-commit.json` correctly failed locally after signoff prefill with non-existent commit SHA.
+- `2026-03-05`: `.github/workflows/ci.yml` now supports `workflow_dispatch` for on-demand full CI execution against a selected ref, enabling launch-readiness reruns when push-trigger queues are delayed.
+- `2026-03-05`: `./scripts/launch/run_readiness_gate.sh --smoke --cargo-target-dir .context/cargo-target-launch` passed locally (`at=2026-03-05T16:35:01Z`) after CI manual-dispatch support was added.
 
 ## External Gates (Not Solvable by Repository Changes Alone)
 
