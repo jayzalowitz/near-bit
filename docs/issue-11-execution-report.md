@@ -3105,3 +3105,17 @@ Verification:
   - `Security Audit`: success
   - `Fuzz (smoke)`: success
   - `Launch Readiness (smoke)`: success
+
+## Continuation (2026-03-05): final full-gate + rehearsal reconfirmation on head `046221edf`
+
+Verification:
+- `./scripts/launch/run_readiness_gate.sh --full --require-go --cargo-target-dir .context/cargo-target-launch` passed locally at `2026-03-05T18:56:33Z`.
+- `./scripts/launch/run_launch_rehearsal.sh --mode full --require-go --include-release-manifest --allow-dirty --operator launch-readiness --cargo-target-dir .context/cargo-target-launch` passed locally and produced `artifacts/launch-rehearsals/20260305T185640Z-046221edf`.
+- CI run `22730991050` on commit `046221edf` completed with overall `success`; job conclusions:
+  - `Format`: success
+  - `Build`: success
+  - `Test`: success
+  - `Clippy`: success
+  - `Security Audit`: success
+  - `Fuzz (smoke)`: success
+  - `Launch Readiness (smoke)`: success
