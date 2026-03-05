@@ -2469,3 +2469,31 @@ Implemented:
 Verification:
 - `bash -n scripts/launch/run_readiness_gate.sh` passed.
 - `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist` passed locally with site-channel enforcement active.
+
+## Continuation (2026-03-05): isolate local launch Cargo outputs from tracked `target/`
+
+Implemented:
+- Added `--cargo-target-dir <path>` support to all launch-orchestration scripts:
+  - `scripts/launch/run_readiness_gate.sh`
+  - `scripts/launch/generate_evidence_bundle.sh`
+  - `scripts/launch/run_launch_rehearsal.sh`
+  - `scripts/launch/generate_release_manifest.sh`
+- Added consistent Cargo target-dir resolution behavior:
+  - explicit CLI flag wins,
+  - otherwise existing `CARGO_TARGET_DIR` env var,
+  - otherwise default to `.context/cargo-target` for local runs,
+  - otherwise default to `target/` in CI (`CI=true`).
+- Updated release-binary discovery in launch scripts to read from resolved Cargo target dir instead of hard-coded `target/release`.
+- Hardened strict rehearsal cleanup behavior:
+  - tracked `target/` restoration now runs only when Cargo output path is under `target/`,
+  - only restores files newly dirtied by the rehearsal run (pre-existing `target/` diffs are preserved).
+- Updated launch docs and README to document the new target-dir behavior and override flag.
+
+Verification:
+- `bash -n scripts/launch/run_readiness_gate.sh` passed.
+- `bash -n scripts/launch/generate_evidence_bundle.sh` passed.
+- `bash -n scripts/launch/run_launch_rehearsal.sh` passed.
+- `bash -n scripts/launch/generate_release_manifest.sh` passed.
+- `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist --cargo-target-dir .context/cargo-target-launch` passed locally.
+- `./scripts/launch/run_launch_rehearsal.sh --mode smoke --skip-release-manifest --skip-issue1-goal-checks --allow-dirty --cargo-target-dir .context/cargo-target-launch --operator "launch-readiness"` passed locally.
+- `./scripts/launch/generate_release_manifest.sh --skip-build --allow-dirty --cargo-target-dir target --out-dir /tmp/bitinfinity-release-manifests` passed locally.

@@ -15,9 +15,10 @@ This guide covers the end-to-end launch rehearsal command.
 This reduces manual sequencing errors and gives a single artifact root for each rehearsal.
 
 In strict mode (no `--allow-dirty`), the runner stages evidence and release-manifest generation in a temporary directory first, then copies results to `artifacts/launch-rehearsals/...` after those checks complete. This avoids false dirty-worktree failures caused by rehearsal-created output directories.
-Before strict release-manifest execution, it also restores any tracked `target/` files changed by readiness execution so generated build artifacts do not block manifest generation.
+Before strict release-manifest execution, it restores only newly changed tracked `target/` files when using `target/` as Cargo output; pre-existing `target/` diffs are preserved.
 Readiness execution in this flow includes the deterministic genesis-hash verifier (`check_genesis_determinism.sh`) for launch gate #9.
 Optional gate #10 snapshot-vs-genesis supply reconciliation can be enforced in this flow with `--check-snapshot-supply` and snapshot input paths.
+Local runs default to `.context/cargo-target` so rehearsal builds do not mutate tracked `target/` outputs.
 
 ## Run a Rehearsal
 
@@ -51,6 +52,9 @@ Optional gate #10 snapshot-vs-genesis supply reconciliation can be enforced in t
 
 # Skip Issue #1 target suites for quick local iteration (not for signoff rehearsals)
 ./scripts/launch/run_launch_rehearsal.sh --skip-issue1-goal-checks
+
+# Optional: force a custom Cargo target directory
+./scripts/launch/run_launch_rehearsal.sh --cargo-target-dir /tmp/bitinfinity-cargo-target
 ```
 
 Release-manifest behavior defaults:

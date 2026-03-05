@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/launch/generate_evidence_bundle.sh [--mode smoke|full] [--include-fuzz] [--check-nightly-fuzz-health] [--nightly-fuzz-branch <name>] [--nightly-fuzz-workflow <name>] [--nightly-fuzz-window-days <n>] [--nightly-fuzz-min-runs <n>] [--nightly-fuzz-max-runs <n>] [--nightly-fuzz-allow-in-progress] [--check-snapshot-supply] [--snapshot-genesis <path>] [--snapshot-txoutsetinfo <path>] [--snapshot-tolerance-sats <n>] [--snapshot-json-out <path>] [--skip-issue1-goal-checks] [--skip-gate] [--require-go] [--checklist-file <path>] [--out-dir <path>]
+Usage: ./scripts/launch/generate_evidence_bundle.sh [--mode smoke|full] [--include-fuzz] [--check-nightly-fuzz-health] [--nightly-fuzz-branch <name>] [--nightly-fuzz-workflow <name>] [--nightly-fuzz-window-days <n>] [--nightly-fuzz-min-runs <n>] [--nightly-fuzz-max-runs <n>] [--nightly-fuzz-allow-in-progress] [--check-snapshot-supply] [--snapshot-genesis <path>] [--snapshot-txoutsetinfo <path>] [--snapshot-tolerance-sats <n>] [--snapshot-json-out <path>] [--cargo-target-dir <path>] [--skip-issue1-goal-checks] [--skip-gate] [--require-go] [--checklist-file <path>] [--out-dir <path>]
 
 Options:
   --mode <smoke|full>  Readiness gate mode to run. Default: full.
@@ -20,6 +20,8 @@ Options:
   --snapshot-txoutsetinfo <path> Path to bitcoin-cli gettxoutsetinfo JSON.
   --snapshot-tolerance-sats <n> Allowed satoshi diff for snapshot check. Default: 1.
   --snapshot-json-out <path> Copy snapshot-check JSON summary to this path.
+  --cargo-target-dir <path> Cargo target directory for readiness/manifest commands.
+                            Default: .context/cargo-target locally, target in CI.
   --skip-issue1-goal-checks Skip targeted Issue #1 goal validation tests in readiness gate.
   --skip-gate          Skip executing readiness gate and only snapshot metadata/docs.
   --require-go         Enforce GO criteria in checklist validation.
@@ -44,6 +46,7 @@ SNAPSHOT_GENESIS=""
 SNAPSHOT_TXOUTSETINFO=""
 SNAPSHOT_TOLERANCE_SATS=1
 SNAPSHOT_JSON_OUT=""
+CARGO_TARGET_DIR_OVERRIDE=""
 SKIP_ISSUE1_GOAL_CHECKS=0
 SKIP_GATE=0
 REQUIRE_GO=0
@@ -149,6 +152,14 @@ while [[ $# -gt 0 ]]; do
       SNAPSHOT_JSON_OUT="$2"
       shift 2
       ;;
+    --cargo-target-dir)
+      if [[ $# -lt 2 ]]; then
+        echo "--cargo-target-dir requires a path value" >&2
+        exit 1
+      fi
+      CARGO_TARGET_DIR_OVERRIDE="$2"
+      shift 2
+      ;;
     --skip-issue1-goal-checks)
       SKIP_ISSUE1_GOAL_CHECKS=1
       shift
@@ -237,6 +248,26 @@ fi
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
 
+resolve_cargo_target_dir() {
+  if [[ -n "$CARGO_TARGET_DIR_OVERRIDE" ]]; then
+    echo "$CARGO_TARGET_DIR_OVERRIDE"
+    return
+  fi
+  if [[ -n "${CARGO_TARGET_DIR:-}" ]]; then
+    echo "$CARGO_TARGET_DIR"
+    return
+  fi
+  if [[ "${CI:-}" == "true" ]]; then
+    echo "$ROOT_DIR/target"
+    return
+  fi
+  echo "$ROOT_DIR/.context/cargo-target"
+}
+
+CARGO_TARGET_DIR="$(resolve_cargo_target_dir)"
+export CARGO_TARGET_DIR
+mkdir -p "$CARGO_TARGET_DIR"
+
 require_cmd() {
   local cmd="$1"
   if ! command -v "$cmd" >/dev/null 2>&1; then
@@ -295,6 +326,7 @@ jq -n \
   --arg snapshot_genesis "$SNAPSHOT_GENESIS" \
   --arg snapshot_txoutsetinfo "$SNAPSHOT_TXOUTSETINFO" \
   --argjson snapshot_tolerance_sats "$SNAPSHOT_TOLERANCE_SATS" \
+  --arg cargo_target_dir "$CARGO_TARGET_DIR" \
   --argjson skip_issue1_goal_checks "$SKIP_ISSUE1_GOAL_CHECKS" \
   --argjson skip_gate "$SKIP_GATE" \
   --argjson require_go "$REQUIRE_GO" \
@@ -326,6 +358,7 @@ jq -n \
       snapshot_genesis: (if $snapshot_genesis == "" then null else $snapshot_genesis end),
       snapshot_txoutsetinfo: (if $snapshot_txoutsetinfo == "" then null else $snapshot_txoutsetinfo end),
       snapshot_tolerance_sats: $snapshot_tolerance_sats,
+      cargo_target_dir: $cargo_target_dir,
       skip_issue1_goal_checks: ($skip_issue1_goal_checks == 1),
       skipped: $skip_gate
     },
@@ -401,6 +434,7 @@ if [[ "$SKIP_GATE" -eq 0 ]]; then
   gate_log="${bundle_dir}/readiness-gate.log"
   gate_cmd=(./scripts/launch/run_readiness_gate.sh "--${MODE}")
   gate_cmd+=(--skip-checklist)
+  gate_cmd+=(--cargo-target-dir "$CARGO_TARGET_DIR")
   if [[ "$REQUIRE_GO" -eq 1 ]]; then
     gate_cmd+=(--require-go)
   fi
@@ -503,6 +537,7 @@ cat > "${bundle_dir}/SUMMARY.md" <<EOF
 - readiness_gate_nightly_fuzz_allow_in_progress: ${NIGHTLY_FUZZ_ALLOW_IN_PROGRESS}
 - readiness_gate_check_snapshot_supply: ${CHECK_SNAPSHOT_SUPPLY}
 - readiness_gate_snapshot_tolerance_sats: ${SNAPSHOT_TOLERANCE_SATS}
+- cargo_target_dir: ${CARGO_TARGET_DIR}
 - readiness_gate_skip_issue1_goal_checks: ${SKIP_ISSUE1_GOAL_CHECKS}
 - readiness_gate_status: ${gate_status}
 - readiness_gate_exit_code: ${gate_exit_code}

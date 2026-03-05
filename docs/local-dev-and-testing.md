@@ -12,6 +12,9 @@ This guide provides a stable local workflow that mirrors the CI pipeline.
 ## Build
 
 ```bash
+# Optional: keep local build outputs out of tracked target/ artifacts
+export CARGO_TARGET_DIR="$(pwd)/.context/cargo-target"
+
 cargo build --release -p bitinfinity-btcrpc -p bitinfinity-tools -p bitinfinity-neard
 ```
 

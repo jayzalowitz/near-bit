@@ -1,6 +1,6 @@
 # Launch Readiness Gates
 
-Last updated: March 4, 2026.
+Last updated: March 5, 2026.
 
 This document tracks launch-readiness progress for items in [issue #11](https://github.com/infinitoshi/near-bit/issues/11), with a strict split between:
 
@@ -41,7 +41,12 @@ GENESIS_FIXTURE_EXPECTED_HASH=<new_sha256> ./scripts/launch/run_readiness_gate.s
 
 # Readiness gate with enforced gate #10 snapshot reconciliation
 ./scripts/launch/run_readiness_gate.sh --smoke --check-snapshot-supply --snapshot-genesis /path/to/genesis.json --snapshot-txoutsetinfo /path/to/gettxoutsetinfo.json --snapshot-tolerance-sats 1 --snapshot-json-out /tmp/snapshot-supply-check.json
+
+# Optional: isolate build/test artifacts in a custom Cargo target directory
+./scripts/launch/run_readiness_gate.sh --full --cargo-target-dir /tmp/bitinfinity-cargo-target
 ```
+
+By default, local launch-gate commands write Cargo artifacts to `.context/cargo-target` to avoid mutating tracked `target/` files. In CI, default behavior remains `target/`. Override with `--cargo-target-dir` when needed.
 
 ## Repository-Verifiable Gates
 
@@ -106,6 +111,10 @@ GENESIS_FIXTURE_EXPECTED_HASH=<new_sha256> ./scripts/launch/run_readiness_gate.s
 - `2026-03-05`: `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist` passed locally after website-channel enforcement was added.
 - `2026-03-05`: CI runs `22723211541` (push) and `22723216772` (PR) completed `success` on commit `31ba10e99` across Build/Test/Clippy/Fuzz (smoke)/Security Audit/Format/Launch Readiness.
 - `2026-03-05`: `./scripts/launch/run_launch_rehearsal.sh --mode full --include-fuzz --include-release-manifest --release-manifest-skip-build --operator "launch-readiness"` passed locally on commit `31ba10e99` in strict mode (no `--allow-dirty`), producing `artifacts/launch-rehearsals/20260305T145305Z-31ba10e99`.
+- `2026-03-05`: Launch scripts (`run_readiness_gate.sh`, `generate_evidence_bundle.sh`, `run_launch_rehearsal.sh`, `generate_release_manifest.sh`) added `--cargo-target-dir` support with local default `.context/cargo-target` and CI default `target/`, preventing tracked `target/` churn during local signoff runs.
+- `2026-03-05`: `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist --cargo-target-dir .context/cargo-target-launch` passed locally on commit `4f9bfc7c4`.
+- `2026-03-05`: `./scripts/launch/run_launch_rehearsal.sh --mode smoke --skip-release-manifest --skip-issue1-goal-checks --allow-dirty --cargo-target-dir .context/cargo-target-launch --operator "launch-readiness"` passed locally on commit `4f9bfc7c4`.
+- `2026-03-05`: `./scripts/launch/generate_release_manifest.sh --skip-build --allow-dirty --cargo-target-dir target --out-dir /tmp/bitinfinity-release-manifests` passed locally on commit `4f9bfc7c4`.
 
 ## External Gates (Not Solvable by Repository Changes Alone)
 
