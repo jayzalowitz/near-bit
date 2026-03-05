@@ -1,0 +1,28 @@
+{
+  "profile": "peak",
+  "start_ts_utc": "2026-03-05T17:09:57Z",
+  "end_ts_utc": "2026-03-05T17:10:35Z",
+  "target_tps": 50000,
+  "target_duration_s": 20,
+  "controller_enabled": true,
+  "run_status": 143,
+  "effective_run_status": 0,
+  "timed_out": 0,
+  "timeout_phase": null,
+  "run_localnet_started_from_log": 1,
+  "schedule_started_from_log": 1,
+  "observed": {
+    "avg_tps_from_log": 6343.463,
+    "peak_tps_from_log": 7867.829,
+    "final_processed_from_log": 7232,
+    "final_failed_from_log": 0,
+    "pre_run_success_metric_baseline": 500,
+    "pre_run_failed_metric_baseline": null,
+    "final_success_metric_raw": 179433,
+    "final_failed_metric_raw": 0,
+    "final_success_metric": 178933,
+    "final_failed_metric": 0,
+    "schedule_completed_from_log": 1,
+    "signal_11_from_log": 0
+  }
+}

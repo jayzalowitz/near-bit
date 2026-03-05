@@ -1,0 +1,4 @@
+profile,target_tps,target_duration_s,controller_enabled,run_status,effective_run_status,timed_out,timeout_phase,run_localnet_started_from_log,schedule_started_from_log,avg_tps_from_log,peak_tps_from_log,final_success_metric,final_failed_metric,schedule_completed_from_log,signal_11_from_log
+"baseline",1000,20,true,143,0,0,"n/a",1,1,621.389,889.315,19020,0,1,0
+"peak",50000,20,true,143,0,0,"n/a",1,1,6343.463,7867.829,178933,0,1,0
+"stress",10000,20,true,143,0,0,"n/a",1,1,4419.368,6881.821,134977,0,1,0
