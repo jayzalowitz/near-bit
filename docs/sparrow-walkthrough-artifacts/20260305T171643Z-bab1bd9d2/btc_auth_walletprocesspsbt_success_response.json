@@ -1,0 +1,1 @@
+{"jsonrpc":"2.0","id":"auth-walletprocesspsbt","error":{"code":-18,"message":"Requested wallet does not exist or is not loaded"}}

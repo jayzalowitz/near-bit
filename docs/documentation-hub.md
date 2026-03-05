@@ -14,6 +14,7 @@ This hub links all major documentation for building, integrating, operating, and
 - [RPC Integration Playbook](rpc-integration-playbook.md): endpoint setup, wallet behavior, and request/response patterns.
 - [Bitcoin RPC Compatibility Matrix](rpc-compatibility-matrix.md): method-by-method compatibility and adaptation status.
 - [RPC Error Codes](rpc-error-codes.md): operational mapping of JSON-RPC error codes.
+- [Sparrow-Compatible Testnet Walkthrough](sparrow-testnet-walkthrough.md): end-to-end PSBT, signing, send, and receive validation evidence.
 
 ## Development and Testing
 
@@ -62,24 +63,25 @@ This hub links all major documentation for building, integrating, operating, and
 3. `technical-whitepaper.md`
 4. `architecture-overview.md`
 5. `rpc-integration-playbook.md`
-6. `security-and-threat-model.md`
-7. `communications-launch-plan.md`
-8. `blog-what-is-bitcoin-infinity.md`
-9. `blog-utxo-to-genesis-deep-dive.md`
-10. `blog-patoshi-balance-floor-explainer.md`
-11. `index.html#launch-updates`
-12. `validator-operations-runbook.md`
-13. `incident-communication-templates.md`
-14. `incident-launch-pack.md`
-15. `benchmark-methodology.md`
-16. `launch-readiness-gates.md`
-17. `mainnet-go-no-go-checklist.md`
-18. `go-no-go-gate-update.md`
-19. `go-no-go-signoff-prefill.md`
-20. `launch-evidence-bundle.md`
-21. `launch-rehearsal.md`
-22. `nightly-fuzz-health-check.md`
-23. `issue1-core-goal-check.md`
-24. `genesis-determinism-check.md`
-25. `snapshot-supply-reconciliation.md`
-26. `release-artifact-manifest.md`
+6. `sparrow-testnet-walkthrough.md`
+7. `security-and-threat-model.md`
+8. `communications-launch-plan.md`
+9. `blog-what-is-bitcoin-infinity.md`
+10. `blog-utxo-to-genesis-deep-dive.md`
+11. `blog-patoshi-balance-floor-explainer.md`
+12. `index.html#launch-updates`
+13. `validator-operations-runbook.md`
+14. `incident-communication-templates.md`
+15. `incident-launch-pack.md`
+16. `benchmark-methodology.md`
+17. `launch-readiness-gates.md`
+18. `mainnet-go-no-go-checklist.md`
+19. `go-no-go-gate-update.md`
+20. `go-no-go-signoff-prefill.md`
+21. `launch-evidence-bundle.md`
+22. `launch-rehearsal.md`
+23. `nightly-fuzz-health-check.md`
+24. `issue1-core-goal-check.md`
+25. `genesis-determinism-check.md`
+26. `snapshot-supply-reconciliation.md`
+27. `release-artifact-manifest.md`
