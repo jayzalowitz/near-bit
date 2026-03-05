@@ -62,6 +62,7 @@ By default, local launch-gate commands write Cargo artifacts to `.context/cargo-
 | Dependency vulnerability audit automation | complete | `.github/workflows/ci.yml` audit job + `cargo audit` parity commands |
 | Fuzz targets + nightly matrix workflow | complete (workflow), execution depends on Actions billing | `.github/workflows/nightly-fuzz.yml`, crate fuzz targets |
 | RPC auth-coverage guard | complete | `scripts/check_auth_coverage.sh` + CI/test integration |
+| Sparrow-compatible testnet PSBT/send/receive walkthrough evidence (gate #7) | complete | `scripts/e2e_testnet.sh`, `docs/sparrow-testnet-walkthrough.md`, `docs/sparrow-walkthrough-artifacts/20260305T171643Z-bab1bd9d2` |
 | Benchmark methodology and artifact schema | complete | `docs/benchmark-methodology.md`, `scripts/benchmark/run_tps_profiles.sh` |
 | Operations runbook | complete | `docs/validator-operations-runbook.md` |
 | Incident communication templates | complete | `docs/incident-communication-templates.md` |
@@ -172,6 +173,7 @@ By default, local launch-gate commands write Cargo artifacts to `.context/cargo-
 - `2026-03-05`: `./scripts/launch/update_go_no_go_gate.sh` marked gate `6` (Tier 1/Tier 2 RPC compatibility tests) as `done`; `./scripts/launch/check_go_no_go_checklist.sh` now reports `done_gates=6`, `todo_gates=10`, and zero done-metadata validation errors.
 - `2026-03-05`: `scripts/benchmark/run_tps_profiles.sh` now fails fast if tx-generator account materialization does not produce usable `user-data/*.json` keys, preventing false-progress benchmark runs with missing account inputs.
 - `2026-03-05`: `./scripts/benchmark/run_tps_profiles.sh --profile all --duration-override 20 --run-grace 45 --startup-timeout 600 --metrics-interval 1 --skip-build --out-dir artifacts/benchmarks/release-candidate-20260305T170837Z` passed locally on commit `ad763faee` (`nonzero_profile_count=0`, `signal_11_profile_count=0`); published raw artifact mirror committed at `docs/benchmark-artifacts/release-candidate-20260305T170837Z` and checklist gate `8` marked `done`.
+- `2026-03-05`: `./scripts/e2e_testnet.sh` passed locally on commit `bab1bd9d2` with PSBT + send/receive workflow evidence published at `docs/sparrow-testnet-walkthrough.md` and `docs/sparrow-walkthrough-artifacts/20260305T171643Z-bab1bd9d2`; checklist gate `7` marked `done`.
 
 ## External Gates (Not Solvable by Repository Changes Alone)
 

@@ -2943,3 +2943,25 @@ Verification:
   - profile `effective_run_status=0` for `baseline`, `stress`, and `peak`.
 - `./scripts/launch/update_go_no_go_gate.sh --file docs/mainnet-go-no-go-checklist.md --gate 8 --status done --owner "launch-readiness" --evidence "docs/benchmark-methodology.md,docs/benchmark-artifacts/release-candidate-20260305T170837Z/summary.json,docs/launch-readiness-gates.md,docs/issue-11-execution-report.md" --completed-date 2026-03-05` passed locally.
 - `./scripts/launch/check_go_no_go_checklist.sh --file docs/mainnet-go-no-go-checklist.md --json-out /tmp/go-no-go-after-gate-8.json` passed locally (`done_gates=7`, `todo_gates=9`, `invalid=0`, all done-metadata counters `0`).
+
+## Continuation (2026-03-05): publish Sparrow-compatible PSBT/send/receive walkthrough evidence and close gate #7
+
+Implemented:
+- Executed full local testnet compatibility run:
+  - `./scripts/e2e_testnet.sh`
+- Published dedicated Sparrow workflow evidence doc:
+  - `docs/sparrow-testnet-walkthrough.md`
+- Published in-repo artifact bundle for the walkthrough:
+  - `docs/sparrow-walkthrough-artifacts/20260305T171643Z-bab1bd9d2`
+- Marked checklist gate `7` (`Sparrow end-to-end send/receive/PSBT walkthrough validated on testnet`) as `done` with owner/evidence/date metadata.
+
+Verification:
+- `./scripts/e2e_testnet.sh` passed locally on commit `bab1bd9d21459fa2070d970d006eaa97151e46ad`.
+- Walkthrough artifact summary confirms end-to-end PSBT/send/receive invariants:
+  - `psbt_signed_complete=true`
+  - `psbt_finalize_complete=true`
+  - `satoshi_balance_before=500000.0`
+  - `satoshi_balance_after=500001.35`
+  - `funded_debit=1.35244391`
+- `./scripts/launch/update_go_no_go_gate.sh --file docs/mainnet-go-no-go-checklist.md --gate 7 --status done --owner "launch-readiness" --evidence "docs/sparrow-testnet-walkthrough.md,docs/sparrow-walkthrough-artifacts/20260305T171643Z-bab1bd9d2/summary.txt,docs/launch-readiness-gates.md,docs/issue-11-execution-report.md" --completed-date 2026-03-05` passed locally.
+- `./scripts/launch/check_go_no_go_checklist.sh --file docs/mainnet-go-no-go-checklist.md --json-out /tmp/go-no-go-after-gate-7.json` passed locally (`done_gates=8`, `todo_gates=8`, `invalid=0`, all done-metadata counters `0`).
