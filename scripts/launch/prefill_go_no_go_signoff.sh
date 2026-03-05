@@ -10,6 +10,7 @@ Usage: ./scripts/launch/prefill_go_no_go_signoff.sh \
   --launch-window-end <YYYY-MM-DDTHH:MM:SSZ> \
   --final-decision <GO|NO-GO> \
   --approvers <comma-separated-names> \
+  [--allow-go] \
   [--decision-timestamp <YYYY-MM-DDTHH:MM:SSZ>] \
   [--file <path>]
 
@@ -20,6 +21,7 @@ Options:
   --launch-window-end <ts>       Required. RFC3339 UTC timestamp.
   --final-decision <GO|NO-GO>    Required.
   --approvers <names>            Required. Free-form approver list.
+  --allow-go                     Optional safety override required when final decision is GO.
   --decision-timestamp <ts>      Optional. RFC3339 UTC. Default: now.
   --file <path>                  Checklist file path. Default: docs/mainnet-go-no-go-checklist.md
   -h, --help                     Show this help text.
@@ -34,6 +36,7 @@ LAUNCH_WINDOW_END=""
 FINAL_DECISION=""
 APPROVERS=""
 DECISION_TIMESTAMP=""
+ALLOW_GO=0
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -92,6 +95,10 @@ while [[ $# -gt 0 ]]; do
       fi
       DECISION_TIMESTAMP="$2"
       shift 2
+      ;;
+    --allow-go)
+      ALLOW_GO=1
+      shift
       ;;
     --file)
       if [[ $# -lt 2 ]]; then
@@ -157,6 +164,12 @@ fi
 normalized_decision="$(echo "$FINAL_DECISION" | tr '[:lower:]' '[:upper:]' | xargs)"
 if [[ "$normalized_decision" != "GO" && "$normalized_decision" != "NO-GO" ]]; then
   echo "--final-decision must be GO or NO-GO." >&2
+  exit 1
+fi
+
+if [[ "$normalized_decision" == "GO" && "$ALLOW_GO" -ne 1 ]]; then
+  echo "Refusing to set final decision GO without explicit override." >&2
+  echo "Re-run with --allow-go after completing final launch review." >&2
   exit 1
 fi
 

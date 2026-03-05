@@ -14,6 +14,7 @@ This guide covers pre-filling the signoff block in `docs/mainnet-go-no-go-checkl
 6. Signoff approvers
 
 It prevents manual formatting drift and keeps output compatible with `check_go_no_go_checklist.sh` strict validation.
+Safety guard: setting final decision `GO` requires explicit `--allow-go`.
 
 ## Usage
 
@@ -35,6 +36,9 @@ Optional parameters:
 
 # Override decision timestamp (default is current UTC time)
 ./scripts/launch/prefill_go_no_go_signoff.sh ... --decision-timestamp 2026-03-10T17:55:00Z
+
+# Required safety override when setting final decision GO
+./scripts/launch/prefill_go_no_go_signoff.sh ... --final-decision GO --allow-go
 ```
 
 ## Validation Rules
@@ -46,6 +50,7 @@ The script enforces:
 - launch window timestamps: RFC3339 UTC (`YYYY-MM-DDTHH:MM:SSZ`)
 - final decision: `GO` or `NO-GO`
 - decision timestamp: RFC3339 UTC
+- safety override: `--allow-go` is required when final decision is `GO`
 
 After prefill, validate with:
 
