@@ -47,6 +47,7 @@ Local runs default to `.context/cargo-target` for Cargo outputs (CI keeps `targe
 Checklist validation also enforces that any gate marked `done` includes Owner, Evidence, and Completed date fields.
 Checklist validation also enforces that `done` Evidence entries resolve to repository paths or `http(s)` URLs.
 Checklist validation also enforces signoff-field formats (commit SHA, genesis hash, decision value, and UTC timestamps) before `--require-go` can pass.
+Checklist validation also fails contradictory signoff state when final decision is `GO` but unresolved gate/signoff requirements remain.
 
 ## Bundle Contents
 

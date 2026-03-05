@@ -2756,3 +2756,26 @@ Verification:
 - Bundle outputs include strict checklist totals in both:
   - `SUMMARY.md`
   - `metadata.json`.
+
+## Continuation (2026-03-05): reject contradictory GO decision states in checklist validator
+
+Implemented:
+- Hardened `scripts/launch/check_go_no_go_checklist.sh` to detect contradictory launch signoff state:
+  - if signoff final decision is `GO` but unresolved gate/signoff requirements remain, validation now fails even without `--require-go`.
+- Added reporting fields:
+  - text output: `Inconsistent GO decision`,
+  - JSON output: `totals.inconsistent_go_decision`,
+  - JSON output: `signoff_final_decision`,
+  - JSON output row list: `inconsistent_go_decision`.
+- Tightened strict mode semantics:
+  - `--require-go` now additionally requires signoff final decision field to be `GO`.
+- Updated docs:
+  - `docs/mainnet-go-no-go-checklist.md`
+  - `docs/launch-evidence-bundle.md`
+  - `docs/launch-readiness-gates.md`
+
+Verification:
+- `bash -n scripts/launch/check_go_no_go_checklist.sh` passed.
+- `./scripts/launch/check_go_no_go_checklist.sh --json-out /tmp/go-no-go-base.json` passed locally on current checklist.
+- `./scripts/launch/prefill_go_no_go_signoff.sh --file /tmp/mainnet-go-no-go-checklist.go-invalid.md --release-commit 1a6189961 --genesis-hash 95f3e2600eec0dcd3ca51bf530f46ac963fa3b5286e18c6401efdcae8066aa5d --launch-window-start 2026-03-10T18:00:00Z --launch-window-end 2026-03-10T22:00:00Z --final-decision GO --approvers "alice,bob" --decision-timestamp 2026-03-10T17:55:00Z` passed locally.
+- `./scripts/launch/check_go_no_go_checklist.sh --file /tmp/mainnet-go-no-go-checklist.go-invalid.md --json-out /tmp/go-no-go-go-invalid.json` correctly failed locally (`exit=1`, `totals.inconsistent_go_decision=1`, `signoff_final_decision="go"`).
