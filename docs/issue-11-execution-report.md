@@ -2452,3 +2452,20 @@ Verification:
   - Nested evidence bundle and release-manifest stages both completed successfully.
 - CI run `22723211541` (push) on commit `31ba10e99` completed `success`.
 - CI run `22723216772` (PR) on commit `31ba10e99` completed `success`.
+
+## Continuation (2026-03-05): launch-updates site channel + readiness enforcement
+
+Implemented:
+- Added a dedicated launch-updates section to `docs/index.html` containing:
+  - mailing-list subscription path (`launch-updates@bitcoininfinity.io`),
+  - canonical GitHub repository link,
+  - technical whitepaper link.
+- Extended launch gating in `scripts/launch/run_readiness_gate.sh` with `check_site_launch_channels` so the website channel links cannot regress silently.
+- Updated launch communication/docs references:
+  - `docs/communications-launch-plan.md`
+  - `docs/documentation-hub.md`
+  - `docs/launch-readiness-gates.md`
+
+Verification:
+- `bash -n scripts/launch/run_readiness_gate.sh` passed.
+- `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist` passed locally with site-channel enforcement active.

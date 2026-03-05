@@ -65,6 +65,7 @@ GENESIS_FIXTURE_EXPECTED_HASH=<new_sha256> ./scripts/launch/run_readiness_gate.s
 | Launch rehearsal orchestration runner | complete | `scripts/launch/run_launch_rehearsal.sh`, `docs/launch-rehearsal.md` |
 | Release artifact checksum manifest generator | complete | `scripts/launch/generate_release_manifest.sh`, `docs/release-artifact-manifest.md` |
 | Technical whitepaper baseline document | complete | `docs/technical-whitepaper.md` |
+| Launch website update channels (mailing list + GitHub + whitepaper links) | complete | `docs/index.html#launch-updates`, `scripts/launch/run_readiness_gate.sh` |
 | Launch communications package (plan + technical draft posts) | complete | `docs/communications-launch-plan.md`, `docs/blog-what-is-bitcoin-infinity.md`, `docs/blog-utxo-to-genesis-deep-dive.md`, `docs/blog-patoshi-balance-floor-explainer.md` |
 | Documentation hub and technical guides | complete | `docs/documentation-hub.md` and linked docs |
 | Launch execution report for implementation phases | complete | `docs/issue-11-execution-report.md` |
@@ -100,6 +101,9 @@ GENESIS_FIXTURE_EXPECTED_HASH=<new_sha256> ./scripts/launch/run_readiness_gate.s
 - `2026-03-05`: `run_readiness_gate.sh` now requires the communications pack docs, and `generate_evidence_bundle.sh` now snapshots them for launch artifact review.
 - `2026-03-05`: `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist` passed locally after communications-pack doc gating changes.
 - `2026-03-05`: `./scripts/launch/generate_evidence_bundle.sh --mode smoke --skip-gate --allow-dirty --out-dir <tmp>` passed locally and captured `communications-launch-plan.md` plus all three blog drafts.
+- `2026-03-05`: Added launch-updates section on `docs/index.html` with mailing-list subscription path plus canonical GitHub and whitepaper links.
+- `2026-03-05`: `run_readiness_gate.sh` now enforces launch website channel presence (`Join Launch Updates Mailing List`, `launch-updates@bitcoininfinity.io`, GitHub repo link, and `technical-whitepaper.md`).
+- `2026-03-05`: `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist` passed locally after website-channel enforcement was added.
 - `2026-03-05`: CI runs `22723211541` (push) and `22723216772` (PR) completed `success` on commit `31ba10e99` across Build/Test/Clippy/Fuzz (smoke)/Security Audit/Format/Launch Readiness.
 - `2026-03-05`: `./scripts/launch/run_launch_rehearsal.sh --mode full --include-fuzz --include-release-manifest --release-manifest-skip-build --operator "launch-readiness"` passed locally on commit `31ba10e99` in strict mode (no `--allow-dirty`), producing `artifacts/launch-rehearsals/20260305T145305Z-31ba10e99`.
 

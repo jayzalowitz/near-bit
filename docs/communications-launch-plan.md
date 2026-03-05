@@ -23,6 +23,7 @@ Before public launch announcements, publish or finalize:
 4. `blog-patoshi-balance-floor-explainer.md`
 5. `launch-readiness-gates.md`
 6. `mainnet-go-no-go-checklist.md`
+7. launch-updates signup path on `index.html` (mailing list + GitHub + whitepaper links)
 
 ## Audience and Message Boundaries
 
@@ -113,3 +114,4 @@ This document is intended to be:
 4. `mainnet-go-no-go-checklist.md`
 5. `launch-evidence-bundle.md`
 6. `launch-rehearsal.md`
+7. `index.html#launch-updates`
