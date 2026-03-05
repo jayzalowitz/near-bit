@@ -272,6 +272,33 @@ check_required_docs() {
   fi
 }
 
+check_site_launch_channels() {
+  local site_file="docs/index.html"
+  local required_patterns=(
+    "Join Launch Updates Mailing List"
+    "launch-updates@bitcoininfinity.io"
+    "https://github.com/jayzalowitz/near-bit"
+    "technical-whitepaper.md"
+  )
+
+  if [[ ! -f "$site_file" ]]; then
+    echo "Missing launch website file: $site_file" >&2
+    exit 1
+  fi
+
+  for pattern in "${required_patterns[@]}"; do
+    if [[ "$HAS_RG" -eq 1 ]]; then
+      if ! rg -F "$pattern" "$site_file" >/dev/null; then
+        echo "Launch website check failed: missing '$pattern' in $site_file" >&2
+        exit 1
+      fi
+    elif ! grep -F "$pattern" "$site_file" >/dev/null; then
+      echo "Launch website check failed: missing '$pattern' in $site_file" >&2
+      exit 1
+    fi
+  done
+}
+
 run_fuzz_smoke() {
   if ! cargo fuzz --help >/dev/null 2>&1; then
     echo "cargo-fuzz is required for --include-fuzz (install: cargo install cargo-fuzz --locked)." >&2
@@ -345,6 +372,7 @@ elif ! command -v grep >/dev/null 2>&1; then
 fi
 
 run_cmd "Validate launch required docs and placeholder-free state" check_required_docs
+run_cmd "Validate launch website channels (mailing list + GitHub + whitepaper)" check_site_launch_channels
 run_cmd "Auth coverage matrix" ./scripts/check_auth_coverage.sh
 run_cmd "Benchmark runner script syntax" bash -n scripts/benchmark/run_tps_profiles.sh
 run_cmd "Launch gate script syntax" bash -n scripts/launch/run_readiness_gate.sh

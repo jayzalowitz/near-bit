@@ -34,6 +34,7 @@ This hub links all major documentation for building, integrating, operating, and
 
 ## Communications and Narrative
 
+- [Launch Updates Signup](index.html#launch-updates): mailing-list subscription path plus GitHub and whitepaper links for prelaunch updates.
 - [Blog Draft - What Bitcoin Infinity Is](blog-what-is-bitcoin-infinity.md): high-level technical narrative for launch audiences.
 - [Blog Draft - UTXO to Genesis Deep Dive](blog-utxo-to-genesis-deep-dive.md): deterministic genesis and reconciliation walkthrough.
 - [Blog Draft - Patoshi Balance Floor Explainer](blog-patoshi-balance-floor-explainer.md): technical versus external policy boundaries.
@@ -63,15 +64,16 @@ This hub links all major documentation for building, integrating, operating, and
 8. `blog-what-is-bitcoin-infinity.md`
 9. `blog-utxo-to-genesis-deep-dive.md`
 10. `blog-patoshi-balance-floor-explainer.md`
-11. `validator-operations-runbook.md`
-12. `incident-communication-templates.md`
-13. `benchmark-methodology.md`
-14. `launch-readiness-gates.md`
-15. `mainnet-go-no-go-checklist.md`
-16. `launch-evidence-bundle.md`
-17. `launch-rehearsal.md`
-18. `nightly-fuzz-health-check.md`
-19. `issue1-core-goal-check.md`
-20. `genesis-determinism-check.md`
-21. `snapshot-supply-reconciliation.md`
-22. `release-artifact-manifest.md`
+11. `index.html#launch-updates`
+12. `validator-operations-runbook.md`
+13. `incident-communication-templates.md`
+14. `benchmark-methodology.md`
+15. `launch-readiness-gates.md`
+16. `mainnet-go-no-go-checklist.md`
+17. `launch-evidence-bundle.md`
+18. `launch-rehearsal.md`
+19. `nightly-fuzz-health-check.md`
+20. `issue1-core-goal-check.md`
+21. `genesis-determinism-check.md`
+22. `snapshot-supply-reconciliation.md`
+23. `release-artifact-manifest.md`
