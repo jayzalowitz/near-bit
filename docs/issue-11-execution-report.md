@@ -2584,3 +2584,26 @@ Verification:
 - `bash -n scripts/launch/check_go_no_go_checklist.sh` passed.
 - `./scripts/launch/check_go_no_go_checklist.sh --json-out /tmp/go-no-go-summary-evidence-refs.json` passed locally.
 - `./scripts/launch/generate_evidence_bundle.sh --mode smoke --skip-gate --allow-dirty --cargo-target-dir .context/cargo-target-launch --out-dir /tmp/evidence-refs-check2` passed locally with checklist report generation successful.
+
+## Continuation (2026-03-05): signoff block format validation hardening
+
+Implemented:
+- Extended `scripts/launch/check_go_no_go_checklist.sh` signoff validation to enforce field formats when values are present:
+  - `Release candidate commit:` must be 7-40 char hex SHA.
+  - `Proposed genesis hash:` must be 64-char hex.
+  - `Planned launch window (UTC):` must be RFC3339 UTC timestamp or `start to end` RFC3339 UTC range.
+  - `Final decision:` must be `GO` or `NO-GO`.
+  - `Decision timestamp (UTC):` must be RFC3339 UTC timestamp.
+- Added machine-readable reporting:
+  - `totals.invalid_signoff_format`,
+  - `invalid_signoff_format` row list.
+- Updated GO criteria enforcement to fail on invalid signoff-format fields when `--require-go` is used.
+- Updated docs:
+  - `docs/mainnet-go-no-go-checklist.md` decision rules now define signoff format requirements.
+  - `docs/launch-evidence-bundle.md` documents signoff-format validation behavior.
+  - `docs/launch-readiness-gates.md` verification snapshot includes this change.
+
+Verification:
+- `bash -n scripts/launch/check_go_no_go_checklist.sh` passed.
+- `./scripts/launch/check_go_no_go_checklist.sh --json-out /tmp/go-no-go-signoff-format.json` passed locally.
+- `./scripts/launch/generate_evidence_bundle.sh --mode smoke --skip-gate --allow-dirty --cargo-target-dir .context/cargo-target-launch --out-dir /tmp/evidence-signoff-format` passed locally.

@@ -43,3 +43,9 @@ Decision status: `NO-GO` (default until all items complete)
 3. Waivers are allowed only for non-security items and require named approver signoff plus public rationale.
 4. Any gate marked `done` must include both Evidence and Completed date (UTC) before signoff.
 5. Evidence entries for `done` gates must be resolvable repo paths or `http(s)` links.
+6. Signoff block format requirements:
+   - Release candidate commit: 7-40 char hex SHA
+   - Proposed genesis hash: 64-char hex
+   - Planned launch window: RFC3339 UTC timestamp or `start to end` RFC3339 UTC range
+   - Final decision: `GO` or `NO-GO`
+   - Decision timestamp: RFC3339 UTC timestamp

@@ -91,6 +91,7 @@ done_missing_evidence=0
 done_missing_completed_date=0
 done_invalid_completed_date=0
 done_invalid_evidence_refs=0
+invalid_signoff_format=0
 
 declare -a pending_lines
 declare -a invalid_lines
@@ -98,6 +99,7 @@ declare -a done_missing_evidence_lines
 declare -a done_missing_completed_date_lines
 declare -a done_invalid_completed_date_lines
 declare -a done_invalid_evidence_ref_lines
+declare -a invalid_signoff_format_lines
 
 trim() {
   local value="$1"
@@ -240,6 +242,42 @@ for field in "${required_signoff_fields[@]}"; do
   if [[ -z "$raw_line" || -z "${value// }" ]]; then
     missing_signoff=$((missing_signoff + 1))
     missing_signoff_lines+=("$field")
+  else
+    case "$field" in
+      "Release candidate commit:")
+        if [[ ! "$value" =~ ^[0-9a-fA-F]{7,40}$ ]]; then
+          invalid_signoff_format=$((invalid_signoff_format + 1))
+          invalid_signoff_format_lines+=("${field} expected 7-40 hex commit SHA, got: ${value}")
+        fi
+        ;;
+      "Proposed genesis hash:")
+        if [[ ! "$value" =~ ^[0-9a-fA-F]{64}$ ]]; then
+          invalid_signoff_format=$((invalid_signoff_format + 1))
+          invalid_signoff_format_lines+=("${field} expected 64-char hex hash, got: ${value}")
+        fi
+        ;;
+      "Planned launch window (UTC):")
+        if [[ ! "$value" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z([[:space:]]+to[[:space:]]+[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z)?$ ]]; then
+          invalid_signoff_format=$((invalid_signoff_format + 1))
+          invalid_signoff_format_lines+=("${field} expected RFC3339 UTC timestamp or 'start to end' range, got: ${value}")
+        fi
+        ;;
+      "Final decision:")
+        normalized_decision="$(echo "$value" | tr '[:upper:]' '[:lower:]' | xargs)"
+        if [[ "$normalized_decision" != "go" && "$normalized_decision" != "no-go" ]]; then
+          invalid_signoff_format=$((invalid_signoff_format + 1))
+          invalid_signoff_format_lines+=("${field} expected GO or NO-GO, got: ${value}")
+        fi
+        ;;
+      "Decision timestamp (UTC):")
+        if [[ ! "$value" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]]; then
+          invalid_signoff_format=$((invalid_signoff_format + 1))
+          invalid_signoff_format_lines+=("${field} expected RFC3339 UTC timestamp, got: ${value}")
+        fi
+        ;;
+      *)
+        ;;
+    esac
   fi
 done
 
@@ -254,6 +292,7 @@ echo "Done missing completed date: ${done_missing_completed_date}"
 echo "Done invalid completed date: ${done_invalid_completed_date}"
 echo "Done invalid evidence refs: ${done_invalid_evidence_refs}"
 echo "Missing signoff fields: ${missing_signoff}"
+echo "Invalid signoff format fields: ${invalid_signoff_format}"
 
 if [[ "$gate_count_mismatch" -eq 1 ]]; then
   echo "Gate count mismatch: expected ${EXPECTED_GATES}, found ${total_gates}" >&2
@@ -336,6 +375,17 @@ if [[ "$done_invalid_evidence_refs" -gt 0 ]]; then
   done
 fi
 
+if [[ "$invalid_signoff_format" -gt 0 ]]; then
+  echo
+  echo "Invalid signoff field formats:"
+  for line in "${invalid_signoff_format_lines[@]-}"; do
+    if [[ -z "$line" ]]; then
+      continue
+    fi
+    echo "  - ${line}"
+  done
+fi
+
 if [[ -n "$JSON_OUT" ]]; then
   pending_json="$(printf '%s\n' "${pending_lines[@]-}" | jq -R -s 'split("\n") | map(select(length > 0))')"
   invalid_json="$(printf '%s\n' "${invalid_lines[@]-}" | jq -R -s 'split("\n") | map(select(length > 0))')"
@@ -344,6 +394,7 @@ if [[ -n "$JSON_OUT" ]]; then
   done_missing_completed_json="$(printf '%s\n' "${done_missing_completed_date_lines[@]-}" | jq -R -s 'split("\n") | map(select(length > 0))')"
   done_invalid_completed_json="$(printf '%s\n' "${done_invalid_completed_date_lines[@]-}" | jq -R -s 'split("\n") | map(select(length > 0))')"
   done_invalid_evidence_json="$(printf '%s\n' "${done_invalid_evidence_ref_lines[@]-}" | jq -R -s 'split("\n") | map(select(length > 0))')"
+  invalid_signoff_format_json="$(printf '%s\n' "${invalid_signoff_format_lines[@]-}" | jq -R -s 'split("\n") | map(select(length > 0))')"
 
   jq -n \
     --arg file "$CHECKLIST_FILE" \
@@ -358,6 +409,7 @@ if [[ -n "$JSON_OUT" ]]; then
     --argjson done_invalid_completed_date "$done_invalid_completed_date" \
     --argjson done_invalid_evidence_refs "$done_invalid_evidence_refs" \
     --argjson missing_signoff_fields "$missing_signoff" \
+    --argjson invalid_signoff_format "$invalid_signoff_format" \
     --argjson gate_count_mismatch "$gate_count_mismatch" \
     --argjson pending "$pending_json" \
     --argjson invalid "$invalid_json" \
@@ -366,6 +418,7 @@ if [[ -n "$JSON_OUT" ]]; then
     --argjson done_missing_completed_rows "$done_missing_completed_json" \
     --argjson done_invalid_completed_rows "$done_invalid_completed_json" \
     --argjson done_invalid_evidence_rows "$done_invalid_evidence_json" \
+    --argjson invalid_signoff_format_rows "$invalid_signoff_format_json" \
     '{
       checklist_file: $file,
       require_go: $require_go,
@@ -379,7 +432,8 @@ if [[ -n "$JSON_OUT" ]]; then
         done_missing_completed_date: $done_missing_completed_date,
         done_invalid_completed_date: $done_invalid_completed_date,
         done_invalid_evidence_refs: $done_invalid_evidence_refs,
-        missing_signoff_fields: $missing_signoff_fields
+        missing_signoff_fields: $missing_signoff_fields,
+        invalid_signoff_format: $invalid_signoff_format
       },
       gate_count_mismatch: ($gate_count_mismatch == 1),
       pending_gates: ($pending // []),
@@ -388,7 +442,8 @@ if [[ -n "$JSON_OUT" ]]; then
       done_missing_evidence: ($done_missing_evidence_rows // []),
       done_missing_completed_date: ($done_missing_completed_rows // []),
       done_invalid_completed_date: ($done_invalid_completed_rows // []),
-      done_invalid_evidence_refs: ($done_invalid_evidence_rows // [])
+      done_invalid_evidence_refs: ($done_invalid_evidence_rows // []),
+      invalid_signoff_format: ($invalid_signoff_format_rows // [])
     }' > "$JSON_OUT"
 fi
 
@@ -399,7 +454,7 @@ if [[ "$gate_count_mismatch" -eq 1 ]]; then
 fi
 
 if [[ "$REQUIRE_GO" -eq 1 ]]; then
-  if [[ "$todo_gates" -gt 0 || "$invalid_status" -gt 0 || "$missing_signoff" -gt 0 || "$done_missing_evidence" -gt 0 || "$done_missing_completed_date" -gt 0 || "$done_invalid_completed_date" -gt 0 || "$done_invalid_evidence_refs" -gt 0 ]]; then
+  if [[ "$todo_gates" -gt 0 || "$invalid_status" -gt 0 || "$missing_signoff" -gt 0 || "$invalid_signoff_format" -gt 0 || "$done_missing_evidence" -gt 0 || "$done_missing_completed_date" -gt 0 || "$done_invalid_completed_date" -gt 0 || "$done_invalid_evidence_refs" -gt 0 ]]; then
     echo
     echo "GO criteria not met (--require-go)." >&2
     exit 1
