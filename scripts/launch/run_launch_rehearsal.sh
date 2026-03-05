@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/launch/run_launch_rehearsal.sh [--mode smoke|full] [--include-fuzz] [--check-nightly-fuzz-health] [--nightly-fuzz-branch <name>] [--nightly-fuzz-workflow <name>] [--nightly-fuzz-window-days <n>] [--nightly-fuzz-min-runs <n>] [--nightly-fuzz-max-runs <n>] [--nightly-fuzz-allow-in-progress] [--check-snapshot-supply] [--snapshot-genesis <path>] [--snapshot-txoutsetinfo <path>] [--snapshot-tolerance-sats <n>] [--snapshot-json-out <path>] [--skip-issue1-goal-checks] [--require-go] [--include-release-manifest|--skip-release-manifest] [--release-manifest-skip-build] [--operator <name>] [--allow-dirty] [--checklist-file <path>] [--out-dir <path>]
+Usage: ./scripts/launch/run_launch_rehearsal.sh [--mode smoke|full] [--include-fuzz] [--check-nightly-fuzz-health] [--nightly-fuzz-branch <name>] [--nightly-fuzz-workflow <name>] [--nightly-fuzz-window-days <n>] [--nightly-fuzz-min-runs <n>] [--nightly-fuzz-max-runs <n>] [--nightly-fuzz-allow-in-progress] [--check-snapshot-supply] [--snapshot-genesis <path>] [--snapshot-txoutsetinfo <path>] [--snapshot-tolerance-sats <n>] [--snapshot-json-out <path>] [--cargo-target-dir <path>] [--skip-issue1-goal-checks] [--require-go] [--include-release-manifest|--skip-release-manifest] [--release-manifest-skip-build] [--operator <name>] [--allow-dirty] [--checklist-file <path>] [--out-dir <path>]
 
 Options:
   --mode <smoke|full>  Rehearsal mode passed to evidence generator. Default: full.
@@ -20,6 +20,8 @@ Options:
   --snapshot-txoutsetinfo <path> Path to bitcoin-cli gettxoutsetinfo JSON.
   --snapshot-tolerance-sats <n> Allowed satoshi diff for snapshot check. Default: 1.
   --snapshot-json-out <path> Copy snapshot-check JSON summary to this path.
+  --cargo-target-dir <path> Cargo target directory for readiness/manifest commands.
+                            Default: .context/cargo-target locally, target in CI.
   --skip-issue1-goal-checks Skip targeted Issue #1 goal validation tests in readiness gate.
   --require-go         Enforce strict GO criteria from checklist.
   --include-release-manifest  Generate release artifact manifest during rehearsal.
@@ -49,6 +51,7 @@ SNAPSHOT_GENESIS=""
 SNAPSHOT_TXOUTSETINFO=""
 SNAPSHOT_TOLERANCE_SATS=1
 SNAPSHOT_JSON_OUT=""
+CARGO_TARGET_DIR_OVERRIDE=""
 SKIP_ISSUE1_GOAL_CHECKS=0
 REQUIRE_GO=0
 INCLUDE_RELEASE_MANIFEST=-1
@@ -156,6 +159,14 @@ while [[ $# -gt 0 ]]; do
       SNAPSHOT_JSON_OUT="$2"
       shift 2
       ;;
+    --cargo-target-dir)
+      if [[ $# -lt 2 ]]; then
+        echo "--cargo-target-dir requires a path value" >&2
+        exit 1
+      fi
+      CARGO_TARGET_DIR_OVERRIDE="$2"
+      shift 2
+      ;;
     --skip-issue1-goal-checks)
       SKIP_ISSUE1_GOAL_CHECKS=1
       shift
@@ -249,6 +260,26 @@ fi
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
 
+resolve_cargo_target_dir() {
+  if [[ -n "$CARGO_TARGET_DIR_OVERRIDE" ]]; then
+    echo "$CARGO_TARGET_DIR_OVERRIDE"
+    return
+  fi
+  if [[ -n "${CARGO_TARGET_DIR:-}" ]]; then
+    echo "$CARGO_TARGET_DIR"
+    return
+  fi
+  if [[ "${CI:-}" == "true" ]]; then
+    echo "$ROOT_DIR/target"
+    return
+  fi
+  echo "$ROOT_DIR/.context/cargo-target"
+}
+
+CARGO_TARGET_DIR="$(resolve_cargo_target_dir)"
+export CARGO_TARGET_DIR
+mkdir -p "$CARGO_TARGET_DIR"
+
 require_cmd() {
   local cmd="$1"
   if ! command -v "$cmd" >/dev/null 2>&1; then
@@ -262,14 +293,31 @@ require_cmd jq
 require_cmd find
 require_cmd mktemp
 
+PREEXISTING_TARGET_DIFF_FILE=""
+
+should_restore_target_changes() {
+  case "$CARGO_TARGET_DIR" in
+    "$ROOT_DIR/target" | "$ROOT_DIR/target/"*)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 restore_tracked_target_changes() {
   local -a dirty_target_files=()
   local file=""
 
   while IFS= read -r file; do
-    if [[ -n "$file" ]]; then
-      dirty_target_files+=("$file")
+    if [[ -z "$file" ]]; then
+      continue
     fi
+    if [[ -n "$PREEXISTING_TARGET_DIFF_FILE" ]] && [[ -f "$PREEXISTING_TARGET_DIFF_FILE" ]] && grep -Fxq "$file" "$PREEXISTING_TARGET_DIFF_FILE"; then
+      continue
+    fi
+    dirty_target_files+=("$file")
   done < <(git diff --name-only -- target)
 
   if [[ "${#dirty_target_files[@]}" -eq 0 ]]; then
@@ -333,11 +381,14 @@ tmp_evidence_root="${tmp_root}/evidence"
 tmp_rehearsal_log="${tmp_root}/rehearsal.log"
 tmp_release_manifest_root="${tmp_root}/release-manifests"
 tmp_release_manifest_log="${tmp_root}/release-manifest.log"
+PREEXISTING_TARGET_DIFF_FILE="${tmp_root}/preexisting-target-diff.txt"
+git diff --name-only -- target > "$PREEXISTING_TARGET_DIFF_FILE"
 
 evidence_cmd=(
   ./scripts/launch/generate_evidence_bundle.sh
   --mode "$MODE"
   --checklist-file "$CHECKLIST_FILE"
+  --cargo-target-dir "$CARGO_TARGET_DIR"
   --out-dir "$tmp_evidence_root"
 )
 if [[ "$INCLUDE_FUZZ" -eq 1 ]]; then
@@ -430,12 +481,13 @@ if [[ -f "$checklist_report_json" ]]; then
 fi
 
 if [[ "$INCLUDE_RELEASE_MANIFEST" -eq 1 ]]; then
-  if [[ "$ALLOW_DIRTY" -eq 0 ]]; then
+  if [[ "$ALLOW_DIRTY" -eq 0 ]] && should_restore_target_changes; then
     restore_tracked_target_changes
   fi
 
   release_manifest_cmd=(
     ./scripts/launch/generate_release_manifest.sh
+    --cargo-target-dir "$CARGO_TARGET_DIR"
     --out-dir "$tmp_release_manifest_root"
   )
   if [[ "$RELEASE_MANIFEST_SKIP_BUILD" -eq 1 ]]; then
@@ -512,6 +564,7 @@ jq -n \
   --arg branch "$branch_name" \
   --arg mode "$MODE" \
   --arg operator "$OPERATOR" \
+  --arg cargo_target_dir "$CARGO_TARGET_DIR" \
   --arg nightly_fuzz_branch "$NIGHTLY_FUZZ_BRANCH" \
   --arg nightly_fuzz_workflow "$NIGHTLY_FUZZ_WORKFLOW" \
   --arg checklist_file "$CHECKLIST_FILE" \
@@ -558,6 +611,7 @@ jq -n \
     execution: {
       mode: $mode,
       operator: $operator,
+      cargo_target_dir: $cargo_target_dir,
       include_fuzz: $include_fuzz,
       check_nightly_fuzz_health: $check_nightly_fuzz_health,
       nightly_fuzz_branch: $nightly_fuzz_branch,
@@ -608,6 +662,7 @@ cat > "$summary_md" <<EOF
 - branch: ${branch_name}
 - mode: ${MODE}
 - operator: ${OPERATOR}
+- cargo_target_dir: ${CARGO_TARGET_DIR}
 - include_fuzz: ${INCLUDE_FUZZ}
 - check_nightly_fuzz_health: ${CHECK_NIGHTLY_FUZZ_HEALTH}
 - nightly_fuzz_branch: ${NIGHTLY_FUZZ_BRANCH}

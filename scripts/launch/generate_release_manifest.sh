@@ -3,11 +3,13 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/launch/generate_release_manifest.sh [--skip-build] [--allow-dirty] [--out-dir <path>]
+Usage: ./scripts/launch/generate_release_manifest.sh [--skip-build] [--allow-dirty] [--cargo-target-dir <path>] [--out-dir <path>]
 
 Options:
   --skip-build     Skip `cargo build --release` and use existing binaries.
   --allow-dirty    Allow running on a dirty worktree (default: fail).
+  --cargo-target-dir <path> Cargo target directory for release binaries.
+                            Default: .context/cargo-target locally, target in CI.
   --out-dir <path> Output root for manifests. Default: artifacts/release-manifests
   -h, --help       Show this help text.
 EOF
@@ -15,6 +17,7 @@ EOF
 
 SKIP_BUILD=0
 ALLOW_DIRTY=0
+CARGO_TARGET_DIR_OVERRIDE=""
 OUT_ROOT="artifacts/release-manifests"
 
 while [[ $# -gt 0 ]]; do
@@ -26,6 +29,14 @@ while [[ $# -gt 0 ]]; do
     --allow-dirty)
       ALLOW_DIRTY=1
       shift
+      ;;
+    --cargo-target-dir)
+      if [[ $# -lt 2 ]]; then
+        echo "--cargo-target-dir requires a path value" >&2
+        exit 1
+      fi
+      CARGO_TARGET_DIR_OVERRIDE="$2"
+      shift 2
       ;;
     --out-dir)
       if [[ $# -lt 2 ]]; then
@@ -49,6 +60,26 @@ done
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
+
+resolve_cargo_target_dir() {
+  if [[ -n "$CARGO_TARGET_DIR_OVERRIDE" ]]; then
+    echo "$CARGO_TARGET_DIR_OVERRIDE"
+    return
+  fi
+  if [[ -n "${CARGO_TARGET_DIR:-}" ]]; then
+    echo "$CARGO_TARGET_DIR"
+    return
+  fi
+  if [[ "${CI:-}" == "true" ]]; then
+    echo "$ROOT_DIR/target"
+    return
+  fi
+  echo "$ROOT_DIR/.context/cargo-target"
+}
+
+CARGO_TARGET_DIR="$(resolve_cargo_target_dir)"
+export CARGO_TARGET_DIR
+mkdir -p "$CARGO_TARGET_DIR"
 
 require_cmd() {
   local cmd="$1"
@@ -122,7 +153,7 @@ binaries_json='[]'
 : > "$sha256sums_file"
 
 for bin in "${binaries[@]}"; do
-  src_path="target/release/${bin}"
+  src_path="${CARGO_TARGET_DIR}/release/${bin}"
   dst_path="${binaries_dir}/${bin}"
 
   if [[ ! -f "$src_path" ]]; then
@@ -175,6 +206,7 @@ jq -n \
   --arg short_sha "$short_sha" \
   --arg branch "$branch_name" \
   --arg workspace_version "$workspace_version" \
+  --arg cargo_target_dir "$CARGO_TARGET_DIR" \
   --arg rustc_version "$rustc_version" \
   --arg cargo_version "$cargo_version" \
   --arg active_toolchain "$active_toolchain" \
@@ -191,6 +223,7 @@ jq -n \
     },
     build: {
       workspace_version: $workspace_version,
+      cargo_target_dir: $cargo_target_dir,
       skip_build: $skip_build,
       allow_dirty: $allow_dirty
     },
@@ -210,6 +243,7 @@ cat > "$summary_md" <<EOF
 - commit: ${commit_sha}
 - branch: ${branch_name}
 - workspace_version: ${workspace_version}
+- cargo_target_dir: ${CARGO_TARGET_DIR}
 - rustc_version: ${rustc_version}
 - cargo_version: ${cargo_version}
 - active_toolchain: ${active_toolchain}

@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/launch/run_readiness_gate.sh [--smoke|--full] [--include-fuzz] [--check-nightly-fuzz-health] [--nightly-fuzz-branch <name>] [--nightly-fuzz-workflow <name>] [--nightly-fuzz-window-days <n>] [--nightly-fuzz-min-runs <n>] [--nightly-fuzz-max-runs <n>] [--nightly-fuzz-allow-in-progress] [--check-snapshot-supply] [--snapshot-genesis <path>] [--snapshot-txoutsetinfo <path>] [--snapshot-tolerance-sats <n>] [--snapshot-json-out <path>] [--skip-issue1-goal-checks] [--require-go] [--skip-checklist]
+Usage: ./scripts/launch/run_readiness_gate.sh [--smoke|--full] [--include-fuzz] [--check-nightly-fuzz-health] [--nightly-fuzz-branch <name>] [--nightly-fuzz-workflow <name>] [--nightly-fuzz-window-days <n>] [--nightly-fuzz-min-runs <n>] [--nightly-fuzz-max-runs <n>] [--nightly-fuzz-allow-in-progress] [--check-snapshot-supply] [--snapshot-genesis <path>] [--snapshot-txoutsetinfo <path>] [--snapshot-tolerance-sats <n>] [--snapshot-json-out <path>] [--cargo-target-dir <path>] [--skip-issue1-goal-checks] [--require-go] [--skip-checklist]
 
 Modes:
   --smoke         Fast readiness checks (docs + script + benchmark/auth smoke).
@@ -23,6 +23,8 @@ Options:
   --snapshot-txoutsetinfo <path> Path to bitcoin-cli gettxoutsetinfo JSON.
   --snapshot-tolerance-sats <n> Allowed satoshi diff for snapshot check. Default: 1.
   --snapshot-json-out <path> Optional machine-readable snapshot-check output path.
+  --cargo-target-dir <path> Cargo target directory for build/test artifacts.
+                            Default: .context/cargo-target locally, target in CI.
   --skip-issue1-goal-checks Skip targeted Issue #1 goal validation tests.
   --require-go    Enforce GO criteria during checklist parse.
   --skip-checklist  Skip checklist parse step (used by higher-level orchestration).
@@ -44,6 +46,7 @@ SNAPSHOT_GENESIS=""
 SNAPSHOT_TXOUTSETINFO=""
 SNAPSHOT_TOLERANCE_SATS=1
 SNAPSHOT_JSON_OUT=""
+CARGO_TARGET_DIR_OVERRIDE=""
 SKIP_ISSUE1_GOAL_CHECKS=0
 REQUIRE_GO=0
 SKIP_CHECKLIST=0
@@ -148,6 +151,14 @@ while [[ $# -gt 0 ]]; do
       SNAPSHOT_JSON_OUT="$2"
       shift 2
       ;;
+    --cargo-target-dir)
+      if [[ $# -lt 2 ]]; then
+        echo "--cargo-target-dir requires a path value" >&2
+        exit 1
+      fi
+      CARGO_TARGET_DIR_OVERRIDE="$2"
+      shift 2
+      ;;
     --skip-issue1-goal-checks)
       SKIP_ISSUE1_GOAL_CHECKS=1
       shift
@@ -205,6 +216,26 @@ fi
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
+
+resolve_cargo_target_dir() {
+  if [[ -n "$CARGO_TARGET_DIR_OVERRIDE" ]]; then
+    echo "$CARGO_TARGET_DIR_OVERRIDE"
+    return
+  fi
+  if [[ -n "${CARGO_TARGET_DIR:-}" ]]; then
+    echo "$CARGO_TARGET_DIR"
+    return
+  fi
+  if [[ "${CI:-}" == "true" ]]; then
+    echo "$ROOT_DIR/target"
+    return
+  fi
+  echo "$ROOT_DIR/.context/cargo-target"
+}
+
+CARGO_TARGET_DIR="$(resolve_cargo_target_dir)"
+export CARGO_TARGET_DIR
+mkdir -p "$CARGO_TARGET_DIR"
 
 require_cmd() {
   local cmd="$1"
@@ -336,9 +367,9 @@ run_fuzz_smoke() {
 
 verify_release_versions() {
   local binaries=(
-    "target/release/bitinfinity-btcrpc"
-    "target/release/bitinfinity-tools"
-    "target/release/bitinfinity-neard"
+    "${CARGO_TARGET_DIR}/release/bitinfinity-btcrpc"
+    "${CARGO_TARGET_DIR}/release/bitinfinity-tools"
+    "${CARGO_TARGET_DIR}/release/bitinfinity-neard"
   )
   local version_line
 
@@ -452,4 +483,4 @@ if [[ "$INCLUDE_FUZZ" -eq 1 ]]; then
 fi
 
 echo
-echo "Launch readiness gate passed: mode=${MODE}, include_fuzz=${INCLUDE_FUZZ}, check_nightly_fuzz_health=${CHECK_NIGHTLY_FUZZ_HEALTH}, nightly_fuzz_branch=${NIGHTLY_FUZZ_BRANCH}, nightly_fuzz_workflow=${NIGHTLY_FUZZ_WORKFLOW}, nightly_fuzz_window_days=${NIGHTLY_FUZZ_WINDOW_DAYS}, nightly_fuzz_min_runs=${NIGHTLY_FUZZ_MIN_RUNS}, nightly_fuzz_max_runs=${NIGHTLY_FUZZ_MAX_RUNS}, nightly_fuzz_allow_in_progress=${NIGHTLY_FUZZ_ALLOW_IN_PROGRESS}, check_snapshot_supply=${CHECK_SNAPSHOT_SUPPLY}, snapshot_tolerance_sats=${SNAPSHOT_TOLERANCE_SATS}, skip_issue1_goal_checks=${SKIP_ISSUE1_GOAL_CHECKS}, require_go=${REQUIRE_GO}, skip_checklist=${SKIP_CHECKLIST}, at=$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+echo "Launch readiness gate passed: mode=${MODE}, include_fuzz=${INCLUDE_FUZZ}, check_nightly_fuzz_health=${CHECK_NIGHTLY_FUZZ_HEALTH}, nightly_fuzz_branch=${NIGHTLY_FUZZ_BRANCH}, nightly_fuzz_workflow=${NIGHTLY_FUZZ_WORKFLOW}, nightly_fuzz_window_days=${NIGHTLY_FUZZ_WINDOW_DAYS}, nightly_fuzz_min_runs=${NIGHTLY_FUZZ_MIN_RUNS}, nightly_fuzz_max_runs=${NIGHTLY_FUZZ_MAX_RUNS}, nightly_fuzz_allow_in_progress=${NIGHTLY_FUZZ_ALLOW_IN_PROGRESS}, check_snapshot_supply=${CHECK_SNAPSHOT_SUPPLY}, snapshot_tolerance_sats=${SNAPSHOT_TOLERANCE_SATS}, cargo_target_dir=${CARGO_TARGET_DIR}, skip_issue1_goal_checks=${SKIP_ISSUE1_GOAL_CHECKS}, require_go=${REQUIRE_GO}, skip_checklist=${SKIP_CHECKLIST}, at=$(date -u +"%Y-%m-%dT%H:%M:%SZ")"

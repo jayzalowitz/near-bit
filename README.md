@@ -119,6 +119,9 @@ bash -n scripts/benchmark/run_tps_profiles.sh
 
 # Optional for faster iteration: skip Issue #1 target suites
 ./scripts/launch/run_readiness_gate.sh --smoke --skip-issue1-goal-checks
+
+# Optional: isolate Cargo outputs from tracked target/ files
+./scripts/launch/run_readiness_gate.sh --full --cargo-target-dir /tmp/bitinfinity-cargo-target
 ```
 
 ## Generate launch evidence bundle
@@ -204,7 +207,12 @@ cargo run -q -p bitinfinity-tools -- verify-genesis --genesis /path/to/genesis.j
 
 # Reuse already-built binaries
 ./scripts/launch/generate_release_manifest.sh --skip-build
+
+# Optional: choose a custom Cargo target dir for release binaries
+./scripts/launch/generate_release_manifest.sh --cargo-target-dir /tmp/bitinfinity-cargo-target
 ```
+
+Launch scripts default to `.context/cargo-target` for local Cargo outputs (CI defaults remain `target/`).
 
 See `docs/technical-whitepaper.md` for the architecture/economic/security baseline, `docs/communications-launch-plan.md` plus the draft posts (`docs/blog-what-is-bitcoin-infinity.md`, `docs/blog-utxo-to-genesis-deep-dive.md`, `docs/blog-patoshi-balance-floor-explainer.md`) for prelaunch messaging assets, `docs/launch-readiness-gates.md` for gate status, `docs/mainnet-go-no-go-checklist.md` for decision signoff, `docs/incident-communication-templates.md` for incident messaging templates, `docs/launch-evidence-bundle.md` for evidence packaging details, `docs/nightly-fuzz-health-check.md` for 7-day fuzz health gating, `docs/issue1-core-goal-check.md` for Issue #1 target verification, `docs/genesis-determinism-check.md` for gate #9 hash-stability checks, `docs/snapshot-supply-reconciliation.md` for gate #10 snapshot supply checks, and `docs/release-artifact-manifest.md` for release-binary checksum manifests.
 

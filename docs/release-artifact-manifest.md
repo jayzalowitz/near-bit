@@ -18,12 +18,17 @@ This gives operations and reviewers a deterministic artifact record for a candid
 # Build binaries and generate manifest (default)
 ./scripts/launch/generate_release_manifest.sh
 
-# Reuse existing binaries from target/release
+# Reuse existing binaries from the active Cargo target dir
 ./scripts/launch/generate_release_manifest.sh --skip-build
+
+# Optional: choose a custom Cargo target directory
+./scripts/launch/generate_release_manifest.sh --cargo-target-dir /tmp/bitinfinity-cargo-target
 
 # Write to a custom output directory
 ./scripts/launch/generate_release_manifest.sh --out-dir /tmp/release-manifests
 ```
+
+Local runs default to `.context/cargo-target` for build outputs (CI keeps `target/`).
 
 ## Outputs
 
