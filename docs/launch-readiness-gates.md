@@ -167,6 +167,9 @@ By default, local launch-gate commands write Cargo artifacts to `.context/cargo-
 - `2026-03-05`: `./scripts/launch/generate_incident_launch_pack.sh --release-version a266f01e4 --launch-window-start 2026-03-10T18:00:00Z --launch-window-end 2026-03-10T22:00:00Z --status-page-url https://status.bitcoininfinity.io --coordination-channel '#validators-bridge' --out-file docs/incident-launch-pack-mainnet-2026-03-10.md` generated a committed launch-window prefill artifact for gate `13`.
 - `2026-03-05`: `./scripts/launch/update_go_no_go_gate.sh` marked gates `5`, `10`, and `13` as `done`; `./scripts/launch/check_go_no_go_checklist.sh` now reports `done_gates=5`, `todo_gates=11`, and zero done-metadata validation errors.
 - `2026-03-05`: `.github/workflows/ci.yml` now enforces branch-scoped concurrency (`cancel-in-progress: true`) so stale queued CI runs are auto-cancelled when newer commits are pushed.
+- `2026-03-05`: `./scripts/launch/check_nightly_fuzz_health.sh --branch main --workflow "Nightly Fuzz" --window-days 7 --min-runs 1 --max-runs 200` failed locally with `runs_in_window=0`; gate `4` remains open pending actual nightly-fuzz workflow executions.
+- `2026-03-05`: `./scripts/e2e_testnet.sh` initially failed on stale mempool unknown-tx expectations in the script; after updating checks to require error code `-5` for `getmempoolancestors`/`getmempooldescendants`, rerun passed locally (`E2E transaction flow succeeded`).
+- `2026-03-05`: `./scripts/launch/update_go_no_go_gate.sh` marked gate `6` (Tier 1/Tier 2 RPC compatibility tests) as `done`; `./scripts/launch/check_go_no_go_checklist.sh` now reports `done_gates=6`, `todo_gates=10`, and zero done-metadata validation errors.
 
 ## External Gates (Not Solvable by Repository Changes Alone)
 
