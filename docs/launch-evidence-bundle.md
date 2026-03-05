@@ -72,6 +72,7 @@ Strict checklist totals (including `inconsistent_go_decision`) are embedded in b
   - `incident-launch-pack.md`
   - `go-no-go-gate-update.md`
   - `go-no-go-signoff-prefill.md`
+  - `external-gate-packet.md`
   - `ci.yml`
   - `nightly-fuzz.yml`
   - `launch-evidence.yml`
@@ -84,6 +85,7 @@ Strict checklist totals (including `inconsistent_go_decision`) are embedded in b
   - `check_genesis_determinism.sh`
   - `check_snapshot_supply_reconciliation.sh`
   - `generate_incident_launch_pack.sh`
+  - `generate_external_gate_packet.sh`
   - `update_go_no_go_gate.sh`
   - `prefill_go_no_go_signoff.sh`
   - `run_launch_rehearsal.sh`

@@ -402,6 +402,7 @@ copy_and_checksum "docs/incident-communication-templates.md" "${bundle_dir}/inci
 copy_and_checksum "docs/incident-launch-pack.md" "${bundle_dir}/incident-launch-pack.md"
 copy_and_checksum "docs/go-no-go-gate-update.md" "${bundle_dir}/go-no-go-gate-update.md"
 copy_and_checksum "docs/go-no-go-signoff-prefill.md" "${bundle_dir}/go-no-go-signoff-prefill.md"
+copy_and_checksum "docs/external-gate-packet.md" "${bundle_dir}/external-gate-packet.md"
 copy_and_checksum ".github/workflows/ci.yml" "${bundle_dir}/ci.yml"
 copy_and_checksum ".github/workflows/nightly-fuzz.yml" "${bundle_dir}/nightly-fuzz.yml"
 copy_and_checksum ".github/workflows/launch-evidence.yml" "${bundle_dir}/launch-evidence.yml"
@@ -414,6 +415,7 @@ copy_and_checksum "scripts/launch/check_issue1_core_goals.sh" "${bundle_dir}/che
 copy_and_checksum "scripts/launch/check_genesis_determinism.sh" "${bundle_dir}/check_genesis_determinism.sh"
 copy_and_checksum "scripts/launch/check_snapshot_supply_reconciliation.sh" "${bundle_dir}/check_snapshot_supply_reconciliation.sh"
 copy_and_checksum "scripts/launch/generate_incident_launch_pack.sh" "${bundle_dir}/generate_incident_launch_pack.sh"
+copy_and_checksum "scripts/launch/generate_external_gate_packet.sh" "${bundle_dir}/generate_external_gate_packet.sh"
 copy_and_checksum "scripts/launch/update_go_no_go_gate.sh" "${bundle_dir}/update_go_no_go_gate.sh"
 copy_and_checksum "scripts/launch/prefill_go_no_go_signoff.sh" "${bundle_dir}/prefill_go_no_go_signoff.sh"
 copy_and_checksum "scripts/launch/run_launch_rehearsal.sh" "${bundle_dir}/run_launch_rehearsal.sh"
@@ -626,6 +628,7 @@ cat > "${bundle_dir}/SUMMARY.md" <<EOF
 - incident-launch-pack.md
 - go-no-go-gate-update.md
 - go-no-go-signoff-prefill.md
+- external-gate-packet.md
 - ci.yml
 - nightly-fuzz.yml
 - launch-evidence.yml
@@ -638,6 +641,7 @@ cat > "${bundle_dir}/SUMMARY.md" <<EOF
 - check_genesis_determinism.sh
 - check_snapshot_supply_reconciliation.sh
 - generate_incident_launch_pack.sh
+- generate_external_gate_packet.sh
 - update_go_no_go_gate.sh
 - prefill_go_no_go_signoff.sh
 - run_launch_rehearsal.sh

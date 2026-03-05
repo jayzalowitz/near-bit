@@ -48,6 +48,9 @@ GENESIS_FIXTURE_EXPECTED_HASH=<new_sha256> ./scripts/launch/run_readiness_gate.s
 # Gate #13 preparation helper: prefill launch-window incident pack
 ./scripts/launch/generate_incident_launch_pack.sh --release-version <tag-or-commit> --launch-window-start <YYYY-MM-DDTHH:MM:SSZ> --launch-window-end <YYYY-MM-DDTHH:MM:SSZ> --status-page-url https://status.bitcoininfinity.io --coordination-channel <channel-url-or-name>
 
+# External gate packet helper: prefill owner/evidence prompts for external gates (1/2/4/11/12/14/15/16)
+./scripts/launch/generate_external_gate_packet.sh --release-version <tag-or-commit> --launch-window-start <YYYY-MM-DDTHH:MM:SSZ> --launch-window-end <YYYY-MM-DDTHH:MM:SSZ> --status-page-url https://status.bitcoininfinity.io --coordination-channel <channel-url-or-name> --out-file docs/external-gate-packet-mainnet-<date>.md
+
 # Prefill checklist signoff block with validated launch metadata
 ./scripts/launch/prefill_go_no_go_signoff.sh --release-commit <sha> --genesis-hash <sha256> --launch-window-start <YYYY-MM-DDTHH:MM:SSZ> --launch-window-end <YYYY-MM-DDTHH:MM:SSZ> --final-decision NO-GO --approvers "<name1>, <name2>"
 ```
@@ -177,6 +180,10 @@ By default, local launch-gate commands write Cargo artifacts to `.context/cargo-
 - `2026-03-05`: `./scripts/e2e_testnet.sh` passed locally on commit `bab1bd9d2` with PSBT + send/receive workflow evidence published at `docs/sparrow-testnet-walkthrough.md` and `docs/sparrow-walkthrough-artifacts/20260305T171643Z-bab1bd9d2`; checklist gate `7` marked `done`.
 - `2026-03-05`: Added `scripts/launch/generate_external_gate_packet.sh` and `docs/external-gate-packet.md` to prefill owner/evidence collection for external checklist gates `1/2/4/11/12/14/15/16`.
 - `2026-03-05`: `./scripts/launch/generate_external_gate_packet.sh --release-version fb54b14a0 --launch-window-start 2026-03-10T18:00:00Z --launch-window-end 2026-03-10T22:00:00Z --status-page-url https://status.bitcoininfinity.io --coordination-channel '#validators-bridge' --out-file docs/external-gate-packet-mainnet-2026-03-10.md` passed locally and produced a committed launch-window external-workstream packet.
+- `2026-03-05`: `run_readiness_gate.sh` and `generate_evidence_bundle.sh` now enforce/snapshot external gate packet artifacts (`docs/external-gate-packet.md`, `scripts/launch/generate_external_gate_packet.sh`) as part of launch required-doc and evidence checks.
+- `2026-03-05`: `./scripts/launch/prefill_go_no_go_signoff.sh --file docs/mainnet-go-no-go-checklist.md --release-commit 54dc37b9e --genesis-hash 95f3e2600eec0dcd3ca51bf530f46ac963fa3b5286e18c6401efdcae8066aa5d --launch-window-start 2026-03-10T18:00:00Z --launch-window-end 2026-03-10T22:00:00Z --final-decision NO-GO --approvers "launch-readiness" --decision-timestamp 2026-03-05T17:28:00Z` passed locally; checklist signoff format fields now report complete (`missing_signoff_fields=0`, `invalid_signoff_format=0`).
+- `2026-03-05`: `./scripts/launch/run_readiness_gate.sh --smoke --cargo-target-dir .context/cargo-target-launch` passed locally on commit `54dc37b9e`.
+- `2026-03-05`: `./scripts/launch/generate_evidence_bundle.sh --mode smoke --skip-gate --allow-dirty --cargo-target-dir .context/cargo-target-launch --out-dir /tmp/launch-evidence-external-packet-20260305` passed locally and bundle summary now lists `external-gate-packet.md` and `generate_external_gate_packet.sh`.
 
 ## External Gates (Not Solvable by Repository Changes Alone)
 
