@@ -178,6 +178,20 @@ enable_tx_generator() {
   run_cmd "rm -f \"${merged_settings}\""
 }
 
+assert_tx_generator_accounts_ready() {
+  local near_accounts_path="${TX_GEN_DIR}/user-data"
+  if [[ ! -d "${near_accounts_path}" ]]; then
+    echo "error: tx-generator accounts directory missing: ${near_accounts_path}" >&2
+    echo "hint: account generation did not complete; check create-accounts logs." >&2
+    exit 1
+  fi
+  if ! find "${near_accounts_path}" -type f -name '*.json' -print -quit | grep -q .; then
+    echo "error: tx-generator accounts directory is empty: ${near_accounts_path}" >&2
+    echo "hint: account generation did not produce usable key files." >&2
+    exit 1
+  fi
+}
+
 prepare_schedule_file() {
   local profile="$1"
   local schedule_tps="$2"
@@ -424,6 +438,7 @@ main() {
       just init-localnet
       apply_unlimit_tuning
       RUST_LOG="info,transaction-generator=off" just create-accounts "${NUM_ACCOUNTS}"
+      assert_tx_generator_accounts_ready
       enable_tx_generator
       just run-localnet "${LOGLEVEL}"
     ) > >(tee "${log_file}") 2>&1 &
