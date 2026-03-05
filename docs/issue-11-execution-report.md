@@ -2415,3 +2415,31 @@ Verification:
 - `bash -n scripts/launch/generate_evidence_bundle.sh` passed.
 - `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist` passed locally after whitepaper gating changes.
 - `./scripts/launch/generate_evidence_bundle.sh --mode smoke --skip-gate --allow-dirty --out-dir <tmp>` passed locally and produced a bundle containing `technical-whitepaper.md`.
+
+## Continuation (2026-03-05): communications launch pack + artifact enforcement
+
+Implemented:
+- Added launch communications artifacts required by issue #11 prelaunch messaging scope:
+  - `docs/communications-launch-plan.md`
+  - `docs/blog-what-is-bitcoin-infinity.md`
+  - `docs/blog-utxo-to-genesis-deep-dive.md`
+  - `docs/blog-patoshi-balance-floor-explainer.md`
+- Extended launch gating and evidence capture:
+  - `scripts/launch/run_readiness_gate.sh` now requires all communications pack docs.
+  - `scripts/launch/generate_evidence_bundle.sh` now snapshots all communications pack docs and includes them in `SUMMARY.md`.
+- Updated docs discoverability and launch references:
+  - `README.md`
+  - `docs/documentation-hub.md`
+  - `docs/index.html`
+  - `docs/launch-evidence-bundle.md`
+  - `docs/launch-readiness-gates.md`
+
+Verification:
+- `bash -n scripts/launch/run_readiness_gate.sh` passed.
+- `bash -n scripts/launch/generate_evidence_bundle.sh` passed.
+- `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist` passed locally after communications-pack gating changes.
+- `./scripts/launch/generate_evidence_bundle.sh --mode smoke --skip-gate --allow-dirty --out-dir <tmp>` passed locally and produced a bundle containing:
+  - `communications-launch-plan.md`
+  - `blog-what-is-bitcoin-infinity.md`
+  - `blog-utxo-to-genesis-deep-dive.md`
+  - `blog-patoshi-balance-floor-explainer.md`

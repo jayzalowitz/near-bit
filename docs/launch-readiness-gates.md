@@ -65,6 +65,7 @@ GENESIS_FIXTURE_EXPECTED_HASH=<new_sha256> ./scripts/launch/run_readiness_gate.s
 | Launch rehearsal orchestration runner | complete | `scripts/launch/run_launch_rehearsal.sh`, `docs/launch-rehearsal.md` |
 | Release artifact checksum manifest generator | complete | `scripts/launch/generate_release_manifest.sh`, `docs/release-artifact-manifest.md` |
 | Technical whitepaper baseline document | complete | `docs/technical-whitepaper.md` |
+| Launch communications package (plan + technical draft posts) | complete | `docs/communications-launch-plan.md`, `docs/blog-what-is-bitcoin-infinity.md`, `docs/blog-utxo-to-genesis-deep-dive.md`, `docs/blog-patoshi-balance-floor-explainer.md` |
 | Documentation hub and technical guides | complete | `docs/documentation-hub.md` and linked docs |
 | Launch execution report for implementation phases | complete | `docs/issue-11-execution-report.md` |
 
@@ -95,6 +96,10 @@ GENESIS_FIXTURE_EXPECTED_HASH=<new_sha256> ./scripts/launch/run_readiness_gate.s
 - `2026-03-04`: Added `docs/technical-whitepaper.md` and wired it into launch required-doc checks (`run_readiness_gate.sh`) plus evidence snapshots (`generate_evidence_bundle.sh`).
 - `2026-03-04`: `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist` passed locally after whitepaper gating was added.
 - `2026-03-04`: `./scripts/launch/generate_evidence_bundle.sh --mode smoke --skip-gate --allow-dirty --out-dir <tmp>` passed locally after whitepaper gating was added; bundle includes `technical-whitepaper.md`.
+- `2026-03-05`: Added launch communications pack docs: `communications-launch-plan.md`, `blog-what-is-bitcoin-infinity.md`, `blog-utxo-to-genesis-deep-dive.md`, and `blog-patoshi-balance-floor-explainer.md`.
+- `2026-03-05`: `run_readiness_gate.sh` now requires the communications pack docs, and `generate_evidence_bundle.sh` now snapshots them for launch artifact review.
+- `2026-03-05`: `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist` passed locally after communications-pack doc gating changes.
+- `2026-03-05`: `./scripts/launch/generate_evidence_bundle.sh --mode smoke --skip-gate --allow-dirty --out-dir <tmp>` passed locally and captured `communications-launch-plan.md` plus all three blog drafts.
 
 ## External Gates (Not Solvable by Repository Changes Alone)
 

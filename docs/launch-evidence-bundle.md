@@ -52,6 +52,10 @@ It executes readiness checks with checklist parsing disabled internally, then ru
 - launch-critical snapshots:
   - `launch-readiness-gates.md`
   - `technical-whitepaper.md`
+  - `communications-launch-plan.md`
+  - `blog-what-is-bitcoin-infinity.md`
+  - `blog-utxo-to-genesis-deep-dive.md`
+  - `blog-patoshi-balance-floor-explainer.md`
   - `mainnet-go-no-go-checklist.md`
   - `genesis-determinism-check.md`
   - `snapshot-supply-reconciliation.md`
