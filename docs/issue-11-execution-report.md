@@ -2831,3 +2831,17 @@ Verification:
 - `bash -n scripts/launch/check_go_no_go_checklist.sh` passed.
 - `./scripts/launch/prefill_go_no_go_signoff.sh --file /tmp/mainnet-go-no-go-checklist.bad-commit.md --release-commit deadbee --genesis-hash 95f3e2600eec0dcd3ca51bf530f46ac963fa3b5286e18c6401efdcae8066aa5d --launch-window-start 2026-03-10T18:00:00Z --launch-window-end 2026-03-10T22:00:00Z --final-decision GO --allow-go --approvers "alice,bob" --decision-timestamp 2026-03-10T17:55:00Z` passed locally (prefill only).
 - `./scripts/launch/check_go_no_go_checklist.sh --file /tmp/mainnet-go-no-go-checklist.bad-commit.md --json-out /tmp/go-no-go-bad-commit.json` correctly failed locally with invalid signoff format due unresolved commit SHA.
+
+## Continuation (2026-03-05): add manual-dispatch entrypoint for full CI workflow
+
+Implemented:
+- Updated `.github/workflows/ci.yml` to add `workflow_dispatch` trigger support.
+- This enables on-demand full CI execution against selected refs when push-trigger runs are delayed/queued, without changing existing push/pull_request behavior.
+- Updated verification snapshot docs:
+  - `docs/launch-readiness-gates.md`
+
+Verification:
+- Workflow file parsed by GitHub Actions on push with new trigger stanza.
+- Manual dispatch command prepared:
+  - `gh workflow run CI --repo jayzalowitz/near-bit --ref jayzalowitz/btc-near-fork-plan`.
+- `./scripts/launch/run_readiness_gate.sh --smoke --cargo-target-dir .context/cargo-target-launch` passed locally at `2026-03-05T16:35:01Z` (includes Issue #1 core-goal checks and pinned-hash genesis determinism check).
