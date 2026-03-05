@@ -71,6 +71,7 @@ By default, local launch-gate commands write Cargo artifacts to `.context/cargo-
 | Go/no-go checklist validator script | complete | `scripts/launch/check_go_no_go_checklist.sh` |
 | Go/no-go checklist gate-row update helper | complete | `scripts/launch/update_go_no_go_gate.sh`, `docs/go-no-go-gate-update.md` |
 | Go/no-go checklist signoff prefill helper | complete | `scripts/launch/prefill_go_no_go_signoff.sh`, `docs/go-no-go-signoff-prefill.md` |
+| External-gate packet prefill helper | complete | `scripts/launch/generate_external_gate_packet.sh`, `docs/external-gate-packet.md` |
 | Nightly fuzz 7-day health verifier script | complete | `scripts/launch/check_nightly_fuzz_health.sh`, `docs/nightly-fuzz-health-check.md` |
 | Issue #1 core-goal verification script | complete | `scripts/launch/check_issue1_core_goals.sh`, `docs/issue1-core-goal-check.md` |
 | Genesis determinism verifier script (gate #9) | complete | `scripts/launch/check_genesis_determinism.sh`, `docs/genesis-determinism-check.md` |
@@ -174,6 +175,8 @@ By default, local launch-gate commands write Cargo artifacts to `.context/cargo-
 - `2026-03-05`: `scripts/benchmark/run_tps_profiles.sh` now fails fast if tx-generator account materialization does not produce usable `user-data/*.json` keys, preventing false-progress benchmark runs with missing account inputs.
 - `2026-03-05`: `./scripts/benchmark/run_tps_profiles.sh --profile all --duration-override 20 --run-grace 45 --startup-timeout 600 --metrics-interval 1 --skip-build --out-dir artifacts/benchmarks/release-candidate-20260305T170837Z` passed locally on commit `ad763faee` (`nonzero_profile_count=0`, `signal_11_profile_count=0`); published raw artifact mirror committed at `docs/benchmark-artifacts/release-candidate-20260305T170837Z` and checklist gate `8` marked `done`.
 - `2026-03-05`: `./scripts/e2e_testnet.sh` passed locally on commit `bab1bd9d2` with PSBT + send/receive workflow evidence published at `docs/sparrow-testnet-walkthrough.md` and `docs/sparrow-walkthrough-artifacts/20260305T171643Z-bab1bd9d2`; checklist gate `7` marked `done`.
+- `2026-03-05`: Added `scripts/launch/generate_external_gate_packet.sh` and `docs/external-gate-packet.md` to prefill owner/evidence collection for external checklist gates `1/2/4/11/12/14/15/16`.
+- `2026-03-05`: `./scripts/launch/generate_external_gate_packet.sh --release-version fb54b14a0 --launch-window-start 2026-03-10T18:00:00Z --launch-window-end 2026-03-10T22:00:00Z --status-page-url https://status.bitcoininfinity.io --coordination-channel '#validators-bridge' --out-file docs/external-gate-packet-mainnet-2026-03-10.md` passed locally and produced a committed launch-window external-workstream packet.
 
 ## External Gates (Not Solvable by Repository Changes Alone)
 

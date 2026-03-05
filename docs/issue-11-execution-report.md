@@ -2965,3 +2965,18 @@ Verification:
   - `funded_debit=1.35244391`
 - `./scripts/launch/update_go_no_go_gate.sh --file docs/mainnet-go-no-go-checklist.md --gate 7 --status done --owner "launch-readiness" --evidence "docs/sparrow-testnet-walkthrough.md,docs/sparrow-walkthrough-artifacts/20260305T171643Z-bab1bd9d2/summary.txt,docs/launch-readiness-gates.md,docs/issue-11-execution-report.md" --completed-date 2026-03-05` passed locally.
 - `./scripts/launch/check_go_no_go_checklist.sh --file docs/mainnet-go-no-go-checklist.md --json-out /tmp/go-no-go-after-gate-7.json` passed locally (`done_gates=8`, `todo_gates=8`, `invalid=0`, all done-metadata counters `0`).
+
+## Continuation (2026-03-05): external gate packet helper for remaining launch blockers
+
+Implemented:
+- Added external-workstream packet generator:
+  - `scripts/launch/generate_external_gate_packet.sh`
+- Added operator guide:
+  - `docs/external-gate-packet.md`
+- Generated committed launch-window packet for external owners:
+  - `docs/external-gate-packet-mainnet-2026-03-10.md`
+- Updated launch docs to reference the helper in checklist/release docs.
+
+Verification:
+- `bash -n scripts/launch/generate_external_gate_packet.sh` passed.
+- `./scripts/launch/generate_external_gate_packet.sh --release-version fb54b14a0 --launch-window-start 2026-03-10T18:00:00Z --launch-window-end 2026-03-10T22:00:00Z --status-page-url https://status.bitcoininfinity.io --coordination-channel '#validators-bridge' --out-file docs/external-gate-packet-mainnet-2026-03-10.md` passed locally.

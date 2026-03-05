@@ -8,6 +8,7 @@ Decision status: `NO-GO` (default until all items complete)
 
 Tip: use `scripts/launch/prefill_go_no_go_signoff.sh` to prefill the signoff block with format-valid launch metadata.
 Tip: use `scripts/launch/update_go_no_go_gate.sh` to update gate rows with validated owner/evidence/date metadata.
+Tip: use `scripts/launch/generate_external_gate_packet.sh` to prefill external-gate owner/evidence prompts for gates `1/2/4/11/12/14/15/16`.
 
 ## Signoff Block
 
