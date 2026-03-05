@@ -207,6 +207,20 @@ By default, local launch-gate commands write Cargo artifacts to `.context/cargo-
 - `2026-03-05`: `./scripts/launch/run_readiness_gate.sh --smoke --require-go --cargo-target-dir .context/cargo-target-launch` passed locally at `2026-03-05T17:48:34Z`.
 - `2026-03-05`: `./scripts/launch/run_launch_rehearsal.sh --mode smoke --require-go --skip-release-manifest --allow-dirty --cargo-target-dir .context/cargo-target-launch --operator "launch-readiness"` passed locally, producing `artifacts/launch-rehearsals/20260305T174844Z-67202534f`.
 - `2026-03-05`: `./scripts/launch/run_readiness_gate.sh --full --require-go --cargo-target-dir .context/cargo-target-launch` passed locally at `2026-03-05T17:53:08Z` (release build, workspace tests, clippy, fmt, and cargo-audit all green under strict GO checklist enforcement).
+- `2026-03-05`: Full strict launch rehearsal with release manifest generation passed locally:
+  - `./scripts/launch/run_launch_rehearsal.sh --mode full --require-go --include-release-manifest --release-manifest-skip-build --allow-dirty --cargo-target-dir .context/cargo-target-launch --operator "launch-readiness"`
+  - artifacts: `artifacts/launch-rehearsals/20260305T175634Z-fd2c8a47c`
+- `2026-03-05`: CI run `22729439075` revealed a strict-checklist failure in `Launch Readiness (smoke)` caused by:
+  - non-repo gate-16 evidence ref (`artifacts/launch-rehearsals/.../SUMMARY.md`)
+  - shallow checkout commit-resolution mismatch for signoff commit validation
+- `2026-03-05`: Fixed CI parity by:
+  - updating gate `16` evidence refs in `docs/mainnet-go-no-go-checklist.md` to repo-resolvable paths only
+  - setting `actions/checkout` `fetch-depth: 0` in:
+    - `.github/workflows/ci.yml`
+    - `.github/workflows/launch-evidence.yml`
+    - `.github/workflows/launch-rehearsal.yml`
+    - `.github/workflows/release-manifest.yml`
+- `2026-03-05`: `./scripts/launch/run_readiness_gate.sh --smoke --require-go --skip-issue1-goal-checks --cargo-target-dir .context/cargo-target-launch` re-passed locally at `2026-03-05T17:59:59Z` after the CI-parity fixes.
 
 ## External Gates (Launch Window Status)
 

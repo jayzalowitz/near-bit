@@ -3051,3 +3051,24 @@ Verification:
 Verification:
 - `./scripts/launch/run_readiness_gate.sh --full --require-go --cargo-target-dir .context/cargo-target-launch` passed locally at `2026-03-05T17:53:08Z`.
 - Full gate coverage included release builds, workspace/near-account-id tests, clippy, format checks, and cargo-audit with no failures.
+
+## Continuation (2026-03-05): fix CI launch-readiness failure on strict GO checklist validation
+
+Root cause from CI run `22729439075` (`Launch Readiness (smoke)` step):
+- Checklist gate `16` evidence included non-repository path `artifacts/launch-rehearsals/.../SUMMARY.md`, which fails evidence-ref validation in clean CI checkouts.
+- Signoff `Release candidate commit: 67202534f` failed commit-resolution in shallow checkout history.
+
+Implemented:
+- Updated checklist gate `16` evidence to repo-resolvable refs only:
+  - `docs/rollback-abort-dry-run-mainnet-2026-03-05.md`
+  - `docs/external-gate-packet-mainnet-2026-03-10.md`
+- Updated rollback/external packet docs to remove non-repo artifact paths from gate `16` evidence links.
+- Updated checkout depth to full history (`fetch-depth: 0`) in launch-related workflows:
+  - `.github/workflows/ci.yml`
+  - `.github/workflows/launch-evidence.yml`
+  - `.github/workflows/launch-rehearsal.yml`
+  - `.github/workflows/release-manifest.yml`
+
+Verification:
+- `./scripts/launch/check_go_no_go_checklist.sh --require-go` passed locally after gate `16` evidence update.
+- `./scripts/launch/run_readiness_gate.sh --smoke --require-go --skip-issue1-goal-checks --cargo-target-dir .context/cargo-target-launch` passed locally at `2026-03-05T17:59:59Z`.
