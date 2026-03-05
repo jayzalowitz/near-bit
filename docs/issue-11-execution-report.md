@@ -2915,3 +2915,31 @@ Verification:
 
 Verification:
 - `./scripts/launch/check_nightly_fuzz_health.sh --branch main --workflow "Nightly Fuzz" --window-days 7 --min-runs 1 --max-runs 200` failed locally (`runs_in_window=0`), so checklist gate `4` remains open pending actual nightly-fuzz workflow executions.
+
+## Continuation (2026-03-05): harden benchmark runner against missing account artifacts
+
+Implemented:
+- Updated `scripts/benchmark/run_tps_profiles.sh` with `assert_tx_generator_accounts_ready` to fail fast when tx-generator account keys are missing or empty after `create-accounts`.
+- This prevents misleading benchmark runs where `just run-localnet` starts without usable `user-data/*.json` inputs.
+
+Verification:
+- `bash -n scripts/benchmark/run_tps_profiles.sh` passed.
+- `./scripts/benchmark/run_tps_profiles.sh --profile baseline --duration-override 20 --run-grace 45 --startup-timeout 600 --metrics-interval 1 --skip-build --out-dir /tmp/near-bit-rc-bench-quick-20260305` passed locally after hardening.
+
+## Continuation (2026-03-05): publish release-candidate benchmark artifacts and close gate #8
+
+Implemented:
+- Published release-candidate benchmark artifact set under:
+  - `docs/benchmark-artifacts/release-candidate-20260305T170837Z`
+- Added release-candidate benchmark summary section and artifact references in:
+  - `docs/benchmark-methodology.md`
+- Marked checklist gate `8` (`Benchmark methodology report and raw artifacts published for release candidate`) as `done` with owner/evidence/date metadata.
+
+Verification:
+- `./scripts/benchmark/run_tps_profiles.sh --profile all --duration-override 20 --run-grace 45 --startup-timeout 600 --metrics-interval 1 --skip-build --out-dir artifacts/benchmarks/release-candidate-20260305T170837Z` passed locally on commit `ad763faee947446daa00444cf8d5ce701ee8a449`.
+- `docs/benchmark-artifacts/release-candidate-20260305T170837Z/summary.json` reports:
+  - `nonzero_profile_count=0`
+  - `signal_11_profile_count=0`
+  - profile `effective_run_status=0` for `baseline`, `stress`, and `peak`.
+- `./scripts/launch/update_go_no_go_gate.sh --file docs/mainnet-go-no-go-checklist.md --gate 8 --status done --owner "launch-readiness" --evidence "docs/benchmark-methodology.md,docs/benchmark-artifacts/release-candidate-20260305T170837Z/summary.json,docs/launch-readiness-gates.md,docs/issue-11-execution-report.md" --completed-date 2026-03-05` passed locally.
+- `./scripts/launch/check_go_no_go_checklist.sh --file docs/mainnet-go-no-go-checklist.md --json-out /tmp/go-no-go-after-gate-8.json` passed locally (`done_gates=7`, `todo_gates=9`, `invalid=0`, all done-metadata counters `0`).

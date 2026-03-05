@@ -170,6 +170,8 @@ By default, local launch-gate commands write Cargo artifacts to `.context/cargo-
 - `2026-03-05`: `./scripts/launch/check_nightly_fuzz_health.sh --branch main --workflow "Nightly Fuzz" --window-days 7 --min-runs 1 --max-runs 200` failed locally with `runs_in_window=0`; gate `4` remains open pending actual nightly-fuzz workflow executions.
 - `2026-03-05`: `./scripts/e2e_testnet.sh` initially failed on stale mempool unknown-tx expectations in the script; after updating checks to require error code `-5` for `getmempoolancestors`/`getmempooldescendants`, rerun passed locally (`E2E transaction flow succeeded`).
 - `2026-03-05`: `./scripts/launch/update_go_no_go_gate.sh` marked gate `6` (Tier 1/Tier 2 RPC compatibility tests) as `done`; `./scripts/launch/check_go_no_go_checklist.sh` now reports `done_gates=6`, `todo_gates=10`, and zero done-metadata validation errors.
+- `2026-03-05`: `scripts/benchmark/run_tps_profiles.sh` now fails fast if tx-generator account materialization does not produce usable `user-data/*.json` keys, preventing false-progress benchmark runs with missing account inputs.
+- `2026-03-05`: `./scripts/benchmark/run_tps_profiles.sh --profile all --duration-override 20 --run-grace 45 --startup-timeout 600 --metrics-interval 1 --skip-build --out-dir artifacts/benchmarks/release-candidate-20260305T170837Z` passed locally on commit `ad763faee` (`nonzero_profile_count=0`, `signal_11_profile_count=0`); published raw artifact mirror committed at `docs/benchmark-artifacts/release-candidate-20260305T170837Z` and checklist gate `8` marked `done`.
 
 ## External Gates (Not Solvable by Repository Changes Alone)
 

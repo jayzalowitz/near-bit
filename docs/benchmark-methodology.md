@@ -127,6 +127,29 @@ Artifacts:
 - `artifacts/benchmarks/full-methodology-20260220T191500Z/summary.csv`
 - `artifacts/benchmarks/full-methodology-20260220T191500Z/summary.md`
 
+## Release Candidate Benchmark Artifacts (2026-03-05)
+
+Release-candidate verification command:
+- `./scripts/benchmark/run_tps_profiles.sh --profile all --duration-override 20 --run-grace 45 --startup-timeout 600 --metrics-interval 1 --skip-build --out-dir artifacts/benchmarks/release-candidate-20260305T170837Z`
+
+Aggregate diagnostics:
+- `git_commit=ad763faee947446daa00444cf8d5ce701ee8a449`
+- `nonzero_profile_count=0`
+- `signal_11_profile_count=0`
+
+Observed release-candidate profile results:
+- baseline (`1000 TPS`, `20s`): `avg=621.389`, `peak=889.315`, `final_success_metric=19020`, `final_failed_metric=0`, `run_status=143`, `effective_run_status=0`, `schedule_completed_from_log=1`, `signal_11_from_log=0`
+- stress (`10000 TPS`, `20s`): `avg=4419.368`, `peak=6881.821`, `final_success_metric=134977`, `final_failed_metric=0`, `run_status=143`, `effective_run_status=0`, `schedule_completed_from_log=1`, `signal_11_from_log=0`
+- peak (`50000 TPS`, `20s`): `avg=6343.463`, `peak=7867.829`, `final_success_metric=178933`, `final_failed_metric=0`, `run_status=143`, `effective_run_status=0`, `schedule_completed_from_log=1`, `signal_11_from_log=0`
+
+Published raw artifacts (committed):
+- `docs/benchmark-artifacts/release-candidate-20260305T170837Z/summary.json`
+- `docs/benchmark-artifacts/release-candidate-20260305T170837Z/summary.csv`
+- `docs/benchmark-artifacts/release-candidate-20260305T170837Z/summary.md`
+- `docs/benchmark-artifacts/release-candidate-20260305T170837Z/baseline/neard.log`
+- `docs/benchmark-artifacts/release-candidate-20260305T170837Z/stress/neard.log`
+- `docs/benchmark-artifacts/release-candidate-20260305T170837Z/peak/neard.log`
+
 ## Historical Pilot Results (2026-02-20)
 
 These are short-duration pilot runs used to validate runner behavior before the full-duration publication above.
