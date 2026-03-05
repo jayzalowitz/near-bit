@@ -221,6 +221,10 @@ By default, local launch-gate commands write Cargo artifacts to `.context/cargo-
     - `.github/workflows/launch-rehearsal.yml`
     - `.github/workflows/release-manifest.yml`
 - `2026-03-05`: `./scripts/launch/run_readiness_gate.sh --smoke --require-go --skip-issue1-goal-checks --cargo-target-dir .context/cargo-target-launch` re-passed locally at `2026-03-05T17:59:59Z` after the CI-parity fixes.
+- `2026-03-05`: Scoped full-history checkout to `launch-readiness-smoke` only in `.github/workflows/ci.yml` (other jobs restored to default shallow checkout) to preserve strict signoff commit validation without slowing all CI jobs; change landed in commit `ee902670a`.
+- `2026-03-05`: `./scripts/launch/run_readiness_gate.sh --full --require-go --cargo-target-dir .context/cargo-target-launch` passed locally at `2026-03-05T18:14:06Z` on commit `ee902670a`.
+- `2026-03-05`: `./scripts/launch/run_launch_rehearsal.sh --mode full --require-go --include-release-manifest --allow-dirty --operator "launch-readiness" --cargo-target-dir .context/cargo-target-launch` passed locally and produced `artifacts/launch-rehearsals/20260305T181426Z-ee902670a`.
+- `2026-03-05`: CI run `22730068601` completed `success` on commit `ee902670a`, including `Launch Readiness (smoke)`, `Security Audit`, and `Fuzz (smoke)`.
 
 ## External Gates (Launch Window Status)
 

@@ -3072,3 +3072,21 @@ Implemented:
 Verification:
 - `./scripts/launch/check_go_no_go_checklist.sh --require-go` passed locally after gate `16` evidence update.
 - `./scripts/launch/run_readiness_gate.sh --smoke --require-go --skip-issue1-goal-checks --cargo-target-dir .context/cargo-target-launch` passed locally at `2026-03-05T17:59:59Z`.
+
+## Continuation (2026-03-05): final strict launch-readiness reconfirmation on head `ee902670a`
+
+Implemented:
+- Scoped full-history checkout in `.github/workflows/ci.yml` to `launch-readiness-smoke` only, while restoring default shallow checkout for non-launch jobs to reduce CI overhead.
+
+Verification:
+- `./scripts/launch/check_go_no_go_checklist.sh --require-go` passed locally (`done_gates=16`, `todo_gates=0`, strict counters all `0`).
+- `./scripts/launch/run_readiness_gate.sh --full --require-go --cargo-target-dir .context/cargo-target-launch` passed locally at `2026-03-05T18:14:06Z` on commit `ee902670a`.
+- `./scripts/launch/run_launch_rehearsal.sh --mode full --require-go --include-release-manifest --allow-dirty --operator launch-readiness --cargo-target-dir .context/cargo-target-launch` passed locally and produced `artifacts/launch-rehearsals/20260305T181426Z-ee902670a`.
+- CI run `22730068601` on commit `ee902670a` completed with overall `success`; job conclusions:
+  - `Format`: success
+  - `Build`: success
+  - `Test`: success
+  - `Clippy`: success
+  - `Security Audit`: success
+  - `Fuzz (smoke)`: success
+  - `Launch Readiness (smoke)`: success
