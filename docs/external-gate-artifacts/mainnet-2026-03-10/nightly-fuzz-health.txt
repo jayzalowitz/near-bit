@@ -1,0 +1,66 @@
+Nightly fuzz health summary
+Repo:             infinitoshi/near-bit
+Branch:           infinitoshi/btc-near-fork-plan
+Workflow:         CI
+Fuzz job pattern: Fuzz
+Evaluation mode:  fuzz-job
+Window start:     2026-02-26T17:43:50Z
+Runs in window:   50
+Successful runs:  42
+Failed runs:      0
+Cancelled runs:   7
+In-progress runs: 1
+Min runs needed:  1
+Status:           passed
+
+Recent runs:
+  - id=22728822807 created_at=2026-03-05T17:40:21Z status=in_progress conclusion= fuzz_eval=in_progress fuzz_jobs=1 event=push title=launch: enforce external packet artifacts and prefill signoff metadata
+  - id=22728700397 created_at=2026-03-05T17:37:20Z status=completed conclusion=cancelled fuzz_eval=cancelled fuzz_jobs=1 event=push title=launch: publish rc benchmark artifacts and close checklist gate 8
+  - id=22728685729 created_at=2026-03-05T17:36:58Z status=completed conclusion=cancelled fuzz_eval=cancelled fuzz_jobs=1 event=push title=launch: add external gate packet generator for remaining blockers
+  - id=22728563918 created_at=2026-03-05T17:34:14Z status=completed conclusion=cancelled fuzz_eval=cancelled fuzz_jobs=1 event=push title=launch: publish sparrow walkthrough evidence and close checklist gate 7
+  - id=22727985337 created_at=2026-03-05T17:23:41Z status=completed conclusion=cancelled fuzz_eval=cancelled fuzz_jobs=1 event=push title=launch: mark rpc compatibility gate done after e2e pass
+  - id=22727822501 created_at=2026-03-05T17:14:45Z status=completed conclusion=success fuzz_eval=success fuzz_jobs=1 event=push title=docs: record full local launch-gate verification
+  - id=22727777711 created_at=2026-03-05T17:08:06Z status=completed conclusion=success fuzz_eval=success fuzz_jobs=1 event=push title=ci: add manual-dispatch trigger for launch reruns
+  - id=22727706381 created_at=2026-03-05T16:58:17Z status=completed conclusion=failure fuzz_eval=cancelled fuzz_jobs=1 event=push title=launch: verify signoff release commit resolves in repo
+  - id=22727624539 created_at=2026-03-05T16:46:47Z status=completed conclusion=cancelled fuzz_eval=cancelled fuzz_jobs=1 event=push title=launch: propagate inconsistent-go checklist signal to summaries
+  - id=22727528923 created_at=2026-03-05T16:34:48Z status=completed conclusion=failure fuzz_eval=cancelled fuzz_jobs=1 event=push title=launch: require explicit override for GO signoff prefill
+  - id=22727424912 created_at=2026-03-05T16:24:21Z status=completed conclusion=success fuzz_eval=success fuzz_jobs=1 event=pull_request title=feat: Bitcoin Infinity (Sydney) — Full Bitcoin Core RPC parity over NEAR Protocol
+  - id=22727419467 created_at=2026-03-05T16:24:14Z status=completed conclusion=failure fuzz_eval=success fuzz_jobs=1 event=push title=launch: reject contradictory GO decisions in checklist validation
+  - id=22727317557 created_at=2026-03-05T16:21:49Z status=completed conclusion=success fuzz_eval=success fuzz_jobs=1 event=pull_request title=feat: Bitcoin Infinity (Sydney) — Full Bitcoin Core RPC parity over NEAR Protocol
+  - id=22727311676 created_at=2026-03-05T16:21:40Z status=completed conclusion=success fuzz_eval=success fuzz_jobs=1 event=push title=launch: include strict checklist totals in evidence bundle metadata
+  - id=22726786373 created_at=2026-03-05T16:09:14Z status=completed conclusion=success fuzz_eval=success fuzz_jobs=1 event=pull_request title=feat: Bitcoin Infinity (Sydney) — Full Bitcoin Core RPC parity over NEAR Protocol
+  - id=22726780303 created_at=2026-03-05T16:09:05Z status=completed conclusion=success fuzz_eval=success fuzz_jobs=1 event=push title=launch: add validated go/no-go gate row update helper
+  - id=22726557746 created_at=2026-03-05T16:03:38Z status=completed conclusion=failure fuzz_eval=success fuzz_jobs=1 event=pull_request title=feat: Bitcoin Infinity (Sydney) — Full Bitcoin Core RPC parity over NEAR Protocol
+  - id=22726551686 created_at=2026-03-05T16:03:30Z status=completed conclusion=failure fuzz_eval=success fuzz_jobs=1 event=push title=launch: enforce placeholder-free state across required docs
+  - id=22726483352 created_at=2026-03-05T16:01:53Z status=completed conclusion=success fuzz_eval=success fuzz_jobs=1 event=pull_request title=feat: Bitcoin Infinity (Sydney) — Full Bitcoin Core RPC parity over NEAR Protocol
+  - id=22726476716 created_at=2026-03-05T16:01:44Z status=completed conclusion=success fuzz_eval=success fuzz_jobs=1 event=push title=launch: require done-gate owner metadata in go/no-go checks
+  - id=22726329364 created_at=2026-03-05T15:58:20Z status=completed conclusion=success fuzz_eval=success fuzz_jobs=1 event=pull_request title=feat: Bitcoin Infinity (Sydney) — Full Bitcoin Core RPC parity over NEAR Protocol
+  - id=22726322725 created_at=2026-03-05T15:58:12Z status=completed conclusion=success fuzz_eval=success fuzz_jobs=1 event=push title=launch: make rehearsal go_ready match strict checklist signals
+  - id=22726147623 created_at=2026-03-05T15:54:20Z status=completed conclusion=success fuzz_eval=success fuzz_jobs=1 event=pull_request title=feat: Bitcoin Infinity (Sydney) — Full Bitcoin Core RPC parity over NEAR Protocol
+  - id=22726141946 created_at=2026-03-05T15:54:12Z status=completed conclusion=success fuzz_eval=success fuzz_jobs=1 event=push title=launch: add go/no-go signoff prefill helper
+  - id=22725936402 created_at=2026-03-05T15:49:32Z status=completed conclusion=success fuzz_eval=success fuzz_jobs=1 event=pull_request title=feat: Bitcoin Infinity (Sydney) — Full Bitcoin Core RPC parity over NEAR Protocol
+  - id=22725930318 created_at=2026-03-05T15:49:24Z status=completed conclusion=success fuzz_eval=success fuzz_jobs=1 event=push title=launch: enforce signoff-field formats in checklist
+  - id=22725823419 created_at=2026-03-05T15:46:58Z status=completed conclusion=success fuzz_eval=success fuzz_jobs=1 event=pull_request title=feat: Bitcoin Infinity (Sydney) — Full Bitcoin Core RPC parity over NEAR Protocol
+  - id=22725817322 created_at=2026-03-05T15:46:49Z status=completed conclusion=success fuzz_eval=success fuzz_jobs=1 event=push title=launch: validate done-gate evidence refs in checklist
+  - id=22725582589 created_at=2026-03-05T15:41:19Z status=completed conclusion=success fuzz_eval=success fuzz_jobs=1 event=pull_request title=feat: Bitcoin Infinity (Sydney) — Full Bitcoin Core RPC parity over NEAR Protocol
+  - id=22725576752 created_at=2026-03-05T15:41:11Z status=completed conclusion=success fuzz_eval=success fuzz_jobs=1 event=push title=launch: add gate-13 incident communication pack generator
+  - id=22725366513 created_at=2026-03-05T15:36:10Z status=completed conclusion=success fuzz_eval=success fuzz_jobs=1 event=pull_request title=feat: Bitcoin Infinity (Sydney) — Full Bitcoin Core RPC parity over NEAR Protocol
+  - id=22725361094 created_at=2026-03-05T15:36:02Z status=completed conclusion=success fuzz_eval=success fuzz_jobs=1 event=push title=ci: add cargo target-dir input to launch workflows
+  - id=22725248886 created_at=2026-03-05T15:33:22Z status=completed conclusion=success fuzz_eval=success fuzz_jobs=1 event=pull_request title=feat: Bitcoin Infinity (Sydney) — Full Bitcoin Core RPC parity over NEAR Protocol
+  - id=22725242957 created_at=2026-03-05T15:33:14Z status=completed conclusion=success fuzz_eval=success fuzz_jobs=1 event=push title=launch: enforce done-gate evidence metadata in checklist
+  - id=22725125572 created_at=2026-03-05T15:30:31Z status=completed conclusion=success fuzz_eval=success fuzz_jobs=1 event=pull_request title=feat: Bitcoin Infinity (Sydney) — Full Bitcoin Core RPC parity over NEAR Protocol
+  - id=22725120048 created_at=2026-03-05T15:30:23Z status=completed conclusion=success fuzz_eval=success fuzz_jobs=1 event=push title=CI
+  - id=22724233845 created_at=2026-03-05T15:09:35Z status=completed conclusion=success fuzz_eval=success fuzz_jobs=1 event=pull_request title=feat: Bitcoin Infinity (Sydney) — Full Bitcoin Core RPC parity over NEAR Protocol
+  - id=22724227744 created_at=2026-03-05T15:09:27Z status=completed conclusion=success fuzz_eval=success fuzz_jobs=1 event=push title=launch: add site update channels and enforce in readiness gate
+  - id=22723616432 created_at=2026-03-05T14:55:03Z status=completed conclusion=success fuzz_eval=success fuzz_jobs=1 event=pull_request title=feat: Bitcoin Infinity (Sydney) — Full Bitcoin Core RPC parity over NEAR Protocol
+  - id=22723610647 created_at=2026-03-05T14:54:54Z status=completed conclusion=success fuzz_eval=success fuzz_jobs=1 event=push title=docs: record full rehearsal and green CI on 31ba10e99
+  - id=22723216772 created_at=2026-03-05T14:45:38Z status=completed conclusion=success fuzz_eval=success fuzz_jobs=1 event=pull_request title=feat: Bitcoin Infinity (Sydney) — Full Bitcoin Core RPC parity over NEAR Protocol
+  - id=22723211541 created_at=2026-03-05T14:45:30Z status=completed conclusion=success fuzz_eval=success fuzz_jobs=1 event=push title=docs: surface launch communications assets in entry points
+  - id=22655257031 created_at=2026-03-04T04:35:50Z status=completed conclusion=success fuzz_eval=success fuzz_jobs=1 event=pull_request title=feat: Bitcoin Infinity (Sydney) — Full Bitcoin Core RPC parity over NEAR Protocol
+  - id=22655254372 created_at=2026-03-04T04:35:43Z status=completed conclusion=success fuzz_eval=success fuzz_jobs=1 event=push title=docs: surface technical whitepaper across entry points
+  - id=22654938681 created_at=2026-03-04T04:21:55Z status=completed conclusion=success fuzz_eval=success fuzz_jobs=1 event=pull_request title=feat: Bitcoin Infinity (Sydney) — Full Bitcoin Core RPC parity over NEAR Protocol
+  - id=22654936182 created_at=2026-03-04T04:21:48Z status=completed conclusion=success fuzz_eval=success fuzz_jobs=1 event=push title=fix: satisfy clippy in snapshot supply verification
+  - id=22654902288 created_at=2026-03-04T04:20:16Z status=completed conclusion=failure fuzz_eval=success fuzz_jobs=1 event=pull_request title=feat: Bitcoin Infinity (Sydney) — Full Bitcoin Core RPC parity over NEAR Protocol
+  - id=22654899829 created_at=2026-03-04T04:20:10Z status=completed conclusion=failure fuzz_eval=success fuzz_jobs=1 event=push title=docs: add snapshot orchestration usage and verification notes
+  - id=22654550431 created_at=2026-03-04T04:05:01Z status=completed conclusion=failure fuzz_eval=success fuzz_jobs=1 event=pull_request title=feat: Bitcoin Infinity (Sydney) — Full Bitcoin Core RPC parity over NEAR Protocol
+  - id=22654547614 created_at=2026-03-04T04:04:53Z status=completed conclusion=failure fuzz_eval=success fuzz_jobs=1 event=push title=docs: record snapshot-reconciliation gate verification on fb113bc50

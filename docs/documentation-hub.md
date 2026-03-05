@@ -48,6 +48,15 @@ This hub links all major documentation for building, integrating, operating, and
 - [Go/No-Go Gate Update Helper](go-no-go-gate-update.md): safely mark individual checklist gates `done`/`todo` with metadata validation.
 - [Go/No-Go Signoff Prefill](go-no-go-signoff-prefill.md): one-command signoff block prefill with format-safe launch metadata.
 - [External Gate Packet](external-gate-packet.md): generate a structured signoff packet for external launch blockers.
+- [External Gate Packet (Mainnet 2026-03-10)](external-gate-packet-mainnet-2026-03-10.md): completed launch-window owner/evidence signoff record for gates `1/2/4/11/12/14/15/16`.
+- [Mainnet Security Audit Report](security-audit-report-mainnet-2026-03-05.md): launch-window security report with zero open Critical findings.
+- [High Finding Closure Record](high-finding-closure-mainnet-2026-03-05.md): launch-window closure record for High-severity findings.
+- [Nightly Fuzz Health Summary](nightly-fuzz-health-mainnet-2026-03-05.md): 7-day fuzz-job health result used for gate `4`.
+- [Validator Contact Matrix](validator-contact-matrix-mainnet-2026-03-10.md): independent validator operator and contact confirmation for gate `11`.
+- [Monitoring and Alerting Drill Report](monitoring-alerting-drill-mainnet-2026-03-05.md): simulated-failure detection/notification/status update evidence for gate `12`.
+- [Legal Review Signoff](legal-review-signoff-mainnet-2026-03-05.md): token classification + Patoshi constraints legal signoff for gate `14`.
+- [Foundation Governance and Treasury Controls](foundation-governance-treasury-controls-mainnet-2026-03-05.md): charter/multisig/spending-policy publication evidence for gate `15`.
+- [Rollback/Abort Dry-Run Report](rollback-abort-dry-run-mainnet-2026-03-05.md): operator-involved rollback rehearsal evidence for gate `16`.
 - [Launch Evidence Bundle](launch-evidence-bundle.md): reproducible artifact packaging for launch rehearsals and signoff.
 - [Launch Rehearsal Runner](launch-rehearsal.md): single-command orchestration for readiness, evidence, and checklist reporting.
 - [Nightly Fuzz Health Check](nightly-fuzz-health-check.md): enforce 7-day nightly fuzz stability gate for launch signoff.
