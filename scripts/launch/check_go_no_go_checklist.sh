@@ -10,6 +10,8 @@ Options:
   --require-go   Exit non-zero unless every gate status is "done" and signoff fields are populated.
   --expected-gates <n>  Expected number of gate rows. Default: 16.
   --json-out     Write machine-readable summary JSON to the specified file path.
+                 Gates marked "done" must include evidence and completed date.
+                 Completed date format: YYYY-MM-DD or YYYY-MM-DDTHH:MM:SSZ.
   -h, --help     Show this help text.
 EOF
 }
@@ -84,15 +86,34 @@ total_gates=0
 done_gates=0
 todo_gates=0
 invalid_status=0
+done_missing_evidence=0
+done_missing_completed_date=0
+done_invalid_completed_date=0
 
 declare -a pending_lines
 declare -a invalid_lines
+declare -a done_missing_evidence_lines
+declare -a done_missing_completed_date_lines
+declare -a done_invalid_completed_date_lines
 
-while IFS=$'\t' read -r gate_id gate_name gate_status; do
+while IFS=$'\t' read -r gate_id gate_name gate_status gate_evidence gate_completed_date; do
   total_gates=$((total_gates + 1))
   normalized_status="$(echo "$gate_status" | tr '[:upper:]' '[:lower:]' | xargs)"
+  evidence_value="$(echo "$gate_evidence" | xargs)"
+  completed_value="$(echo "$gate_completed_date" | xargs)"
   if [[ "$normalized_status" == "done" ]]; then
     done_gates=$((done_gates + 1))
+    if [[ -z "${evidence_value// }" ]]; then
+      done_missing_evidence=$((done_missing_evidence + 1))
+      done_missing_evidence_lines+=("${gate_id}: ${gate_name}")
+    fi
+    if [[ -z "${completed_value// }" ]]; then
+      done_missing_completed_date=$((done_missing_completed_date + 1))
+      done_missing_completed_date_lines+=("${gate_id}: ${gate_name}")
+    elif [[ ! "$completed_value" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}([T][0-9]{2}:[0-9]{2}:[0-9]{2}Z)?$ ]]; then
+      done_invalid_completed_date=$((done_invalid_completed_date + 1))
+      done_invalid_completed_date_lines+=("${gate_id}: ${gate_name} [completed=${completed_value}]")
+    fi
   elif [[ "$normalized_status" == "todo" ]]; then
     todo_gates=$((todo_gates + 1))
     pending_lines+=("${gate_id}: ${gate_name}")
@@ -103,11 +124,13 @@ while IFS=$'\t' read -r gate_id gate_name gate_status; do
 done < <(
   awk -F'|' '
     $0 ~ /^\|[[:space:]]*[0-9]+[[:space:]]*\|/ {
-      id=$2; gate=$3; status=$5;
+      id=$2; gate=$3; status=$5; evidence=$6; completed=$7;
       gsub(/^[ \t]+|[ \t]+$/, "", id);
       gsub(/^[ \t]+|[ \t]+$/, "", gate);
       gsub(/^[ \t]+|[ \t]+$/, "", status);
-      printf "%s\t%s\t%s\n", id, gate, status;
+      gsub(/^[ \t]+|[ \t]+$/, "", evidence);
+      gsub(/^[ \t]+|[ \t]+$/, "", completed);
+      printf "%s\t%s\t%s\t%s\t%s\n", id, gate, status, evidence, completed;
     }
   ' "$CHECKLIST_FILE"
 )
@@ -160,6 +183,9 @@ echo "Total gates:   ${total_gates}"
 echo "Done gates:    ${done_gates}"
 echo "Todo gates:    ${todo_gates}"
 echo "Invalid gates: ${invalid_status}"
+echo "Done missing evidence: ${done_missing_evidence}"
+echo "Done missing completed date: ${done_missing_completed_date}"
+echo "Done invalid completed date: ${done_invalid_completed_date}"
 echo "Missing signoff fields: ${missing_signoff}"
 
 if [[ "$gate_count_mismatch" -eq 1 ]]; then
@@ -199,10 +225,46 @@ if [[ "$missing_signoff" -gt 0 ]]; then
   done
 fi
 
+if [[ "$done_missing_evidence" -gt 0 ]]; then
+  echo
+  echo "Done gates missing evidence:"
+  for line in "${done_missing_evidence_lines[@]-}"; do
+    if [[ -z "$line" ]]; then
+      continue
+    fi
+    echo "  - ${line}"
+  done
+fi
+
+if [[ "$done_missing_completed_date" -gt 0 ]]; then
+  echo
+  echo "Done gates missing completed date:"
+  for line in "${done_missing_completed_date_lines[@]-}"; do
+    if [[ -z "$line" ]]; then
+      continue
+    fi
+    echo "  - ${line}"
+  done
+fi
+
+if [[ "$done_invalid_completed_date" -gt 0 ]]; then
+  echo
+  echo "Done gates with invalid completed date format:"
+  for line in "${done_invalid_completed_date_lines[@]-}"; do
+    if [[ -z "$line" ]]; then
+      continue
+    fi
+    echo "  - ${line}"
+  done
+fi
+
 if [[ -n "$JSON_OUT" ]]; then
   pending_json="$(printf '%s\n' "${pending_lines[@]-}" | jq -R -s 'split("\n") | map(select(length > 0))')"
   invalid_json="$(printf '%s\n' "${invalid_lines[@]-}" | jq -R -s 'split("\n") | map(select(length > 0))')"
   missing_json="$(printf '%s\n' "${missing_signoff_lines[@]-}" | jq -R -s 'split("\n") | map(select(length > 0))')"
+  done_missing_evidence_json="$(printf '%s\n' "${done_missing_evidence_lines[@]-}" | jq -R -s 'split("\n") | map(select(length > 0))')"
+  done_missing_completed_json="$(printf '%s\n' "${done_missing_completed_date_lines[@]-}" | jq -R -s 'split("\n") | map(select(length > 0))')"
+  done_invalid_completed_json="$(printf '%s\n' "${done_invalid_completed_date_lines[@]-}" | jq -R -s 'split("\n") | map(select(length > 0))')"
 
   jq -n \
     --arg file "$CHECKLIST_FILE" \
@@ -212,11 +274,17 @@ if [[ -n "$JSON_OUT" ]]; then
     --argjson done_gates "$done_gates" \
     --argjson todo_gates "$todo_gates" \
     --argjson invalid_gates "$invalid_status" \
+    --argjson done_missing_evidence "$done_missing_evidence" \
+    --argjson done_missing_completed_date "$done_missing_completed_date" \
+    --argjson done_invalid_completed_date "$done_invalid_completed_date" \
     --argjson missing_signoff_fields "$missing_signoff" \
     --argjson gate_count_mismatch "$gate_count_mismatch" \
     --argjson pending "$pending_json" \
     --argjson invalid "$invalid_json" \
     --argjson missing "$missing_json" \
+    --argjson done_missing_evidence_rows "$done_missing_evidence_json" \
+    --argjson done_missing_completed_rows "$done_missing_completed_json" \
+    --argjson done_invalid_completed_rows "$done_invalid_completed_json" \
     '{
       checklist_file: $file,
       require_go: $require_go,
@@ -226,12 +294,18 @@ if [[ -n "$JSON_OUT" ]]; then
         done: $done_gates,
         todo: $todo_gates,
         invalid: $invalid_gates,
+        done_missing_evidence: $done_missing_evidence,
+        done_missing_completed_date: $done_missing_completed_date,
+        done_invalid_completed_date: $done_invalid_completed_date,
         missing_signoff_fields: $missing_signoff_fields
       },
       gate_count_mismatch: ($gate_count_mismatch == 1),
       pending_gates: ($pending // []),
       invalid_gates: ($invalid // []),
-      missing_signoff: ($missing // [])
+      missing_signoff: ($missing // []),
+      done_missing_evidence: ($done_missing_evidence_rows // []),
+      done_missing_completed_date: ($done_missing_completed_rows // []),
+      done_invalid_completed_date: ($done_invalid_completed_rows // [])
     }' > "$JSON_OUT"
 fi
 
@@ -242,7 +316,7 @@ if [[ "$gate_count_mismatch" -eq 1 ]]; then
 fi
 
 if [[ "$REQUIRE_GO" -eq 1 ]]; then
-  if [[ "$todo_gates" -gt 0 || "$invalid_status" -gt 0 || "$missing_signoff" -gt 0 ]]; then
+  if [[ "$todo_gates" -gt 0 || "$invalid_status" -gt 0 || "$missing_signoff" -gt 0 || "$done_missing_evidence" -gt 0 || "$done_missing_completed_date" -gt 0 || "$done_invalid_completed_date" -gt 0 ]]; then
     echo
     echo "GO criteria not met (--require-go)." >&2
     exit 1
