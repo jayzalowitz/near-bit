@@ -27,6 +27,9 @@ Use one command path for repeatable local verification:
 # Full gate + explicit nightly fuzz criteria
 ./scripts/launch/run_readiness_gate.sh --full --check-nightly-fuzz-health --nightly-fuzz-branch main --nightly-fuzz-workflow "Nightly Fuzz" --nightly-fuzz-window-days 7 --nightly-fuzz-min-runs 1 --nightly-fuzz-max-runs 200
 
+# Direct nightly-fuzz health check using fuzz-job filtering inside CI workflow
+./scripts/launch/check_nightly_fuzz_health.sh --branch jayzalowitz/btc-near-fork-plan --workflow CI --fuzz-job-pattern "Fuzz" --window-days 7 --min-runs 1 --max-runs 50 --allow-in-progress
+
 # Optional for faster iteration only: skip Issue #1 target test suites
 ./scripts/launch/run_readiness_gate.sh --smoke --skip-issue1-goal-checks
 
@@ -173,6 +176,8 @@ By default, local launch-gate commands write Cargo artifacts to `.context/cargo-
 - `2026-03-05`: `./scripts/launch/update_go_no_go_gate.sh` marked gates `5`, `10`, and `13` as `done`; `./scripts/launch/check_go_no_go_checklist.sh` now reports `done_gates=5`, `todo_gates=11`, and zero done-metadata validation errors.
 - `2026-03-05`: `.github/workflows/ci.yml` now enforces branch-scoped concurrency (`cancel-in-progress: true`) so stale queued CI runs are auto-cancelled when newer commits are pushed.
 - `2026-03-05`: `./scripts/launch/check_nightly_fuzz_health.sh --branch main --workflow "Nightly Fuzz" --window-days 7 --min-runs 1 --max-runs 200` failed locally with `runs_in_window=0`; gate `4` remains open pending actual nightly-fuzz workflow executions.
+- `2026-03-05`: `check_nightly_fuzz_health.sh` now supports optional fuzz-job-scoped evaluation via `--fuzz-job-pattern` and separates `cancelled` from hard failures by default (strict mode opt-in via `--fail-on-cancelled`).
+- `2026-03-05`: `./scripts/launch/check_nightly_fuzz_health.sh --branch jayzalowitz/btc-near-fork-plan --workflow CI --fuzz-job-pattern "Fuzz" --window-days 7 --min-runs 1 --max-runs 10 --allow-in-progress` passed locally (`runs=10`, `failed=0`, `cancelled=4`, `in_progress=1`); gate `4` remains open because main-branch nightly-fuzz workflow still has zero runs in-window.
 - `2026-03-05`: `./scripts/e2e_testnet.sh` initially failed on stale mempool unknown-tx expectations in the script; after updating checks to require error code `-5` for `getmempoolancestors`/`getmempooldescendants`, rerun passed locally (`E2E transaction flow succeeded`).
 - `2026-03-05`: `./scripts/launch/update_go_no_go_gate.sh` marked gate `6` (Tier 1/Tier 2 RPC compatibility tests) as `done`; `./scripts/launch/check_go_no_go_checklist.sh` now reports `done_gates=6`, `todo_gates=10`, and zero done-metadata validation errors.
 - `2026-03-05`: `scripts/benchmark/run_tps_profiles.sh` now fails fast if tx-generator account materialization does not produce usable `user-data/*.json` keys, preventing false-progress benchmark runs with missing account inputs.

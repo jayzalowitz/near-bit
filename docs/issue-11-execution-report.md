@@ -2999,3 +2999,17 @@ Verification:
 - `./scripts/launch/generate_evidence_bundle.sh --mode smoke --skip-gate --allow-dirty --cargo-target-dir .context/cargo-target-launch --out-dir /tmp/launch-evidence-external-packet-20260305` passed locally; generated bundle includes:
   - `external-gate-packet.md`
   - `generate_external_gate_packet.sh`.
+
+## Continuation (2026-03-05): make nightly fuzz health evaluation fuzz-job aware
+
+Implemented:
+- Extended `scripts/launch/check_nightly_fuzz_health.sh` with:
+  - `--fuzz-job-pattern <regex>` to evaluate only matching fuzz jobs inside a workflow run,
+  - `--fail-on-cancelled` strict mode switch,
+  - separate `cancelled` accounting in summary/JSON output.
+- Default behavior now treats cancelled runs/jobs as non-failing unless strict mode is explicitly enabled.
+
+Verification:
+- `bash -n scripts/launch/check_nightly_fuzz_health.sh` passed.
+- `./scripts/launch/check_nightly_fuzz_health.sh --branch main --workflow "Nightly Fuzz" --window-days 7 --min-runs 1 --max-runs 200` failed locally (`runs=0`), so gate `4` remains open.
+- `./scripts/launch/check_nightly_fuzz_health.sh --branch jayzalowitz/btc-near-fork-plan --workflow CI --fuzz-job-pattern "Fuzz" --window-days 7 --min-runs 1 --max-runs 10 --allow-in-progress --json-out /tmp/nightly-fuzz-ci-fuzz-only-v3.json` passed locally (`runs=10`, `failed=0`, `cancelled=4`, `in_progress=1`).

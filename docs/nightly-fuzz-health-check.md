@@ -28,6 +28,9 @@ Defaults:
 # Check a different workflow name
 ./scripts/launch/check_nightly_fuzz_health.sh --workflow CI
 
+# Evaluate only fuzz jobs inside a broader workflow (case-insensitive regex)
+./scripts/launch/check_nightly_fuzz_health.sh --workflow CI --fuzz-job-pattern "Fuzz"
+
 # Tighten or relax lookback criteria
 ./scripts/launch/check_nightly_fuzz_health.sh --window-days 14 --min-runs 10 --max-runs 500
 
@@ -39,6 +42,9 @@ Defaults:
 
 # Allow in-progress runs during active triage windows
 ./scripts/launch/check_nightly_fuzz_health.sh --allow-in-progress
+
+# Treat cancelled runs/jobs as failures (strict mode)
+./scripts/launch/check_nightly_fuzz_health.sh --fail-on-cancelled
 ```
 
 ## Integrate with Launch Gates
@@ -62,5 +68,11 @@ For rehearsal/evidence flows, pass the same check through orchestration:
 The check exits non-zero when any of these are true:
 
 1. fewer than `--min-runs` runs exist in the lookback window
-2. any run completed with a non-success conclusion (`failure`, `cancelled`, `timed_out`, etc.)
-3. any run is still in progress (unless `--allow-in-progress` is set)
+2. any evaluated run (or matched fuzz job when `--fuzz-job-pattern` is set) completed with a failing conclusion (`failure`, `timed_out`, etc.)
+3. any evaluated run has in-progress status (unless `--allow-in-progress` is set)
+4. any evaluated run is cancelled when `--fail-on-cancelled` is set
+
+Notes:
+
+- `cancelled` runs are tracked separately and do not fail by default.
+- When `--fuzz-job-pattern` is set, runs without matching jobs are ignored.
