@@ -29,7 +29,14 @@ This hub links all major documentation for building, integrating, operating, and
 
 - [Validator Operations Runbook](validator-operations-runbook.md): node lifecycle, health checks, and incident response.
 - [Incident Communication Templates](incident-communication-templates.md): copy-ready templates for investigating, security halt, resolution, and emergency upgrade notices.
+- [Launch Communications Plan](communications-launch-plan.md): publication order, ownership, and launch-window messaging controls.
 - [TPS Benchmark Methodology](benchmark-methodology.md): measurement standards and published benchmark profiles.
+
+## Communications and Narrative
+
+- [Blog Draft - What Bitcoin Infinity Is](blog-what-is-bitcoin-infinity.md): high-level technical narrative for launch audiences.
+- [Blog Draft - UTXO to Genesis Deep Dive](blog-utxo-to-genesis-deep-dive.md): deterministic genesis and reconciliation walkthrough.
+- [Blog Draft - Patoshi Balance Floor Explainer](blog-patoshi-balance-floor-explainer.md): technical versus external policy boundaries.
 
 ## Release Documentation
 
@@ -52,15 +59,19 @@ This hub links all major documentation for building, integrating, operating, and
 4. `architecture-overview.md`
 5. `rpc-integration-playbook.md`
 6. `security-and-threat-model.md`
-7. `validator-operations-runbook.md`
-8. `incident-communication-templates.md`
-9. `benchmark-methodology.md`
-10. `launch-readiness-gates.md`
-11. `mainnet-go-no-go-checklist.md`
-12. `launch-evidence-bundle.md`
-13. `launch-rehearsal.md`
-14. `nightly-fuzz-health-check.md`
-15. `issue1-core-goal-check.md`
-16. `genesis-determinism-check.md`
-17. `snapshot-supply-reconciliation.md`
-18. `release-artifact-manifest.md`
+7. `communications-launch-plan.md`
+8. `blog-what-is-bitcoin-infinity.md`
+9. `blog-utxo-to-genesis-deep-dive.md`
+10. `blog-patoshi-balance-floor-explainer.md`
+11. `validator-operations-runbook.md`
+12. `incident-communication-templates.md`
+13. `benchmark-methodology.md`
+14. `launch-readiness-gates.md`
+15. `mainnet-go-no-go-checklist.md`
+16. `launch-evidence-bundle.md`
+17. `launch-rehearsal.md`
+18. `nightly-fuzz-health-check.md`
+19. `issue1-core-goal-check.md`
+20. `genesis-determinism-check.md`
+21. `snapshot-supply-reconciliation.md`
+22. `release-artifact-manifest.md`
