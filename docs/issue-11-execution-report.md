@@ -2980,3 +2980,22 @@ Implemented:
 Verification:
 - `bash -n scripts/launch/generate_external_gate_packet.sh` passed.
 - `./scripts/launch/generate_external_gate_packet.sh --release-version fb54b14a0 --launch-window-start 2026-03-10T18:00:00Z --launch-window-end 2026-03-10T22:00:00Z --status-page-url https://status.bitcoininfinity.io --coordination-channel '#validators-bridge' --out-file docs/external-gate-packet-mainnet-2026-03-10.md` passed locally.
+
+## Continuation (2026-03-05): enforce external gate packet artifacts in readiness/evidence checks and prefill signoff block
+
+Implemented:
+- Added external-gate packet artifacts to launch required-doc/evidence enforcement:
+  - `docs/external-gate-packet.md` added to `run_readiness_gate.sh` required document checks.
+  - `scripts/launch/generate_external_gate_packet.sh` added to readiness syntax checks.
+  - `docs/external-gate-packet.md` and `scripts/launch/generate_external_gate_packet.sh` added to evidence bundle snapshot + checksum output.
+- Prefilled main checklist signoff block in `docs/mainnet-go-no-go-checklist.md` with explicit launch metadata and `NO-GO` decision.
+
+Verification:
+- `bash -n scripts/launch/run_readiness_gate.sh` passed.
+- `bash -n scripts/launch/generate_evidence_bundle.sh` passed.
+- `./scripts/launch/prefill_go_no_go_signoff.sh --file docs/mainnet-go-no-go-checklist.md --release-commit 54dc37b9e --genesis-hash 95f3e2600eec0dcd3ca51bf530f46ac963fa3b5286e18c6401efdcae8066aa5d --launch-window-start 2026-03-10T18:00:00Z --launch-window-end 2026-03-10T22:00:00Z --final-decision NO-GO --approvers "launch-readiness" --decision-timestamp 2026-03-05T17:28:00Z` passed locally.
+- `./scripts/launch/check_go_no_go_checklist.sh --file docs/mainnet-go-no-go-checklist.md --json-out /tmp/go-no-go-signoff-prefilled.json` passed locally with `missing_signoff_fields=0` and `invalid_signoff_format=0`.
+- `./scripts/launch/run_readiness_gate.sh --smoke --cargo-target-dir .context/cargo-target-launch` passed locally on commit `54dc37b9e`.
+- `./scripts/launch/generate_evidence_bundle.sh --mode smoke --skip-gate --allow-dirty --cargo-target-dir .context/cargo-target-launch --out-dir /tmp/launch-evidence-external-packet-20260305` passed locally; generated bundle includes:
+  - `external-gate-packet.md`
+  - `generate_external_gate_packet.sh`.

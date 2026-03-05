@@ -12,12 +12,12 @@ Tip: use `scripts/launch/generate_external_gate_packet.sh` to prefill external-g
 
 ## Signoff Block
 
-- Release candidate commit:
-- Proposed genesis hash:
-- Planned launch window (UTC):
-- Final decision:
-- Decision timestamp (UTC):
-- Signoff approvers:
+- Release candidate commit: 54dc37b9e
+- Proposed genesis hash: 95f3e2600eec0dcd3ca51bf530f46ac963fa3b5286e18c6401efdcae8066aa5d
+- Planned launch window (UTC): 2026-03-10T18:00:00Z to 2026-03-10T22:00:00Z
+- Final decision: NO-GO
+- Decision timestamp (UTC): 2026-03-05T17:28:00Z
+- Signoff approvers: launch-readiness
 
 ## Gate Checklist (16 Required Items)
 
