@@ -129,6 +129,9 @@ By default, local launch-gate commands write Cargo artifacts to `.context/cargo-
 - `2026-03-05`: `bash -n scripts/launch/generate_incident_launch_pack.sh` passed locally and readiness/evidence script syntax checks now include it.
 - `2026-03-05`: `./scripts/launch/generate_incident_launch_pack.sh --release-version v1.0.0-rc1 --launch-window-start 2026-03-10T18:00:00Z --launch-window-end 2026-03-10T22:00:00Z --status-page-url https://status.bitcoininfinity.io --coordination-channel '#validators-bridge' --out-file /tmp/incident-launch-pack.md` passed locally.
 - `2026-03-05`: `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist --skip-issue1-goal-checks --cargo-target-dir .context/cargo-target-launch` passed locally after incident-launch-pack gating was added.
+- `2026-03-05`: `check_go_no_go_checklist.sh` now validates resolvable evidence refs for `done` gates (repo file paths or `http(s)` links), with machine-readable reporting via `done_invalid_evidence_refs`.
+- `2026-03-05`: `./scripts/launch/check_go_no_go_checklist.sh --json-out /tmp/go-no-go-summary-evidence-refs.json` passed locally after evidence-ref validation was added.
+- `2026-03-05`: `./scripts/launch/generate_evidence_bundle.sh --mode smoke --skip-gate --allow-dirty --cargo-target-dir .context/cargo-target-launch --out-dir /tmp/evidence-refs-check2` passed locally after evidence-ref validation was added.
 
 ## External Gates (Not Solvable by Repository Changes Alone)
 

@@ -45,6 +45,7 @@ The script fails on a dirty worktree by default so signoff artifacts always map 
 It executes readiness checks with checklist parsing disabled internally, then runs checklist validation once to emit both text and JSON reports.
 Local runs default to `.context/cargo-target` for Cargo outputs (CI keeps `target/`); override with `--cargo-target-dir` when needed.
 Checklist validation also enforces that any gate marked `done` includes both Evidence and Completed date fields.
+Checklist validation also enforces that `done` Evidence entries resolve to repository paths or `http(s)` URLs.
 
 ## Bundle Contents
 

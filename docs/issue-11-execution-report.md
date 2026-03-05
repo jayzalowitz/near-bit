@@ -2563,3 +2563,24 @@ Verification:
 - `bash -n scripts/launch/generate_incident_launch_pack.sh` passed.
 - `./scripts/launch/generate_incident_launch_pack.sh --release-version v1.0.0-rc1 --launch-window-start 2026-03-10T18:00:00Z --launch-window-end 2026-03-10T22:00:00Z --status-page-url https://status.bitcoininfinity.io --coordination-channel '#validators-bridge' --out-file /tmp/incident-launch-pack.md` passed locally.
 - `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist --skip-issue1-goal-checks --cargo-target-dir .context/cargo-target-launch` passed locally with the new incident-pack doc/script checks enabled.
+
+## Continuation (2026-03-05): go/no-go validator evidence-reference hardening
+
+Implemented:
+- Hardened `scripts/launch/check_go_no_go_checklist.sh` to validate evidence references for any gate marked `done`:
+  - accepts resolvable repository file paths (including `:line` and `#L...` suffix forms),
+  - accepts `http(s)` URLs,
+  - supports comma/semicolon-separated evidence entries.
+- Added new summary/reporting fields:
+  - text output: `Done invalid evidence refs`,
+  - JSON output: `totals.done_invalid_evidence_refs` plus `done_invalid_evidence_refs` row list.
+- Updated GO criteria enforcement to fail if invalid done-gate evidence refs are present.
+- Updated docs:
+  - `docs/mainnet-go-no-go-checklist.md` decision rules now require resolvable path/link evidence,
+  - `docs/launch-evidence-bundle.md` documents evidence-ref validation behavior,
+  - `docs/launch-readiness-gates.md` verification snapshot includes this change.
+
+Verification:
+- `bash -n scripts/launch/check_go_no_go_checklist.sh` passed.
+- `./scripts/launch/check_go_no_go_checklist.sh --json-out /tmp/go-no-go-summary-evidence-refs.json` passed locally.
+- `./scripts/launch/generate_evidence_bundle.sh --mode smoke --skip-gate --allow-dirty --cargo-target-dir .context/cargo-target-launch --out-dir /tmp/evidence-refs-check2` passed locally with checklist report generation successful.
