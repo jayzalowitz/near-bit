@@ -47,6 +47,9 @@ GENESIS_FIXTURE_EXPECTED_HASH=<new_sha256> ./scripts/launch/run_readiness_gate.s
 
 # Gate #13 preparation helper: prefill launch-window incident pack
 ./scripts/launch/generate_incident_launch_pack.sh --release-version <tag-or-commit> --launch-window-start <YYYY-MM-DDTHH:MM:SSZ> --launch-window-end <YYYY-MM-DDTHH:MM:SSZ> --status-page-url https://status.bitcoininfinity.io --coordination-channel <channel-url-or-name>
+
+# Prefill checklist signoff block with validated launch metadata
+./scripts/launch/prefill_go_no_go_signoff.sh --release-commit <sha> --genesis-hash <sha256> --launch-window-start <YYYY-MM-DDTHH:MM:SSZ> --launch-window-end <YYYY-MM-DDTHH:MM:SSZ> --final-decision NO-GO --approvers "<name1>, <name2>"
 ```
 
 By default, local launch-gate commands write Cargo artifacts to `.context/cargo-target` to avoid mutating tracked `target/` files. In CI, default behavior remains `target/`. Override with `--cargo-target-dir` when needed.
@@ -65,6 +68,7 @@ By default, local launch-gate commands write Cargo artifacts to `.context/cargo-
 | Incident launch-pack generator (gate #13 prefill helper) | complete | `scripts/launch/generate_incident_launch_pack.sh`, `docs/incident-launch-pack.md` |
 | Mainnet go/no-go decision checklist template | complete | `docs/mainnet-go-no-go-checklist.md` |
 | Go/no-go checklist validator script | complete | `scripts/launch/check_go_no_go_checklist.sh` |
+| Go/no-go checklist signoff prefill helper | complete | `scripts/launch/prefill_go_no_go_signoff.sh`, `docs/go-no-go-signoff-prefill.md` |
 | Nightly fuzz 7-day health verifier script | complete | `scripts/launch/check_nightly_fuzz_health.sh`, `docs/nightly-fuzz-health-check.md` |
 | Issue #1 core-goal verification script | complete | `scripts/launch/check_issue1_core_goals.sh`, `docs/issue1-core-goal-check.md` |
 | Genesis determinism verifier script (gate #9) | complete | `scripts/launch/check_genesis_determinism.sh`, `docs/genesis-determinism-check.md` |
@@ -135,6 +139,9 @@ By default, local launch-gate commands write Cargo artifacts to `.context/cargo-
 - `2026-03-05`: `check_go_no_go_checklist.sh` now validates signoff-field formats (`release candidate commit`, `proposed genesis hash`, `planned launch window`, `final decision`, `decision timestamp`) and reports `invalid_signoff_format`.
 - `2026-03-05`: `./scripts/launch/check_go_no_go_checklist.sh --json-out /tmp/go-no-go-signoff-format.json` passed locally after signoff-format validation was added.
 - `2026-03-05`: `./scripts/launch/generate_evidence_bundle.sh --mode smoke --skip-gate --allow-dirty --cargo-target-dir .context/cargo-target-launch --out-dir /tmp/evidence-signoff-format` passed locally after signoff-format validation was added.
+- `2026-03-05`: Added signoff prefill helper `scripts/launch/prefill_go_no_go_signoff.sh` and companion guide `docs/go-no-go-signoff-prefill.md`; readiness/evidence checks now include them.
+- `2026-03-05`: `./scripts/launch/prefill_go_no_go_signoff.sh --file /tmp/mainnet-go-no-go-checklist.prefill.md --release-commit 3dcd38186 --genesis-hash 95f3e2600eec0dcd3ca51bf530f46ac963fa3b5286e18c6401efdcae8066aa5d --launch-window-start 2026-03-10T18:00:00Z --launch-window-end 2026-03-10T22:00:00Z --final-decision NO-GO --approvers \"alice,bob\" --decision-timestamp 2026-03-10T17:55:00Z` passed locally.
+- `2026-03-05`: `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist --skip-issue1-goal-checks --cargo-target-dir .context/cargo-target-launch` and `./scripts/launch/generate_evidence_bundle.sh --mode smoke --skip-gate --allow-dirty --cargo-target-dir .context/cargo-target-launch --out-dir /tmp/evidence-signoff-prefill` passed locally with signoff-prefill wiring enabled.
 
 ## External Gates (Not Solvable by Repository Changes Alone)
 

@@ -149,6 +149,9 @@ bash -n scripts/benchmark/run_tps_profiles.sh
 # Enforce checklist row count (defaults to 16; override for custom templates)
 ./scripts/launch/check_go_no_go_checklist.sh --expected-gates 16
 
+# Prefill checklist signoff block with format-valid launch metadata
+./scripts/launch/prefill_go_no_go_signoff.sh --release-commit <sha> --genesis-hash <sha256> --launch-window-start <YYYY-MM-DDTHH:MM:SSZ> --launch-window-end <YYYY-MM-DDTHH:MM:SSZ> --final-decision NO-GO --approvers "<name1>, <name2>"
+
 # Validate nightly fuzz matrix health directly
 ./scripts/launch/check_nightly_fuzz_health.sh --branch main
 
@@ -217,7 +220,7 @@ cargo run -q -p bitinfinity-tools -- verify-genesis --genesis /path/to/genesis.j
 
 Launch scripts default to `.context/cargo-target` for local Cargo outputs (CI defaults remain `target/`).
 
-See `docs/technical-whitepaper.md` for the architecture/economic/security baseline, `docs/communications-launch-plan.md` plus the draft posts (`docs/blog-what-is-bitcoin-infinity.md`, `docs/blog-utxo-to-genesis-deep-dive.md`, `docs/blog-patoshi-balance-floor-explainer.md`) for prelaunch messaging assets, `docs/launch-readiness-gates.md` for gate status, `docs/mainnet-go-no-go-checklist.md` for decision signoff, `docs/incident-communication-templates.md` and `docs/incident-launch-pack.md` for incident messaging preparation, `docs/launch-evidence-bundle.md` for evidence packaging details, `docs/nightly-fuzz-health-check.md` for 7-day fuzz health gating, `docs/issue1-core-goal-check.md` for Issue #1 target verification, `docs/genesis-determinism-check.md` for gate #9 hash-stability checks, `docs/snapshot-supply-reconciliation.md` for gate #10 snapshot supply checks, and `docs/release-artifact-manifest.md` for release-binary checksum manifests.
+See `docs/technical-whitepaper.md` for the architecture/economic/security baseline, `docs/communications-launch-plan.md` plus the draft posts (`docs/blog-what-is-bitcoin-infinity.md`, `docs/blog-utxo-to-genesis-deep-dive.md`, `docs/blog-patoshi-balance-floor-explainer.md`) for prelaunch messaging assets, `docs/launch-readiness-gates.md` for gate status, `docs/mainnet-go-no-go-checklist.md` plus `docs/go-no-go-signoff-prefill.md` for decision signoff workflow, `docs/incident-communication-templates.md` and `docs/incident-launch-pack.md` for incident messaging preparation, `docs/launch-evidence-bundle.md` for evidence packaging details, `docs/nightly-fuzz-health-check.md` for 7-day fuzz health gating, `docs/issue1-core-goal-check.md` for Issue #1 target verification, `docs/genesis-determinism-check.md` for gate #9 hash-stability checks, `docs/snapshot-supply-reconciliation.md` for gate #10 snapshot supply checks, and `docs/release-artifact-manifest.md` for release-binary checksum manifests.
 
 ## Fuzzing
 
