@@ -7,6 +7,7 @@ This checklist is the decision artifact for mainnet launch. A `GO` decision requ
 Decision status: `NO-GO` (default until all items complete)
 
 Tip: use `scripts/launch/prefill_go_no_go_signoff.sh` to prefill the signoff block with format-valid launch metadata.
+Tip: use `scripts/launch/update_go_no_go_gate.sh` to update gate rows with validated owner/evidence/date metadata.
 
 ## Signoff Block
 

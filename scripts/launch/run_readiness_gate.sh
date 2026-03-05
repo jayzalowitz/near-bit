@@ -277,6 +277,7 @@ check_required_docs() {
     "docs/release-artifact-manifest.md"
     "docs/incident-communication-templates.md"
     "docs/incident-launch-pack.md"
+    "docs/go-no-go-gate-update.md"
     "docs/go-no-go-signoff-prefill.md"
     "docs/security-and-threat-model.md"
     "docs/validator-operations-runbook.md"
@@ -413,6 +414,7 @@ run_cmd "Launch evidence bundle script syntax" bash -n scripts/launch/generate_e
 run_cmd "Launch rehearsal script syntax" bash -n scripts/launch/run_launch_rehearsal.sh
 run_cmd "Release artifact manifest script syntax" bash -n scripts/launch/generate_release_manifest.sh
 run_cmd "Incident launch-pack script syntax" bash -n scripts/launch/generate_incident_launch_pack.sh
+run_cmd "Go/no-go gate update helper syntax" bash -n scripts/launch/update_go_no_go_gate.sh
 run_cmd "Go/no-go signoff prefill script syntax" bash -n scripts/launch/prefill_go_no_go_signoff.sh
 run_cmd "Go/no-go checklist script syntax" bash -n scripts/launch/check_go_no_go_checklist.sh
 run_cmd "Nightly fuzz health script syntax" bash -n scripts/launch/check_nightly_fuzz_health.sh

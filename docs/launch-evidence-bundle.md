@@ -68,6 +68,7 @@ Checklist validation also enforces signoff-field formats (commit SHA, genesis ha
   - `snapshot-supply-reconciliation.md`
   - `incident-communication-templates.md`
   - `incident-launch-pack.md`
+  - `go-no-go-gate-update.md`
   - `go-no-go-signoff-prefill.md`
   - `ci.yml`
   - `nightly-fuzz.yml`
@@ -81,6 +82,7 @@ Checklist validation also enforces signoff-field formats (commit SHA, genesis ha
   - `check_genesis_determinism.sh`
   - `check_snapshot_supply_reconciliation.sh`
   - `generate_incident_launch_pack.sh`
+  - `update_go_no_go_gate.sh`
   - `prefill_go_no_go_signoff.sh`
   - `run_launch_rehearsal.sh`
   - `generate_release_manifest.sh`
