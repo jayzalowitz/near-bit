@@ -161,6 +161,7 @@ By default, local launch-gate commands write Cargo artifacts to `.context/cargo-
 - `2026-03-05`: `.github/workflows/ci.yml` now supports `workflow_dispatch` for on-demand full CI execution against a selected ref, enabling launch-readiness reruns when push-trigger queues are delayed.
 - `2026-03-05`: `./scripts/launch/run_readiness_gate.sh --smoke --cargo-target-dir .context/cargo-target-launch` passed locally (`at=2026-03-05T16:35:01Z`) after CI manual-dispatch support was added.
 - `2026-03-05`: `./scripts/launch/run_readiness_gate.sh --full --cargo-target-dir .context/cargo-target-launch` passed locally on commit `c28a8a5fa` (`at=2026-03-05T16:40:57Z`), including release builds, workspace tests, Clippy, format checks, and cargo-audit.
+- `2026-03-05`: `./scripts/launch/update_go_no_go_gate.sh` marked gate `3` (full local launch-gate pass) and gate `9` (genesis determinism) as `done` with owner/evidence/date metadata; `./scripts/launch/check_go_no_go_checklist.sh` now reports `done_gates=2`, `todo_gates=14`, and zero done-metadata validation errors.
 
 ## External Gates (Not Solvable by Repository Changes Alone)
 

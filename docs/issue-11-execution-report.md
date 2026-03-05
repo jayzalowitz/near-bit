@@ -2851,3 +2851,14 @@ Verification:
 Verification:
 - `./scripts/launch/run_readiness_gate.sh --full --cargo-target-dir .context/cargo-target-launch` passed locally at `2026-03-05T16:40:57Z` on commit `c28a8a5fa`.
 - Full gate pass included: release builds (`bitinfinity-btcrpc`, `bitinfinity-tools`, `bitinfinity-neard`), workspace + `near-account-id` tests, Clippy, format checks, and dependency audits.
+
+## Continuation (2026-03-05): advance checklist state for verified internal gates
+
+Implemented:
+- Marked gate `3` (`./scripts/launch/run_readiness_gate.sh --full` pass requirement) as `done` in `docs/mainnet-go-no-go-checklist.md` with owner/evidence/date metadata.
+- Marked gate `9` (genesis determinism validation) as `done` in `docs/mainnet-go-no-go-checklist.md` with owner/evidence/date metadata.
+
+Verification:
+- `./scripts/launch/update_go_no_go_gate.sh --file docs/mainnet-go-no-go-checklist.md --gate 3 --status done --owner "launch-readiness" --evidence "docs/launch-readiness-gates.md,docs/issue-11-execution-report.md" --completed-date 2026-03-05` passed locally.
+- `./scripts/launch/update_go_no_go_gate.sh --file docs/mainnet-go-no-go-checklist.md --gate 9 --status done --owner "launch-readiness" --evidence "docs/genesis-determinism-check.md,docs/launch-readiness-gates.md" --completed-date 2026-03-05` passed locally.
+- `./scripts/launch/check_go_no_go_checklist.sh --file docs/mainnet-go-no-go-checklist.md --json-out /tmp/go-no-go-after-gate-3-9.json` passed locally (`done_gates=2`, `todo_gates=14`, `invalid=0`, `done_missing_owner=0`, `done_missing_evidence=0`, `done_missing_completed_date=0`, `done_invalid_evidence_refs=0`).
