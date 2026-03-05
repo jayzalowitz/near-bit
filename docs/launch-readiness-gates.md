@@ -156,6 +156,8 @@ By default, local launch-gate commands write Cargo artifacts to `.context/cargo-
 - `2026-03-05`: `./scripts/launch/prefill_go_no_go_signoff.sh --file /tmp/mainnet-go-no-go-checklist.go-no-allow.md --release-commit 1a6189961 --genesis-hash 95f3e2600eec0dcd3ca51bf530f46ac963fa3b5286e18c6401efdcae8066aa5d --launch-window-start 2026-03-10T18:00:00Z --launch-window-end 2026-03-10T22:00:00Z --final-decision GO --approvers "alice,bob" --decision-timestamp 2026-03-10T17:55:00Z` correctly failed until `--allow-go` was provided.
 - `2026-03-05`: Evidence/rehearsal summary pipelines now propagate `inconsistent_go_decision` alongside other strict checklist counters in both machine-readable and human-readable outputs (`generate_evidence_bundle.sh`, `run_launch_rehearsal.sh`).
 - `2026-03-05`: `./scripts/launch/generate_evidence_bundle.sh --mode smoke --skip-gate --allow-dirty --cargo-target-dir .context/cargo-target-launch --out-dir /tmp/evidence-checklist-inconsistent-go` and `./scripts/launch/run_launch_rehearsal.sh --mode smoke --skip-release-manifest --allow-dirty --skip-issue1-goal-checks --cargo-target-dir .context/cargo-target-launch --operator "launch-readiness"` passed locally with `checklist_inconsistent_go_decision` recorded in bundle/rehearsal summaries.
+- `2026-03-05`: `check_go_no_go_checklist.sh` now validates that the signoff release candidate commit SHA resolves to an actual commit in this repository (not just format-valid hex).
+- `2026-03-05`: `./scripts/launch/check_go_no_go_checklist.sh --file /tmp/mainnet-go-no-go-checklist.bad-commit.md --json-out /tmp/go-no-go-bad-commit.json` correctly failed locally after signoff prefill with non-existent commit SHA.
 
 ## External Gates (Not Solvable by Repository Changes Alone)
 
