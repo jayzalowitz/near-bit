@@ -132,6 +132,9 @@ By default, local launch-gate commands write Cargo artifacts to `.context/cargo-
 - `2026-03-05`: `check_go_no_go_checklist.sh` now validates resolvable evidence refs for `done` gates (repo file paths or `http(s)` links), with machine-readable reporting via `done_invalid_evidence_refs`.
 - `2026-03-05`: `./scripts/launch/check_go_no_go_checklist.sh --json-out /tmp/go-no-go-summary-evidence-refs.json` passed locally after evidence-ref validation was added.
 - `2026-03-05`: `./scripts/launch/generate_evidence_bundle.sh --mode smoke --skip-gate --allow-dirty --cargo-target-dir .context/cargo-target-launch --out-dir /tmp/evidence-refs-check2` passed locally after evidence-ref validation was added.
+- `2026-03-05`: `check_go_no_go_checklist.sh` now validates signoff-field formats (`release candidate commit`, `proposed genesis hash`, `planned launch window`, `final decision`, `decision timestamp`) and reports `invalid_signoff_format`.
+- `2026-03-05`: `./scripts/launch/check_go_no_go_checklist.sh --json-out /tmp/go-no-go-signoff-format.json` passed locally after signoff-format validation was added.
+- `2026-03-05`: `./scripts/launch/generate_evidence_bundle.sh --mode smoke --skip-gate --allow-dirty --cargo-target-dir .context/cargo-target-launch --out-dir /tmp/evidence-signoff-format` passed locally after signoff-format validation was added.
 
 ## External Gates (Not Solvable by Repository Changes Alone)
 
