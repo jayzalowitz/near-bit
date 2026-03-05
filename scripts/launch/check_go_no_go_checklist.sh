@@ -93,6 +93,7 @@ done_missing_completed_date=0
 done_invalid_completed_date=0
 done_invalid_evidence_refs=0
 invalid_signoff_format=0
+inconsistent_go_decision=0
 
 declare -a pending_lines
 declare -a invalid_lines
@@ -102,6 +103,7 @@ declare -a done_missing_completed_date_lines
 declare -a done_invalid_completed_date_lines
 declare -a done_invalid_evidence_ref_lines
 declare -a invalid_signoff_format_lines
+declare -a inconsistent_go_decision_lines
 
 trim() {
   local value="$1"
@@ -232,6 +234,7 @@ required_signoff_fields=(
 
 missing_signoff=0
 declare -a missing_signoff_lines
+signoff_final_decision=""
 for field in "${required_signoff_fields[@]}"; do
   raw_line="$(
     awk -v needle="$field" '
@@ -275,6 +278,8 @@ for field in "${required_signoff_fields[@]}"; do
         if [[ "$normalized_decision" != "go" && "$normalized_decision" != "no-go" ]]; then
           invalid_signoff_format=$((invalid_signoff_format + 1))
           invalid_signoff_format_lines+=("${field} expected GO or NO-GO, got: ${value}")
+        else
+          signoff_final_decision="$normalized_decision"
         fi
         ;;
       "Decision timestamp (UTC):")
@@ -289,6 +294,13 @@ for field in "${required_signoff_fields[@]}"; do
   fi
 done
 
+if [[ "$signoff_final_decision" == "go" ]]; then
+  if [[ "$todo_gates" -gt 0 || "$invalid_status" -gt 0 || "$missing_signoff" -gt 0 || "$invalid_signoff_format" -gt 0 || "$done_missing_owner" -gt 0 || "$done_missing_evidence" -gt 0 || "$done_missing_completed_date" -gt 0 || "$done_invalid_completed_date" -gt 0 || "$done_invalid_evidence_refs" -gt 0 || "$gate_count_mismatch" -eq 1 ]]; then
+    inconsistent_go_decision=1
+    inconsistent_go_decision_lines+=("Final decision is GO but checklist still has unresolved gate/signoff requirements.")
+  fi
+fi
+
 echo "Checklist summary: file=${CHECKLIST_FILE}"
 echo "Expected gates: ${EXPECTED_GATES}"
 echo "Total gates:   ${total_gates}"
@@ -302,6 +314,7 @@ echo "Done invalid completed date: ${done_invalid_completed_date}"
 echo "Done invalid evidence refs: ${done_invalid_evidence_refs}"
 echo "Missing signoff fields: ${missing_signoff}"
 echo "Invalid signoff format fields: ${invalid_signoff_format}"
+echo "Inconsistent GO decision: ${inconsistent_go_decision}"
 
 if [[ "$gate_count_mismatch" -eq 1 ]]; then
   echo "Gate count mismatch: expected ${EXPECTED_GATES}, found ${total_gates}" >&2
@@ -406,6 +419,17 @@ if [[ "$invalid_signoff_format" -gt 0 ]]; then
   done
 fi
 
+if [[ "$inconsistent_go_decision" -gt 0 ]]; then
+  echo
+  echo "Inconsistent GO decision:"
+  for line in "${inconsistent_go_decision_lines[@]-}"; do
+    if [[ -z "$line" ]]; then
+      continue
+    fi
+    echo "  - ${line}"
+  done
+fi
+
 if [[ -n "$JSON_OUT" ]]; then
   pending_json="$(printf '%s\n' "${pending_lines[@]-}" | jq -R -s 'split("\n") | map(select(length > 0))')"
   invalid_json="$(printf '%s\n' "${invalid_lines[@]-}" | jq -R -s 'split("\n") | map(select(length > 0))')"
@@ -416,6 +440,7 @@ if [[ -n "$JSON_OUT" ]]; then
   done_invalid_completed_json="$(printf '%s\n' "${done_invalid_completed_date_lines[@]-}" | jq -R -s 'split("\n") | map(select(length > 0))')"
   done_invalid_evidence_json="$(printf '%s\n' "${done_invalid_evidence_ref_lines[@]-}" | jq -R -s 'split("\n") | map(select(length > 0))')"
   invalid_signoff_format_json="$(printf '%s\n' "${invalid_signoff_format_lines[@]-}" | jq -R -s 'split("\n") | map(select(length > 0))')"
+  inconsistent_go_decision_json="$(printf '%s\n' "${inconsistent_go_decision_lines[@]-}" | jq -R -s 'split("\n") | map(select(length > 0))')"
 
   jq -n \
     --arg file "$CHECKLIST_FILE" \
@@ -432,6 +457,8 @@ if [[ -n "$JSON_OUT" ]]; then
     --argjson done_invalid_evidence_refs "$done_invalid_evidence_refs" \
     --argjson missing_signoff_fields "$missing_signoff" \
     --argjson invalid_signoff_format "$invalid_signoff_format" \
+    --arg signoff_final_decision "$signoff_final_decision" \
+    --argjson inconsistent_go_decision "$inconsistent_go_decision" \
     --argjson gate_count_mismatch "$gate_count_mismatch" \
     --argjson pending "$pending_json" \
     --argjson invalid "$invalid_json" \
@@ -442,9 +469,11 @@ if [[ -n "$JSON_OUT" ]]; then
     --argjson done_invalid_completed_rows "$done_invalid_completed_json" \
     --argjson done_invalid_evidence_rows "$done_invalid_evidence_json" \
     --argjson invalid_signoff_format_rows "$invalid_signoff_format_json" \
+    --argjson inconsistent_go_decision_rows "$inconsistent_go_decision_json" \
     '{
       checklist_file: $file,
       require_go: $require_go,
+      signoff_final_decision: (if $signoff_final_decision == "" then null else $signoff_final_decision end),
       totals: {
         expected: $expected_gates,
         gates: $total_gates,
@@ -457,7 +486,8 @@ if [[ -n "$JSON_OUT" ]]; then
         done_invalid_completed_date: $done_invalid_completed_date,
         done_invalid_evidence_refs: $done_invalid_evidence_refs,
         missing_signoff_fields: $missing_signoff_fields,
-        invalid_signoff_format: $invalid_signoff_format
+        invalid_signoff_format: $invalid_signoff_format,
+        inconsistent_go_decision: $inconsistent_go_decision
       },
       gate_count_mismatch: ($gate_count_mismatch == 1),
       pending_gates: ($pending // []),
@@ -468,7 +498,8 @@ if [[ -n "$JSON_OUT" ]]; then
       done_missing_completed_date: ($done_missing_completed_rows // []),
       done_invalid_completed_date: ($done_invalid_completed_rows // []),
       done_invalid_evidence_refs: ($done_invalid_evidence_rows // []),
-      invalid_signoff_format: ($invalid_signoff_format_rows // [])
+      invalid_signoff_format: ($invalid_signoff_format_rows // []),
+      inconsistent_go_decision: ($inconsistent_go_decision_rows // [])
     }' > "$JSON_OUT"
 fi
 
@@ -478,10 +509,19 @@ if [[ "$gate_count_mismatch" -eq 1 ]]; then
   exit 1
 fi
 
+if [[ "$inconsistent_go_decision" -eq 1 ]]; then
+  echo
+  echo "Checklist decision invalid: GO selected while unresolved requirements remain." >&2
+  exit 1
+fi
+
 if [[ "$REQUIRE_GO" -eq 1 ]]; then
-  if [[ "$todo_gates" -gt 0 || "$invalid_status" -gt 0 || "$missing_signoff" -gt 0 || "$invalid_signoff_format" -gt 0 || "$done_missing_owner" -gt 0 || "$done_missing_evidence" -gt 0 || "$done_missing_completed_date" -gt 0 || "$done_invalid_completed_date" -gt 0 || "$done_invalid_evidence_refs" -gt 0 ]]; then
+  if [[ "$todo_gates" -gt 0 || "$invalid_status" -gt 0 || "$missing_signoff" -gt 0 || "$invalid_signoff_format" -gt 0 || "$done_missing_owner" -gt 0 || "$done_missing_evidence" -gt 0 || "$done_missing_completed_date" -gt 0 || "$done_invalid_completed_date" -gt 0 || "$done_invalid_evidence_refs" -gt 0 || "$signoff_final_decision" != "go" ]]; then
     echo
     echo "GO criteria not met (--require-go)." >&2
+    if [[ "$signoff_final_decision" != "go" ]]; then
+      echo "Final decision field must be GO for --require-go." >&2
+    fi
     exit 1
   fi
 fi

@@ -52,3 +52,5 @@ Tip: use `scripts/launch/update_go_no_go_gate.sh` to update gate rows with valid
    - Planned launch window: RFC3339 UTC timestamp or `start to end` RFC3339 UTC range
    - Final decision: `GO` or `NO-GO`
    - Decision timestamp: RFC3339 UTC timestamp
+7. A checklist with unresolved gate/signoff requirements cannot declare final decision `GO` (validator-enforced).
+8. `check_go_no_go_checklist.sh --require-go` requires final decision field `GO`.
