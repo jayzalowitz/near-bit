@@ -2862,3 +2862,27 @@ Verification:
 - `./scripts/launch/update_go_no_go_gate.sh --file docs/mainnet-go-no-go-checklist.md --gate 3 --status done --owner "launch-readiness" --evidence "docs/launch-readiness-gates.md,docs/issue-11-execution-report.md" --completed-date 2026-03-05` passed locally.
 - `./scripts/launch/update_go_no_go_gate.sh --file docs/mainnet-go-no-go-checklist.md --gate 9 --status done --owner "launch-readiness" --evidence "docs/genesis-determinism-check.md,docs/launch-readiness-gates.md" --completed-date 2026-03-05` passed locally.
 - `./scripts/launch/check_go_no_go_checklist.sh --file docs/mainnet-go-no-go-checklist.md --json-out /tmp/go-no-go-after-gate-3-9.json` passed locally (`done_gates=2`, `todo_gates=14`, `invalid=0`, `done_missing_owner=0`, `done_missing_evidence=0`, `done_missing_completed_date=0`, `done_invalid_evidence_refs=0`).
+
+## Continuation (2026-03-05): close additional internally-verifiable checklist gates
+
+Implemented:
+- Generated launch-window-specific incident prefill artifact:
+  - `docs/incident-launch-pack-mainnet-2026-03-10.md`.
+- Updated checklist gates to `done` with owner/evidence/date metadata:
+  - gate `5` (Patoshi guard + integration validation),
+  - gate `10` (snapshot block height + supply reconciliation documented),
+  - gate `13` (incident templates pre-filled for launch window).
+
+Verification:
+- `./scripts/launch/check_issue1_core_goals.sh` passed locally at `2026-03-05T16:49:24Z`.
+- `./scripts/launch/check_snapshot_supply_reconciliation.sh --genesis /tmp/launch-gate10.m2981A/genesis/genesis.json --txoutsetinfo /tmp/launch-gate10.m2981A/gettxoutsetinfo.json --tolerance-sats 0 --json-out /tmp/launch-gate10.m2981A/snapshot-supply-check.json` passed locally (`difference_satoshis=0`, `within_tolerance=true`).
+- `./scripts/launch/generate_incident_launch_pack.sh --release-version a266f01e4 --launch-window-start 2026-03-10T18:00:00Z --launch-window-end 2026-03-10T22:00:00Z --status-page-url https://status.bitcoininfinity.io --coordination-channel '#validators-bridge' --out-file docs/incident-launch-pack-mainnet-2026-03-10.md` passed locally.
+- `./scripts/launch/check_go_no_go_checklist.sh --file docs/mainnet-go-no-go-checklist.md --json-out /tmp/go-no-go-after-gates-5-10-13.json` passed locally (`done_gates=5`, `todo_gates=11`, `invalid=0`, `done_missing_owner=0`, `done_missing_evidence=0`, `done_missing_completed_date=0`, `done_invalid_evidence_refs=0`).
+
+## Continuation (2026-03-05): mitigate stale queued CI runs on active branch
+
+Implemented:
+- Added branch-scoped workflow concurrency for `.github/workflows/ci.yml`:
+  - `group: ci-${{ github.workflow }}-${{ github.ref }}`
+  - `cancel-in-progress: true`
+- This ensures older in-flight CI runs on the same branch are cancelled when newer commits are pushed, improving freshness of launch-readiness signals.
