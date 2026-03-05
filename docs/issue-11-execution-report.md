@@ -2730,3 +2730,29 @@ Verification:
 - `./scripts/launch/update_go_no_go_gate.sh --file /tmp/mainnet-go-no-go-checklist.update.md --gate 13 --status done --owner "ops-lead" --evidence "docs/incident-launch-pack.md" --completed-date 2026-03-05` passed locally.
 - `./scripts/launch/check_go_no_go_checklist.sh --file /tmp/mainnet-go-no-go-checklist.update.md --json-out /tmp/go-no-go-gate-update-check.json` passed locally (`done=1`, `todo=15`, `invalid=0`, `done_missing_owner=0`).
 - `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist --skip-issue1-goal-checks --cargo-target-dir .context/cargo-target-launch` passed locally with new helper doc/script checks enabled.
+
+## Continuation (2026-03-05): expose strict checklist totals in evidence-bundle summary/metadata
+
+Implemented:
+- Extended `scripts/launch/generate_evidence_bundle.sh` to parse strict checklist totals from `go-no-go-checklist-report.json` and propagate them into bundle outputs.
+- Added checklist totals to `metadata.json` under `.checklist.totals`:
+  - `todo`
+  - `invalid`
+  - `missing_signoff_fields`
+  - `invalid_signoff_format`
+  - `done_missing_owner`
+  - `done_missing_evidence`
+  - `done_missing_completed_date`
+  - `done_invalid_completed_date`
+  - `done_invalid_evidence_refs`
+- Added the same totals to `SUMMARY.md` for operator-facing launch reviews.
+- Updated docs:
+  - `docs/launch-evidence-bundle.md` now notes that metadata/summary include strict checklist totals.
+  - `docs/launch-readiness-gates.md` verification snapshot records this hardening.
+
+Verification:
+- `bash -n scripts/launch/generate_evidence_bundle.sh` passed.
+- `./scripts/launch/generate_evidence_bundle.sh --mode smoke --skip-gate --allow-dirty --cargo-target-dir .context/cargo-target-launch --out-dir /tmp/evidence-checklist-totals` passed locally.
+- Bundle outputs include strict checklist totals in both:
+  - `SUMMARY.md`
+  - `metadata.json`.

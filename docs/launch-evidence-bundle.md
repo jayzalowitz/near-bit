@@ -50,8 +50,8 @@ Checklist validation also enforces signoff-field formats (commit SHA, genesis ha
 
 ## Bundle Contents
 
-- `metadata.json`: machine-readable run metadata (commit, branch, toolchain, gate status).
-- `SUMMARY.md`: human-readable summary for release review.
+- `metadata.json`: machine-readable run metadata (commit, branch, toolchain, gate status, and checklist strict totals).
+- `SUMMARY.md`: human-readable summary for release review, including checklist strict totals.
 - `readiness-gate.log`: full readiness gate output (unless `--skip-gate` is used).
 - `go-no-go-checklist-report.txt`: parsed checklist status report (and strict-go failure details when enabled).
 - `go-no-go-checklist-report.json`: machine-readable checklist summary for automation/reporting.

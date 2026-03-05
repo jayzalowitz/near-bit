@@ -148,6 +148,8 @@ By default, local launch-gate commands write Cargo artifacts to `.context/cargo-
 - `2026-03-05`: `run_readiness_gate.sh` now enforces placeholder-marker-free content across the entire required launch-doc set (not only a subset), preventing signoff with unresolved placeholders in any required launch artifact.
 - `2026-03-05`: Added checklist gate-row helper `scripts/launch/update_go_no_go_gate.sh` and guide `docs/go-no-go-gate-update.md`; readiness/evidence checks now include both.
 - `2026-03-05`: `./scripts/launch/update_go_no_go_gate.sh --file /tmp/mainnet-go-no-go-checklist.update.md --gate 13 --status done --owner "ops-lead" --evidence "docs/incident-launch-pack.md" --completed-date 2026-03-05` and `./scripts/launch/check_go_no_go_checklist.sh --file /tmp/mainnet-go-no-go-checklist.update.md --json-out /tmp/go-no-go-gate-update-check.json` passed locally.
+- `2026-03-05`: `generate_evidence_bundle.sh` now copies strict checklist totals (todo/invalid/missing-signoff/invalid-signoff-format/done metadata counters) into `metadata.json` and `SUMMARY.md` for machine + human launch reviews.
+- `2026-03-05`: `./scripts/launch/generate_evidence_bundle.sh --mode smoke --skip-gate --allow-dirty --cargo-target-dir .context/cargo-target-launch --out-dir /tmp/evidence-checklist-totals` passed locally with checklist totals present in bundle summary/metadata.
 
 ## External Gates (Not Solvable by Repository Changes Alone)
 

@@ -498,6 +498,15 @@ checklist_status="passed"
 checklist_exit_code=0
 checklist_log="${bundle_dir}/go-no-go-checklist-report.txt"
 checklist_json="${bundle_dir}/go-no-go-checklist-report.json"
+checklist_todo=-1
+checklist_invalid=-1
+checklist_missing_signoff=-1
+checklist_invalid_signoff_format=-1
+checklist_done_missing_owner=-1
+checklist_done_missing_evidence=-1
+checklist_done_missing_completed_date=-1
+checklist_done_invalid_completed_date=-1
+checklist_done_invalid_evidence_refs=-1
 checklist_cmd=(bash ./scripts/launch/check_go_no_go_checklist.sh --file "$CHECKLIST_FILE" --json-out "$checklist_json")
 if [[ "$REQUIRE_GO" -eq 1 ]]; then
   checklist_cmd+=(--require-go)
@@ -512,15 +521,47 @@ if [[ "$checklist_exit_code" -ne 0 ]]; then
   checklist_status="failed"
 fi
 
+if [[ -f "$checklist_json" ]]; then
+  checklist_todo="$(jq -r '.totals.todo // -1' "$checklist_json")"
+  checklist_invalid="$(jq -r '.totals.invalid // -1' "$checklist_json")"
+  checklist_missing_signoff="$(jq -r '.totals.missing_signoff_fields // -1' "$checklist_json")"
+  checklist_invalid_signoff_format="$(jq -r '.totals.invalid_signoff_format // -1' "$checklist_json")"
+  checklist_done_missing_owner="$(jq -r '.totals.done_missing_owner // -1' "$checklist_json")"
+  checklist_done_missing_evidence="$(jq -r '.totals.done_missing_evidence // -1' "$checklist_json")"
+  checklist_done_missing_completed_date="$(jq -r '.totals.done_missing_completed_date // -1' "$checklist_json")"
+  checklist_done_invalid_completed_date="$(jq -r '.totals.done_invalid_completed_date // -1' "$checklist_json")"
+  checklist_done_invalid_evidence_refs="$(jq -r '.totals.done_invalid_evidence_refs // -1' "$checklist_json")"
+fi
+
 jq \
   --arg gate_status "$gate_status" \
   --argjson gate_exit_code "$gate_exit_code" \
   --arg checklist_status "$checklist_status" \
   --argjson checklist_exit_code "$checklist_exit_code" \
+  --argjson checklist_todo "$checklist_todo" \
+  --argjson checklist_invalid "$checklist_invalid" \
+  --argjson checklist_missing_signoff "$checklist_missing_signoff" \
+  --argjson checklist_invalid_signoff_format "$checklist_invalid_signoff_format" \
+  --argjson checklist_done_missing_owner "$checklist_done_missing_owner" \
+  --argjson checklist_done_missing_evidence "$checklist_done_missing_evidence" \
+  --argjson checklist_done_missing_completed_date "$checklist_done_missing_completed_date" \
+  --argjson checklist_done_invalid_completed_date "$checklist_done_invalid_completed_date" \
+  --argjson checklist_done_invalid_evidence_refs "$checklist_done_invalid_evidence_refs" \
   '.readiness_gate.status = $gate_status
    | .readiness_gate.exit_code = $gate_exit_code
    | .checklist.status = $checklist_status
-   | .checklist.exit_code = $checklist_exit_code' \
+   | .checklist.exit_code = $checklist_exit_code
+   | .checklist.totals = {
+      todo: $checklist_todo,
+      invalid: $checklist_invalid,
+      missing_signoff_fields: $checklist_missing_signoff,
+      invalid_signoff_format: $checklist_invalid_signoff_format,
+      done_missing_owner: $checklist_done_missing_owner,
+      done_missing_evidence: $checklist_done_missing_evidence,
+      done_missing_completed_date: $checklist_done_missing_completed_date,
+      done_invalid_completed_date: $checklist_done_invalid_completed_date,
+      done_invalid_evidence_refs: $checklist_done_invalid_evidence_refs
+    }' \
   "${bundle_dir}/metadata.json" > "${bundle_dir}/metadata.tmp.json"
 mv "${bundle_dir}/metadata.tmp.json" "${bundle_dir}/metadata.json"
 
@@ -551,6 +592,15 @@ cat > "${bundle_dir}/SUMMARY.md" <<EOF
 - checklist_require_go: ${REQUIRE_GO}
 - checklist_status: ${checklist_status}
 - checklist_exit_code: ${checklist_exit_code}
+- checklist_todo: ${checklist_todo}
+- checklist_invalid: ${checklist_invalid}
+- checklist_missing_signoff: ${checklist_missing_signoff}
+- checklist_invalid_signoff_format: ${checklist_invalid_signoff_format}
+- checklist_done_missing_owner: ${checklist_done_missing_owner}
+- checklist_done_missing_evidence: ${checklist_done_missing_evidence}
+- checklist_done_missing_completed_date: ${checklist_done_missing_completed_date}
+- checklist_done_invalid_completed_date: ${checklist_done_invalid_completed_date}
+- checklist_done_invalid_evidence_refs: ${checklist_done_invalid_evidence_refs}
 
 ## Files
 
