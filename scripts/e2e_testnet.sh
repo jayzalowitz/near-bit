@@ -806,25 +806,17 @@ fi
 
 GETMEMPOOLANCESTORS_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"getmempoolancestors\",\"method\":\"getmempoolancestors\",\"params\":[\"$MEMPOOL_UNKNOWN_TXID\"]}" \
   | tee "$ARTIFACT_DIR/btc_getmempoolancestors_response.json")"
-GETMEMPOOLANCESTORS_TYPE="$(echo "$GETMEMPOOLANCESTORS_RESPONSE" | jq -r '.result | type // empty')"
-if [[ "$(echo "$GETMEMPOOLANCESTORS_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
-  echo "getmempoolancestors failed" >&2
-  exit 1
-fi
-if [[ "$GETMEMPOOLANCESTORS_TYPE" != "array" ]]; then
-  echo "getmempoolancestors expected array result (got: $GETMEMPOOLANCESTORS_TYPE)" >&2
+GETMEMPOOLANCESTORS_ERROR_CODE="$(echo "$GETMEMPOOLANCESTORS_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$GETMEMPOOLANCESTORS_ERROR_CODE" != "-5" ]]; then
+  echo "getmempoolancestors unknown-tx path did not return -5 (got: $GETMEMPOOLANCESTORS_ERROR_CODE)" >&2
   exit 1
 fi
 
 GETMEMPOOLDESCENDANTS_RESPONSE="$(btc_rpc_call "{\"jsonrpc\":\"2.0\",\"id\":\"getmempooldescendants\",\"method\":\"getmempooldescendants\",\"params\":[\"$MEMPOOL_UNKNOWN_TXID\"]}" \
   | tee "$ARTIFACT_DIR/btc_getmempooldescendants_response.json")"
-GETMEMPOOLDESCENDANTS_TYPE="$(echo "$GETMEMPOOLDESCENDANTS_RESPONSE" | jq -r '.result | type // empty')"
-if [[ "$(echo "$GETMEMPOOLDESCENDANTS_RESPONSE" | jq -r '.error // empty')" != "" ]]; then
-  echo "getmempooldescendants failed" >&2
-  exit 1
-fi
-if [[ "$GETMEMPOOLDESCENDANTS_TYPE" != "array" ]]; then
-  echo "getmempooldescendants expected array result (got: $GETMEMPOOLDESCENDANTS_TYPE)" >&2
+GETMEMPOOLDESCENDANTS_ERROR_CODE="$(echo "$GETMEMPOOLDESCENDANTS_RESPONSE" | jq -r '.error.code // empty')"
+if [[ "$GETMEMPOOLDESCENDANTS_ERROR_CODE" != "-5" ]]; then
+  echo "getmempooldescendants unknown-tx path did not return -5 (got: $GETMEMPOOLDESCENDANTS_ERROR_CODE)" >&2
   exit 1
 fi
 
@@ -3394,8 +3386,8 @@ getchaintips_status=$GETCHAINTIPS_STATUS
 getrawmempool_type=$GETRAWMEMPOOL_TYPE
 getrawmempool_verbose_type=$GETRAWMEMPOOL_VERBOSE_TYPE
 getmempoolentry_unknown_error_code=$GETMEMPOOLENTRY_UNKNOWN_ERROR_CODE
-getmempoolancestors_type=$GETMEMPOOLANCESTORS_TYPE
-getmempooldescendants_type=$GETMEMPOOLDESCENDANTS_TYPE
+getmempoolancestors_unknown_error_code=$GETMEMPOOLANCESTORS_ERROR_CODE
+getmempooldescendants_unknown_error_code=$GETMEMPOOLDESCENDANTS_ERROR_CODE
 scantxoutset_invalid_error_code=$SCANTXOUTSET_INVALID_ERROR_CODE
 scantxoutset_empty_start_error_code=$SCANTXOUTSET_EMPTY_START_ERROR_CODE
 scantxoutset_txid=$SCANTXOUTSET_TXID
