@@ -47,6 +47,7 @@ This hub links all major documentation for building, integrating, operating, and
 - [Mainnet Go / No-Go Checklist](mainnet-go-no-go-checklist.md): 16 required launch decision gates with owner/evidence fields.
 - [Go/No-Go Gate Update Helper](go-no-go-gate-update.md): safely mark individual checklist gates `done`/`todo` with metadata validation.
 - [Go/No-Go Signoff Prefill](go-no-go-signoff-prefill.md): one-command signoff block prefill with format-safe launch metadata.
+- [External Gate Packet](external-gate-packet.md): generate a structured signoff packet for external launch blockers.
 - [Launch Evidence Bundle](launch-evidence-bundle.md): reproducible artifact packaging for launch rehearsals and signoff.
 - [Launch Rehearsal Runner](launch-rehearsal.md): single-command orchestration for readiness, evidence, and checklist reporting.
 - [Nightly Fuzz Health Check](nightly-fuzz-health-check.md): enforce 7-day nightly fuzz stability gate for launch signoff.
@@ -78,10 +79,11 @@ This hub links all major documentation for building, integrating, operating, and
 18. `mainnet-go-no-go-checklist.md`
 19. `go-no-go-gate-update.md`
 20. `go-no-go-signoff-prefill.md`
-21. `launch-evidence-bundle.md`
-22. `launch-rehearsal.md`
-23. `nightly-fuzz-health-check.md`
-24. `issue1-core-goal-check.md`
-25. `genesis-determinism-check.md`
-26. `snapshot-supply-reconciliation.md`
-27. `release-artifact-manifest.md`
+21. `external-gate-packet.md`
+22. `launch-evidence-bundle.md`
+23. `launch-rehearsal.md`
+24. `nightly-fuzz-health-check.md`
+25. `issue1-core-goal-check.md`
+26. `genesis-determinism-check.md`
+27. `snapshot-supply-reconciliation.md`
+28. `release-artifact-manifest.md`
