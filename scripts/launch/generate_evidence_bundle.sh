@@ -502,6 +502,7 @@ checklist_todo=-1
 checklist_invalid=-1
 checklist_missing_signoff=-1
 checklist_invalid_signoff_format=-1
+checklist_inconsistent_go_decision=-1
 checklist_done_missing_owner=-1
 checklist_done_missing_evidence=-1
 checklist_done_missing_completed_date=-1
@@ -526,6 +527,7 @@ if [[ -f "$checklist_json" ]]; then
   checklist_invalid="$(jq -r '.totals.invalid // -1' "$checklist_json")"
   checklist_missing_signoff="$(jq -r '.totals.missing_signoff_fields // -1' "$checklist_json")"
   checklist_invalid_signoff_format="$(jq -r '.totals.invalid_signoff_format // -1' "$checklist_json")"
+  checklist_inconsistent_go_decision="$(jq -r '.totals.inconsistent_go_decision // -1' "$checklist_json")"
   checklist_done_missing_owner="$(jq -r '.totals.done_missing_owner // -1' "$checklist_json")"
   checklist_done_missing_evidence="$(jq -r '.totals.done_missing_evidence // -1' "$checklist_json")"
   checklist_done_missing_completed_date="$(jq -r '.totals.done_missing_completed_date // -1' "$checklist_json")"
@@ -542,6 +544,7 @@ jq \
   --argjson checklist_invalid "$checklist_invalid" \
   --argjson checklist_missing_signoff "$checklist_missing_signoff" \
   --argjson checklist_invalid_signoff_format "$checklist_invalid_signoff_format" \
+  --argjson checklist_inconsistent_go_decision "$checklist_inconsistent_go_decision" \
   --argjson checklist_done_missing_owner "$checklist_done_missing_owner" \
   --argjson checklist_done_missing_evidence "$checklist_done_missing_evidence" \
   --argjson checklist_done_missing_completed_date "$checklist_done_missing_completed_date" \
@@ -556,6 +559,7 @@ jq \
       invalid: $checklist_invalid,
       missing_signoff_fields: $checklist_missing_signoff,
       invalid_signoff_format: $checklist_invalid_signoff_format,
+      inconsistent_go_decision: $checklist_inconsistent_go_decision,
       done_missing_owner: $checklist_done_missing_owner,
       done_missing_evidence: $checklist_done_missing_evidence,
       done_missing_completed_date: $checklist_done_missing_completed_date,
@@ -596,6 +600,7 @@ cat > "${bundle_dir}/SUMMARY.md" <<EOF
 - checklist_invalid: ${checklist_invalid}
 - checklist_missing_signoff: ${checklist_missing_signoff}
 - checklist_invalid_signoff_format: ${checklist_invalid_signoff_format}
+- checklist_inconsistent_go_decision: ${checklist_inconsistent_go_decision}
 - checklist_done_missing_owner: ${checklist_done_missing_owner}
 - checklist_done_missing_evidence: ${checklist_done_missing_evidence}
 - checklist_done_missing_completed_date: ${checklist_done_missing_completed_date}
