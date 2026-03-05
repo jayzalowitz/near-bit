@@ -144,6 +144,7 @@ By default, local launch-gate commands write Cargo artifacts to `.context/cargo-
 - `2026-03-05`: `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist --skip-issue1-goal-checks --cargo-target-dir .context/cargo-target-launch` and `./scripts/launch/generate_evidence_bundle.sh --mode smoke --skip-gate --allow-dirty --cargo-target-dir .context/cargo-target-launch --out-dir /tmp/evidence-signoff-prefill` passed locally with signoff-prefill wiring enabled.
 - `2026-03-05`: `run_launch_rehearsal.sh` now computes `go_ready=true` only when all strict checklist quality counters are zero (including `invalid_signoff_format`, `done_missing_evidence`, `done_missing_completed_date`, `done_invalid_completed_date`, and `done_invalid_evidence_refs`), not just todo/invalid/missing-signoff.
 - `2026-03-05`: `check_go_no_go_checklist.sh` now enforces Owner metadata for any gate marked `done` (`done_missing_owner`), and `run_launch_rehearsal.sh` includes this counter in strict `go_ready` computation and summary outputs.
+- `2026-03-05`: `run_readiness_gate.sh` now enforces `TBD/TODO` placeholder-free content across the entire required launch-doc set (not only a subset), preventing signoff with placeholder text in any required launch artifact.
 
 ## External Gates (Not Solvable by Repository Changes Alone)
 

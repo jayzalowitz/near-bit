@@ -293,14 +293,14 @@ check_required_docs() {
   done
 
   if [[ "$HAS_RG" -eq 1 ]]; then
-    if rg -n "link TBD|\\bTBD\\b|TODO" docs/launch-readiness-gates.md docs/incident-communication-templates.md >/dev/null; then
+    if rg -n "link TBD|\\bTBD\\b|TODO" "${required_files[@]}" >/dev/null; then
       echo "Launch docs still contain placeholder text (TBD/TODO)." >&2
-      echo "Resolve placeholders before marking readiness gates complete." >&2
+      echo "Resolve placeholders in required launch docs before marking readiness gates complete." >&2
       exit 1
     fi
-  elif grep -En "link TBD|\\bTBD\\b|TODO" docs/launch-readiness-gates.md docs/incident-communication-templates.md >/dev/null; then
+  elif grep -En "link TBD|\\bTBD\\b|TODO" "${required_files[@]}" >/dev/null; then
     echo "Launch docs still contain placeholder text (TBD/TODO)." >&2
-    echo "Resolve placeholders before marking readiness gates complete." >&2
+    echo "Resolve placeholders in required launch docs before marking readiness gates complete." >&2
     exit 1
   fi
 }
