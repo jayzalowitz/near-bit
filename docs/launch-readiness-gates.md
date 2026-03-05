@@ -100,6 +100,8 @@ GENESIS_FIXTURE_EXPECTED_HASH=<new_sha256> ./scripts/launch/run_readiness_gate.s
 - `2026-03-05`: `run_readiness_gate.sh` now requires the communications pack docs, and `generate_evidence_bundle.sh` now snapshots them for launch artifact review.
 - `2026-03-05`: `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist` passed locally after communications-pack doc gating changes.
 - `2026-03-05`: `./scripts/launch/generate_evidence_bundle.sh --mode smoke --skip-gate --allow-dirty --out-dir <tmp>` passed locally and captured `communications-launch-plan.md` plus all three blog drafts.
+- `2026-03-05`: CI runs `22723211541` (push) and `22723216772` (PR) completed `success` on commit `31ba10e99` across Build/Test/Clippy/Fuzz (smoke)/Security Audit/Format/Launch Readiness.
+- `2026-03-05`: `./scripts/launch/run_launch_rehearsal.sh --mode full --include-fuzz --include-release-manifest --release-manifest-skip-build --operator "launch-readiness"` passed locally on commit `31ba10e99` in strict mode (no `--allow-dirty`), producing `artifacts/launch-rehearsals/20260305T145305Z-31ba10e99`.
 
 ## External Gates (Not Solvable by Repository Changes Alone)
 
