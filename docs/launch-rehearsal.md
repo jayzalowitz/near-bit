@@ -95,6 +95,7 @@ Operator metadata:
 - checklist has zero invalid statuses
 - checklist has zero missing signoff fields
 - checklist has zero invalid signoff-format fields
+- checklist has zero done-gates missing owner
 - checklist has zero done-gates missing evidence
 - checklist has zero done-gates missing completed dates
 - checklist has zero done-gates with invalid completed-date formats

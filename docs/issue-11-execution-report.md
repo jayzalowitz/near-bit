@@ -2660,3 +2660,29 @@ Implemented:
 Verification:
 - `bash -n scripts/launch/run_launch_rehearsal.sh` passed.
 - `./scripts/launch/run_launch_rehearsal.sh --mode smoke --skip-release-manifest --allow-dirty --skip-issue1-goal-checks --cargo-target-dir .context/cargo-target-launch --operator "launch-readiness"` passed locally with updated summary fields.
+
+## Continuation (2026-03-05): enforce done-gate owner metadata and propagate to rehearsal go-ready checks
+
+Implemented:
+- Hardened `scripts/launch/check_go_no_go_checklist.sh` so any gate marked `done` must include an Owner in addition to Evidence and Completed date.
+- Added new reporting fields:
+  - text output: `Done missing owner`,
+  - JSON output: `totals.done_missing_owner` plus `done_missing_owner` row list.
+- Extended `--require-go` enforcement to fail when `done_missing_owner > 0`.
+- Updated `scripts/launch/run_launch_rehearsal.sh` to ingest `done_missing_owner` and require it to be zero before setting `go_ready=true`.
+- Exposed the new counter in rehearsal outputs:
+  - `summary.json` (`result.checklist_done_missing_owner`)
+  - `SUMMARY.md` (`checklist_done_missing_owner` line item).
+- Parser robustness fix:
+  - checklist row parsing now uses a non-whitespace field delimiter so empty Owner/Evidence/Completed cells do not shift columns.
+- Updated docs:
+  - `docs/mainnet-go-no-go-checklist.md`
+  - `docs/launch-evidence-bundle.md`
+  - `docs/launch-rehearsal.md`
+  - `docs/launch-readiness-gates.md`
+
+Verification:
+- `bash -n scripts/launch/check_go_no_go_checklist.sh` passed.
+- `bash -n scripts/launch/run_launch_rehearsal.sh` passed.
+- `./scripts/launch/check_go_no_go_checklist.sh --json-out /tmp/go-no-go-owner-check.json` passed locally (`totals.todo=16`, `totals.invalid=0`, `totals.done_missing_owner=0`).
+- `./scripts/launch/run_launch_rehearsal.sh --mode smoke --skip-release-manifest --allow-dirty --skip-issue1-goal-checks --cargo-target-dir .context/cargo-target-launch --operator "launch-readiness"` passed locally with `checklist_done_missing_owner` present in rehearsal summary outputs.

@@ -43,7 +43,7 @@ Tip: use `scripts/launch/prefill_go_no_go_signoff.sh` to prefill the signoff blo
 1. Any unresolved `todo` item forces `NO-GO`.
 2. Any newly discovered P0/P1 issue during final rehearsal forces `NO-GO` until remediated and re-verified.
 3. Waivers are allowed only for non-security items and require named approver signoff plus public rationale.
-4. Any gate marked `done` must include both Evidence and Completed date (UTC) before signoff.
+4. Any gate marked `done` must include Owner, Evidence, and Completed date (UTC) before signoff.
 5. Evidence entries for `done` gates must be resolvable repo paths or `http(s)` links.
 6. Signoff block format requirements:
    - Release candidate commit: 7-40 char hex SHA
