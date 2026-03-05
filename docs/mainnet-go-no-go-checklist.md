@@ -42,3 +42,4 @@ Decision status: `NO-GO` (default until all items complete)
 2. Any newly discovered P0/P1 issue during final rehearsal forces `NO-GO` until remediated and re-verified.
 3. Waivers are allowed only for non-security items and require named approver signoff plus public rationale.
 4. Any gate marked `done` must include both Evidence and Completed date (UTC) before signoff.
+5. Evidence entries for `done` gates must be resolvable repo paths or `http(s)` links.
