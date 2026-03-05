@@ -65,6 +65,7 @@ Checklist validation also enforces that any gate marked `done` includes both Evi
   - `genesis-determinism-check.md`
   - `snapshot-supply-reconciliation.md`
   - `incident-communication-templates.md`
+  - `incident-launch-pack.md`
   - `ci.yml`
   - `nightly-fuzz.yml`
   - `launch-evidence.yml`
@@ -76,6 +77,7 @@ Checklist validation also enforces that any gate marked `done` includes both Evi
   - `check_issue1_core_goals.sh`
   - `check_genesis_determinism.sh`
   - `check_snapshot_supply_reconciliation.sh`
+  - `generate_incident_launch_pack.sh`
   - `run_launch_rehearsal.sh`
   - `generate_release_manifest.sh`
 - when `--check-snapshot-supply` is enabled:

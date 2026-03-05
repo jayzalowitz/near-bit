@@ -44,6 +44,9 @@ GENESIS_FIXTURE_EXPECTED_HASH=<new_sha256> ./scripts/launch/run_readiness_gate.s
 
 # Optional: isolate build/test artifacts in a custom Cargo target directory
 ./scripts/launch/run_readiness_gate.sh --full --cargo-target-dir /tmp/bitinfinity-cargo-target
+
+# Gate #13 preparation helper: prefill launch-window incident pack
+./scripts/launch/generate_incident_launch_pack.sh --release-version <tag-or-commit> --launch-window-start <YYYY-MM-DDTHH:MM:SSZ> --launch-window-end <YYYY-MM-DDTHH:MM:SSZ> --status-page-url https://status.bitcoininfinity.io --coordination-channel <channel-url-or-name>
 ```
 
 By default, local launch-gate commands write Cargo artifacts to `.context/cargo-target` to avoid mutating tracked `target/` files. In CI, default behavior remains `target/`. Override with `--cargo-target-dir` when needed.
@@ -59,6 +62,7 @@ By default, local launch-gate commands write Cargo artifacts to `.context/cargo-
 | Benchmark methodology and artifact schema | complete | `docs/benchmark-methodology.md`, `scripts/benchmark/run_tps_profiles.sh` |
 | Operations runbook | complete | `docs/validator-operations-runbook.md` |
 | Incident communication templates | complete | `docs/incident-communication-templates.md` |
+| Incident launch-pack generator (gate #13 prefill helper) | complete | `scripts/launch/generate_incident_launch_pack.sh`, `docs/incident-launch-pack.md` |
 | Mainnet go/no-go decision checklist template | complete | `docs/mainnet-go-no-go-checklist.md` |
 | Go/no-go checklist validator script | complete | `scripts/launch/check_go_no_go_checklist.sh` |
 | Nightly fuzz 7-day health verifier script | complete | `scripts/launch/check_nightly_fuzz_health.sh`, `docs/nightly-fuzz-health-check.md` |
@@ -121,6 +125,10 @@ By default, local launch-gate commands write Cargo artifacts to `.context/cargo-
   - `.github/workflows/launch-evidence.yml`
   - `.github/workflows/launch-rehearsal.yml`
   - `.github/workflows/release-manifest.yml`
+- `2026-03-05`: Added `scripts/launch/generate_incident_launch_pack.sh` and `docs/incident-launch-pack.md` to prefill launch-window incident communications for gate #13 evidence.
+- `2026-03-05`: `bash -n scripts/launch/generate_incident_launch_pack.sh` passed locally and readiness/evidence script syntax checks now include it.
+- `2026-03-05`: `./scripts/launch/generate_incident_launch_pack.sh --release-version v1.0.0-rc1 --launch-window-start 2026-03-10T18:00:00Z --launch-window-end 2026-03-10T22:00:00Z --status-page-url https://status.bitcoininfinity.io --coordination-channel '#validators-bridge' --out-file /tmp/incident-launch-pack.md` passed locally.
+- `2026-03-05`: `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist --skip-issue1-goal-checks --cargo-target-dir .context/cargo-target-launch` passed locally after incident-launch-pack gating was added.
 
 ## External Gates (Not Solvable by Repository Changes Alone)
 

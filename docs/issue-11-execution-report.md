@@ -2536,3 +2536,30 @@ Implemented:
 Verification:
 - Re-ran checklist validator after workflow/docs updates:
   - `./scripts/launch/check_go_no_go_checklist.sh --json-out /tmp/go-no-go-summary.json` passed locally.
+
+## Continuation (2026-03-05): gate #13 incident launch-pack generator + evidence wiring
+
+Implemented:
+- Added `scripts/launch/generate_incident_launch_pack.sh` to prefill launch-window incident communications with:
+  - release version,
+  - launch window start/end timestamps,
+  - status-page URL,
+  - validator coordination channel,
+  - deterministic incident-ID prefix.
+- Added launch documentation for this flow:
+  - `docs/incident-launch-pack.md`.
+- Wired launch orchestration to prevent regressions:
+  - `scripts/launch/run_readiness_gate.sh` now requires `docs/incident-launch-pack.md` and validates `generate_incident_launch_pack.sh` syntax.
+  - `scripts/launch/generate_evidence_bundle.sh` now snapshots:
+    - `docs/incident-launch-pack.md`
+    - `scripts/launch/generate_incident_launch_pack.sh`.
+- Updated launch references:
+  - `docs/launch-readiness-gates.md`
+  - `docs/launch-evidence-bundle.md`
+  - `docs/documentation-hub.md`
+  - `README.md`
+
+Verification:
+- `bash -n scripts/launch/generate_incident_launch_pack.sh` passed.
+- `./scripts/launch/generate_incident_launch_pack.sh --release-version v1.0.0-rc1 --launch-window-start 2026-03-10T18:00:00Z --launch-window-end 2026-03-10T22:00:00Z --status-page-url https://status.bitcoininfinity.io --coordination-channel '#validators-bridge' --out-file /tmp/incident-launch-pack.md` passed locally.
+- `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist --skip-issue1-goal-checks --cargo-target-dir .context/cargo-target-launch` passed locally with the new incident-pack doc/script checks enabled.

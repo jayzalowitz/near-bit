@@ -29,6 +29,7 @@ This hub links all major documentation for building, integrating, operating, and
 
 - [Validator Operations Runbook](validator-operations-runbook.md): node lifecycle, health checks, and incident response.
 - [Incident Communication Templates](incident-communication-templates.md): copy-ready templates for investigating, security halt, resolution, and emergency upgrade notices.
+- [Incident Launch Pack](incident-launch-pack.md): prefill launch-window incident templates for go/no-go gate #13 evidence.
 - [Launch Communications Plan](communications-launch-plan.md): publication order, ownership, and launch-window messaging controls.
 - [TPS Benchmark Methodology](benchmark-methodology.md): measurement standards and published benchmark profiles.
 
@@ -67,13 +68,14 @@ This hub links all major documentation for building, integrating, operating, and
 11. `index.html#launch-updates`
 12. `validator-operations-runbook.md`
 13. `incident-communication-templates.md`
-14. `benchmark-methodology.md`
-15. `launch-readiness-gates.md`
-16. `mainnet-go-no-go-checklist.md`
-17. `launch-evidence-bundle.md`
-18. `launch-rehearsal.md`
-19. `nightly-fuzz-health-check.md`
-20. `issue1-core-goal-check.md`
-21. `genesis-determinism-check.md`
-22. `snapshot-supply-reconciliation.md`
-23. `release-artifact-manifest.md`
+14. `incident-launch-pack.md`
+15. `benchmark-methodology.md`
+16. `launch-readiness-gates.md`
+17. `mainnet-go-no-go-checklist.md`
+18. `launch-evidence-bundle.md`
+19. `launch-rehearsal.md`
+20. `nightly-fuzz-health-check.md`
+21. `issue1-core-goal-check.md`
+22. `genesis-determinism-check.md`
+23. `snapshot-supply-reconciliation.md`
+24. `release-artifact-manifest.md`
