@@ -2794,3 +2794,24 @@ Verification:
 - `bash -n scripts/launch/prefill_go_no_go_signoff.sh` passed.
 - `./scripts/launch/prefill_go_no_go_signoff.sh --file /tmp/mainnet-go-no-go-checklist.go-no-allow.md --release-commit 1a6189961 --genesis-hash 95f3e2600eec0dcd3ca51bf530f46ac963fa3b5286e18c6401efdcae8066aa5d --launch-window-start 2026-03-10T18:00:00Z --launch-window-end 2026-03-10T22:00:00Z --final-decision GO --approvers "alice,bob" --decision-timestamp 2026-03-10T17:55:00Z` correctly failed without `--allow-go`.
 - Re-running the same command with `--allow-go` succeeded locally.
+
+## Continuation (2026-03-05): propagate inconsistent-GO checklist signal into evidence/rehearsal summaries
+
+Implemented:
+- Extended `scripts/launch/generate_evidence_bundle.sh` checklist-total extraction to include:
+  - `inconsistent_go_decision`.
+- Extended `scripts/launch/run_launch_rehearsal.sh` checklist-total extraction and `go_ready` criteria to include:
+  - `checklist_inconsistent_go_decision`.
+- Updated output surfaces:
+  - evidence `metadata.json` + `SUMMARY.md` now include `checklist_inconsistent_go_decision`,
+  - rehearsal `summary.json` + `SUMMARY.md` now include `checklist_inconsistent_go_decision`.
+- Updated docs:
+  - `docs/launch-evidence-bundle.md`
+  - `docs/launch-rehearsal.md`
+  - `docs/launch-readiness-gates.md`
+
+Verification:
+- `bash -n scripts/launch/generate_evidence_bundle.sh` passed.
+- `bash -n scripts/launch/run_launch_rehearsal.sh` passed.
+- `./scripts/launch/generate_evidence_bundle.sh --mode smoke --skip-gate --allow-dirty --cargo-target-dir .context/cargo-target-launch --out-dir /tmp/evidence-checklist-inconsistent-go` passed locally; bundle summary/metadata include `checklist_inconsistent_go_decision`.
+- `./scripts/launch/run_launch_rehearsal.sh --mode smoke --skip-release-manifest --allow-dirty --skip-issue1-goal-checks --cargo-target-dir .context/cargo-target-launch --operator "launch-readiness"` passed locally; rehearsal summary JSON/Markdown include `checklist_inconsistent_go_decision`.
