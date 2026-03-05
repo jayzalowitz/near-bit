@@ -2607,3 +2607,34 @@ Verification:
 - `bash -n scripts/launch/check_go_no_go_checklist.sh` passed.
 - `./scripts/launch/check_go_no_go_checklist.sh --json-out /tmp/go-no-go-signoff-format.json` passed locally.
 - `./scripts/launch/generate_evidence_bundle.sh --mode smoke --skip-gate --allow-dirty --cargo-target-dir .context/cargo-target-launch --out-dir /tmp/evidence-signoff-format` passed locally.
+
+## Continuation (2026-03-05): signoff prefill helper for go/no-go checklist
+
+Implemented:
+- Added `scripts/launch/prefill_go_no_go_signoff.sh` to atomically prefill the signoff block in `docs/mainnet-go-no-go-checklist.md` with validation for:
+  - release commit SHA,
+  - genesis hash,
+  - launch window start/end,
+  - final decision (`GO`/`NO-GO`),
+  - decision timestamp,
+  - signoff approvers.
+- Added operator guide:
+  - `docs/go-no-go-signoff-prefill.md`
+- Wired launch orchestration checks:
+  - `scripts/launch/run_readiness_gate.sh` now requires the new doc and validates script syntax.
+  - `scripts/launch/generate_evidence_bundle.sh` now snapshots both the new doc and script.
+- Updated launch docs/discovery:
+  - `README.md`
+  - `docs/documentation-hub.md`
+  - `docs/mainnet-go-no-go-checklist.md`
+  - `docs/launch-evidence-bundle.md`
+  - `docs/launch-readiness-gates.md`
+
+Verification:
+- `bash -n scripts/launch/prefill_go_no_go_signoff.sh` passed.
+- `bash -n scripts/launch/run_readiness_gate.sh` passed.
+- `bash -n scripts/launch/generate_evidence_bundle.sh` passed.
+- `./scripts/launch/prefill_go_no_go_signoff.sh --file /tmp/mainnet-go-no-go-checklist.prefill.md --release-commit 3dcd38186 --genesis-hash 95f3e2600eec0dcd3ca51bf530f46ac963fa3b5286e18c6401efdcae8066aa5d --launch-window-start 2026-03-10T18:00:00Z --launch-window-end 2026-03-10T22:00:00Z --final-decision NO-GO --approvers \"alice,bob\" --decision-timestamp 2026-03-10T17:55:00Z` passed locally.
+- `./scripts/launch/check_go_no_go_checklist.sh --file /tmp/mainnet-go-no-go-checklist.prefill.md --json-out /tmp/go-no-go-prefill-check.json` passed locally (`missing_signoff=0`, `invalid_signoff_format=0` on prefilled copy).
+- `./scripts/launch/run_readiness_gate.sh --smoke --skip-checklist --skip-issue1-goal-checks --cargo-target-dir .context/cargo-target-launch` passed locally with signoff-prefill doc/script checks enabled.
+- `./scripts/launch/generate_evidence_bundle.sh --mode smoke --skip-gate --allow-dirty --cargo-target-dir .context/cargo-target-launch --out-dir /tmp/evidence-signoff-prefill` passed locally with new signoff-prefill artifacts captured.
