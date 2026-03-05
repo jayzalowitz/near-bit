@@ -95,7 +95,7 @@ This packet captures external-gate evidence and signoff records for checklist ga
 - Execution summary link: docs/rollback-abort-dry-run-mainnet-2026-03-05.md
 - Issues discovered: none
 - Remediation links: docs/validator-operations-runbook.md
-- Evidence links: docs/rollback-abort-dry-run-mainnet-2026-03-05.md, artifacts/launch-rehearsals/20260305T174539Z-67202534f/SUMMARY.md
+- Evidence links: docs/rollback-abort-dry-run-mainnet-2026-03-05.md, docs/launch-rehearsal.md
 - Completed date (UTC): 2026-03-05
 - Approver: launch-readiness
 

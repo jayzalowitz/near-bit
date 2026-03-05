@@ -38,7 +38,7 @@ Tip: use `scripts/launch/generate_external_gate_packet.sh` to prefill external-g
 | 13 | Incident communication templates pre-filled for launch window | launch-readiness | done | docs/incident-launch-pack-mainnet-2026-03-10.md,docs/incident-launch-pack.md | 2026-03-05 |
 | 14 | Legal review signoff complete (token classification + Patoshi constraints) | launch-readiness | done | docs/legal-review-signoff-mainnet-2026-03-05.md,docs/token-classification-memo-mainnet-2026-03-05.md,docs/patoshi-constraints-legal-memo-mainnet-2026-03-05.md,docs/external-gate-packet-mainnet-2026-03-10.md | 2026-03-05 |
 | 15 | Foundation governance + treasury controls published (multisig, charter, spending policy) | launch-readiness | done | docs/foundation-governance-treasury-controls-mainnet-2026-03-05.md,docs/external-gate-packet-mainnet-2026-03-10.md | 2026-03-05 |
-| 16 | Rollback/abort procedure dry-run completed with validator operators | launch-readiness | done | docs/rollback-abort-dry-run-mainnet-2026-03-05.md,artifacts/launch-rehearsals/20260305T174844Z-67202534f/SUMMARY.md,docs/external-gate-packet-mainnet-2026-03-10.md | 2026-03-05 |
+| 16 | Rollback/abort procedure dry-run completed with validator operators | launch-readiness | done | docs/rollback-abort-dry-run-mainnet-2026-03-05.md,docs/external-gate-packet-mainnet-2026-03-10.md | 2026-03-05 |
 
 ## Decision Rules
 

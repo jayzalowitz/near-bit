@@ -19,8 +19,8 @@ Owner: launch-readiness
 
 ## Rehearsal Artifact
 
-- `artifacts/launch-rehearsals/20260305T174539Z-67202534f/SUMMARY.md`
-- `artifacts/launch-rehearsals/20260305T174539Z-67202534f/summary.json`
+- `docs/issue-11-execution-report.md`
+- `docs/launch-readiness-gates.md`
 
 ## Outcome
 
