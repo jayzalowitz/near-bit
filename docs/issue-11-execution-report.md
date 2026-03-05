@@ -2518,3 +2518,21 @@ Implemented:
 Verification:
 - `bash -n scripts/launch/check_go_no_go_checklist.sh` passed.
 - `./scripts/launch/check_go_no_go_checklist.sh --json-out /tmp/go-no-go-summary.json` passed locally (current checklist remains all `todo`, so done-gate metadata counters are zero).
+
+## Continuation (2026-03-05): GitHub launch workflow parity for Cargo target-dir override
+
+Implemented:
+- Added optional `cargo_target_dir` manual-dispatch inputs to launch workflows:
+  - `.github/workflows/launch-evidence.yml`
+  - `.github/workflows/launch-rehearsal.yml`
+  - `.github/workflows/release-manifest.yml`
+- Wired each workflow to pass `--cargo-target-dir` when input is provided.
+- Updated docs to include workflow-level target-dir override usage:
+  - `docs/launch-evidence-bundle.md`
+  - `docs/launch-rehearsal.md`
+  - `docs/release-artifact-manifest.md`
+  - `docs/launch-readiness-gates.md`
+
+Verification:
+- Re-ran checklist validator after workflow/docs updates:
+  - `./scripts/launch/check_go_no_go_checklist.sh --json-out /tmp/go-no-go-summary.json` passed locally.

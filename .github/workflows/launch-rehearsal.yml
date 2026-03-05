@@ -75,6 +75,11 @@ on:
         required: true
         default: false
         type: boolean
+      cargo_target_dir:
+        description: "Optional Cargo target directory override"
+        required: false
+        default: ""
+        type: string
 
 env:
   CARGO_TERM_COLOR: always
@@ -147,6 +152,9 @@ jobs:
               exit 1
             fi
             EXTRA_ARGS+=(--release-manifest-skip-build)
+          fi
+          if [[ -n "${{ inputs.cargo_target_dir }}" ]]; then
+            EXTRA_ARGS+=(--cargo-target-dir "${{ inputs.cargo_target_dir }}")
           fi
           ./scripts/launch/run_launch_rehearsal.sh --mode "${{ inputs.mode }}" --operator "${{ github.actor }}" --out-dir "${RUNNER_TEMP}/launch-rehearsals" "${EXTRA_ARGS[@]}"
 

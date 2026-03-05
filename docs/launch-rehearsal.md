@@ -99,4 +99,5 @@ Operator metadata:
 Use workflow `.github/workflows/launch-rehearsal.yml` (manual dispatch) to run and archive rehearsal artifacts in CI.
 The workflow exposes `release_manifest` (`auto|include|skip`) and `release_manifest_skip_build` inputs to control manifest behavior explicitly.
 CI rehearsals automatically set `--operator` to `${{ github.actor }}` for attribution.
-The workflow also exposes `check_nightly_fuzz_health`, `nightly_fuzz_branch`, `nightly_fuzz_workflow`, `nightly_fuzz_window_days`, `nightly_fuzz_min_runs`, `nightly_fuzz_max_runs`, and `nightly_fuzz_allow_in_progress` inputs for gate #4 enforcement, plus `skip_issue1_goal_checks` for fast iteration runs.
+The workflow also exposes `check_nightly_fuzz_health`, `nightly_fuzz_branch`, `nightly_fuzz_workflow`, `nightly_fuzz_window_days`, `nightly_fuzz_min_runs`, and `nightly_fuzz_max_runs`, and `nightly_fuzz_allow_in_progress` inputs for gate #4 enforcement, plus `skip_issue1_goal_checks` for fast iteration runs.
+Use optional `cargo_target_dir` input to override the default CI Cargo output path (`target/`) when needed.
