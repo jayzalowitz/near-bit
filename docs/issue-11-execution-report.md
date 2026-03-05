@@ -2845,3 +2845,9 @@ Verification:
 - Manual dispatch command prepared:
   - `gh workflow run CI --repo infinitoshi/near-bit --ref infinitoshi/btc-near-fork-plan`.
 - `./scripts/launch/run_readiness_gate.sh --smoke --cargo-target-dir .context/cargo-target-launch` passed locally at `2026-03-05T16:35:01Z` (includes Issue #1 core-goal checks and pinned-hash genesis determinism check).
+
+## Continuation (2026-03-05): full local launch gate rerun after CI dispatch entrypoint update
+
+Verification:
+- `./scripts/launch/run_readiness_gate.sh --full --cargo-target-dir .context/cargo-target-launch` passed locally at `2026-03-05T16:40:57Z` on commit `c28a8a5fa`.
+- Full gate pass included: release builds (`bitinfinity-btcrpc`, `bitinfinity-tools`, `bitinfinity-neard`), workspace + `near-account-id` tests, Clippy, format checks, and dependency audits.
