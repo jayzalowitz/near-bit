@@ -27,7 +27,7 @@ Tip: use `scripts/launch/update_go_no_go_gate.sh` to update gate rows with valid
 | 3 | Local launch gate command (`./scripts/launch/run_readiness_gate.sh --full`) passes on release candidate | launch-readiness | done | docs/launch-readiness-gates.md,docs/issue-11-execution-report.md | 2026-03-05 |
 | 4 | Nightly fuzz matrix has no unresolved crashes for previous 7 days |  | todo |  |  |
 | 5 | Patoshi guard tests and integration validation complete | launch-readiness | done | docs/issue1-core-goal-check.md,docs/launch-readiness-gates.md,docs/issue-11-execution-report.md | 2026-03-05 |
-| 6 | Tier 1/Tier 2 RPC compatibility tests pass against release candidate |  | todo |  |  |
+| 6 | Tier 1/Tier 2 RPC compatibility tests pass against release candidate | launch-readiness | done | docs/rpc-compatibility-matrix.md,docs/issue-11-execution-report.md,docs/launch-readiness-gates.md | 2026-03-05 |
 | 7 | Sparrow end-to-end send/receive/PSBT walkthrough validated on testnet |  | todo |  |  |
 | 8 | Benchmark methodology report and raw artifacts published for release candidate |  | todo |  |  |
 | 9 | Genesis determinism validated (same snapshot -> same hash across reruns) | launch-readiness | done | docs/genesis-determinism-check.md,docs/launch-readiness-gates.md | 2026-03-05 |

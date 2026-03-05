@@ -2886,3 +2886,32 @@ Implemented:
   - `group: ci-${{ github.workflow }}-${{ github.ref }}`
   - `cancel-in-progress: true`
 - This ensures older in-flight CI runs on the same branch are cancelled when newer commits are pushed, improving freshness of launch-readiness signals.
+
+## Continuation (2026-03-05): fix RPC e2e mempool unknown-tx expectations
+
+Implemented:
+- Updated `scripts/e2e_testnet.sh` mempool relation checks for unknown txids:
+  - `getmempoolancestors` now expects JSON-RPC error code `-5`.
+  - `getmempooldescendants` now expects JSON-RPC error code `-5`.
+- Updated summary output keys accordingly:
+  - `getmempoolancestors_unknown_error_code`
+  - `getmempooldescendants_unknown_error_code`
+
+Verification:
+- `./scripts/e2e_testnet.sh` initial run failed at mempool-unknown path due stale array expectation.
+- Re-running `./scripts/e2e_testnet.sh` after the patch passed locally:
+  - `E2E transaction flow succeeded. Artifacts written to .context/e2e`.
+
+## Continuation (2026-03-05): close gate #6 from current e2e compatibility pass
+
+Implemented:
+- Marked checklist gate `6` (`Tier 1/Tier 2 RPC compatibility tests pass against release candidate`) as `done` in `docs/mainnet-go-no-go-checklist.md` with owner/evidence/date metadata.
+
+Verification:
+- `./scripts/launch/update_go_no_go_gate.sh --file docs/mainnet-go-no-go-checklist.md --gate 6 --status done --owner "launch-readiness" --evidence "docs/rpc-compatibility-matrix.md,docs/issue-11-execution-report.md,docs/launch-readiness-gates.md" --completed-date 2026-03-05` passed locally.
+- `./scripts/launch/check_go_no_go_checklist.sh --file docs/mainnet-go-no-go-checklist.md --json-out /tmp/go-no-go-after-gate-6.json` passed locally (`done_gates=6`, `todo_gates=10`, `invalid=0`, all done-metadata counters `0`).
+
+## Continuation (2026-03-05): nightly fuzz gate status check
+
+Verification:
+- `./scripts/launch/check_nightly_fuzz_health.sh --branch main --workflow "Nightly Fuzz" --window-days 7 --min-runs 1 --max-runs 200` failed locally (`runs_in_window=0`), so checklist gate `4` remains open pending actual nightly-fuzz workflow executions.
