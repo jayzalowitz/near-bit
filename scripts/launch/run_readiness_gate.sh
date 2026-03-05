@@ -234,6 +234,10 @@ check_required_docs() {
   local required_files=(
     "docs/launch-readiness-gates.md"
     "docs/technical-whitepaper.md"
+    "docs/communications-launch-plan.md"
+    "docs/blog-what-is-bitcoin-infinity.md"
+    "docs/blog-utxo-to-genesis-deep-dive.md"
+    "docs/blog-patoshi-balance-floor-explainer.md"
     "docs/mainnet-go-no-go-checklist.md"
     "docs/genesis-determinism-check.md"
     "docs/snapshot-supply-reconciliation.md"

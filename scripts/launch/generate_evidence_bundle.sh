@@ -357,6 +357,10 @@ copy_and_checksum() {
 
 copy_and_checksum "docs/launch-readiness-gates.md" "${bundle_dir}/launch-readiness-gates.md"
 copy_and_checksum "docs/technical-whitepaper.md" "${bundle_dir}/technical-whitepaper.md"
+copy_and_checksum "docs/communications-launch-plan.md" "${bundle_dir}/communications-launch-plan.md"
+copy_and_checksum "docs/blog-what-is-bitcoin-infinity.md" "${bundle_dir}/blog-what-is-bitcoin-infinity.md"
+copy_and_checksum "docs/blog-utxo-to-genesis-deep-dive.md" "${bundle_dir}/blog-utxo-to-genesis-deep-dive.md"
+copy_and_checksum "docs/blog-patoshi-balance-floor-explainer.md" "${bundle_dir}/blog-patoshi-balance-floor-explainer.md"
 checklist_basename="$(basename "$CHECKLIST_FILE")"
 copy_and_checksum "$CHECKLIST_FILE" "${bundle_dir}/${checklist_basename}"
 copy_and_checksum "docs/genesis-determinism-check.md" "${bundle_dir}/genesis-determinism-check.md"
@@ -515,6 +519,10 @@ cat > "${bundle_dir}/SUMMARY.md" <<EOF
 - SHA256SUMS.txt
 - launch-readiness-gates.md
 - technical-whitepaper.md
+- communications-launch-plan.md
+- blog-what-is-bitcoin-infinity.md
+- blog-utxo-to-genesis-deep-dive.md
+- blog-patoshi-balance-floor-explainer.md
 - ${checklist_basename}
 - genesis-determinism-check.md
 - snapshot-supply-reconciliation.md
