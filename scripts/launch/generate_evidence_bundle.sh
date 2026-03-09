@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/launch/generate_evidence_bundle.sh [--mode smoke|full] [--include-fuzz] [--check-nightly-fuzz-health] [--nightly-fuzz-branch <name>] [--nightly-fuzz-workflow <name>] [--nightly-fuzz-window-days <n>] [--nightly-fuzz-min-runs <n>] [--nightly-fuzz-max-runs <n>] [--nightly-fuzz-allow-in-progress] [--check-snapshot-supply] [--snapshot-genesis <path>] [--snapshot-txoutsetinfo <path>] [--snapshot-tolerance-sats <n>] [--snapshot-json-out <path>] [--cargo-target-dir <path>] [--skip-issue1-goal-checks] [--skip-gate] [--require-go] [--checklist-file <path>] [--out-dir <path>]
+Usage: ./scripts/launch/generate_evidence_bundle.sh [--mode smoke|full] [--include-fuzz] [--check-nightly-fuzz-health] [--nightly-fuzz-branch <name>] [--nightly-fuzz-workflow <name>] [--nightly-fuzz-window-days <n>] [--nightly-fuzz-min-runs <n>] [--nightly-fuzz-max-runs <n>] [--nightly-fuzz-job-pattern <regex>] [--nightly-fuzz-allow-in-progress] [--nightly-fuzz-fail-on-cancelled] [--check-snapshot-supply] [--snapshot-genesis <path>] [--snapshot-txoutsetinfo <path>] [--snapshot-tolerance-sats <n>] [--snapshot-json-out <path>] [--cargo-target-dir <path>] [--skip-issue1-goal-checks] [--skip-gate] [--require-go] [--checklist-file <path>] [--out-dir <path>]
 
 Options:
   --mode <smoke|full>  Readiness gate mode to run. Default: full.
@@ -14,7 +14,9 @@ Options:
   --nightly-fuzz-window-days <n> Lookback window in days for nightly fuzz health. Default: 7.
   --nightly-fuzz-min-runs <n> Minimum required runs in lookback window. Default: 1.
   --nightly-fuzz-max-runs <n> Max runs fetched from GitHub API. Default: 200.
+  --nightly-fuzz-job-pattern <regex> Evaluate only matching fuzz jobs (case-insensitive).
   --nightly-fuzz-allow-in-progress Do not fail when in-progress runs are present.
+  --nightly-fuzz-fail-on-cancelled Treat cancelled runs/jobs as failures.
   --check-snapshot-supply Enforce gate #10 snapshot-vs-genesis reconciliation in readiness.
   --snapshot-genesis <path> Path to genesis.json used for snapshot reconciliation.
   --snapshot-txoutsetinfo <path> Path to bitcoin-cli gettxoutsetinfo JSON.
@@ -40,7 +42,9 @@ NIGHTLY_FUZZ_WORKFLOW="Nightly Fuzz"
 NIGHTLY_FUZZ_WINDOW_DAYS=7
 NIGHTLY_FUZZ_MIN_RUNS=1
 NIGHTLY_FUZZ_MAX_RUNS=200
+NIGHTLY_FUZZ_JOB_PATTERN=""
 NIGHTLY_FUZZ_ALLOW_IN_PROGRESS=0
+NIGHTLY_FUZZ_FAIL_ON_CANCELLED=0
 CHECK_SNAPSHOT_SUPPLY=0
 SNAPSHOT_GENESIS=""
 SNAPSHOT_TXOUTSETINFO=""
@@ -112,8 +116,20 @@ while [[ $# -gt 0 ]]; do
       NIGHTLY_FUZZ_MAX_RUNS="$2"
       shift 2
       ;;
+    --nightly-fuzz-job-pattern)
+      if [[ $# -lt 2 ]]; then
+        echo "--nightly-fuzz-job-pattern requires a value" >&2
+        exit 1
+      fi
+      NIGHTLY_FUZZ_JOB_PATTERN="$2"
+      shift 2
+      ;;
     --nightly-fuzz-allow-in-progress)
       NIGHTLY_FUZZ_ALLOW_IN_PROGRESS=1
+      shift
+      ;;
+    --nightly-fuzz-fail-on-cancelled)
+      NIGHTLY_FUZZ_FAIL_ON_CANCELLED=1
       shift
       ;;
     --check-snapshot-supply)
@@ -321,7 +337,9 @@ jq -n \
   --argjson nightly_fuzz_window_days "$NIGHTLY_FUZZ_WINDOW_DAYS" \
   --argjson nightly_fuzz_min_runs "$NIGHTLY_FUZZ_MIN_RUNS" \
   --argjson nightly_fuzz_max_runs "$NIGHTLY_FUZZ_MAX_RUNS" \
+  --arg nightly_fuzz_job_pattern "$NIGHTLY_FUZZ_JOB_PATTERN" \
   --argjson nightly_fuzz_allow_in_progress "$NIGHTLY_FUZZ_ALLOW_IN_PROGRESS" \
+  --argjson nightly_fuzz_fail_on_cancelled "$NIGHTLY_FUZZ_FAIL_ON_CANCELLED" \
   --argjson check_snapshot_supply "$CHECK_SNAPSHOT_SUPPLY" \
   --arg snapshot_genesis "$SNAPSHOT_GENESIS" \
   --arg snapshot_txoutsetinfo "$SNAPSHOT_TXOUTSETINFO" \
@@ -353,7 +371,9 @@ jq -n \
       nightly_fuzz_window_days: $nightly_fuzz_window_days,
       nightly_fuzz_min_runs: $nightly_fuzz_min_runs,
       nightly_fuzz_max_runs: $nightly_fuzz_max_runs,
+      nightly_fuzz_job_pattern: (if $nightly_fuzz_job_pattern == "" then null else $nightly_fuzz_job_pattern end),
       nightly_fuzz_allow_in_progress: ($nightly_fuzz_allow_in_progress == 1),
+      nightly_fuzz_fail_on_cancelled: ($nightly_fuzz_fail_on_cancelled == 1),
       check_snapshot_supply: ($check_snapshot_supply == 1),
       snapshot_genesis: (if $snapshot_genesis == "" then null else $snapshot_genesis end),
       snapshot_txoutsetinfo: (if $snapshot_txoutsetinfo == "" then null else $snapshot_txoutsetinfo end),
@@ -458,8 +478,14 @@ if [[ "$SKIP_GATE" -eq 0 ]]; then
       --nightly-fuzz-min-runs "$NIGHTLY_FUZZ_MIN_RUNS"
       --nightly-fuzz-max-runs "$NIGHTLY_FUZZ_MAX_RUNS"
     )
+    if [[ -n "$NIGHTLY_FUZZ_JOB_PATTERN" ]]; then
+      gate_cmd+=(--nightly-fuzz-job-pattern "$NIGHTLY_FUZZ_JOB_PATTERN")
+    fi
     if [[ "$NIGHTLY_FUZZ_ALLOW_IN_PROGRESS" -eq 1 ]]; then
       gate_cmd+=(--nightly-fuzz-allow-in-progress)
+    fi
+    if [[ "$NIGHTLY_FUZZ_FAIL_ON_CANCELLED" -eq 1 ]]; then
+      gate_cmd+=(--nightly-fuzz-fail-on-cancelled)
     fi
   fi
   if [[ "$SKIP_ISSUE1_GOAL_CHECKS" -eq 1 ]]; then
@@ -587,7 +613,9 @@ cat > "${bundle_dir}/SUMMARY.md" <<EOF
 - readiness_gate_nightly_fuzz_window_days: ${NIGHTLY_FUZZ_WINDOW_DAYS}
 - readiness_gate_nightly_fuzz_min_runs: ${NIGHTLY_FUZZ_MIN_RUNS}
 - readiness_gate_nightly_fuzz_max_runs: ${NIGHTLY_FUZZ_MAX_RUNS}
+- readiness_gate_nightly_fuzz_job_pattern: ${NIGHTLY_FUZZ_JOB_PATTERN}
 - readiness_gate_nightly_fuzz_allow_in_progress: ${NIGHTLY_FUZZ_ALLOW_IN_PROGRESS}
+- readiness_gate_nightly_fuzz_fail_on_cancelled: ${NIGHTLY_FUZZ_FAIL_ON_CANCELLED}
 - readiness_gate_check_snapshot_supply: ${CHECK_SNAPSHOT_SUPPLY}
 - readiness_gate_snapshot_tolerance_sats: ${SNAPSHOT_TOLERANCE_SATS}
 - cargo_target_dir: ${CARGO_TARGET_DIR}

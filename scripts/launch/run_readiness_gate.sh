@@ -3,7 +3,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-Usage: ./scripts/launch/run_readiness_gate.sh [--smoke|--full] [--include-fuzz] [--check-nightly-fuzz-health] [--nightly-fuzz-branch <name>] [--nightly-fuzz-workflow <name>] [--nightly-fuzz-window-days <n>] [--nightly-fuzz-min-runs <n>] [--nightly-fuzz-max-runs <n>] [--nightly-fuzz-allow-in-progress] [--check-snapshot-supply] [--snapshot-genesis <path>] [--snapshot-txoutsetinfo <path>] [--snapshot-tolerance-sats <n>] [--snapshot-json-out <path>] [--cargo-target-dir <path>] [--skip-issue1-goal-checks] [--require-go] [--skip-checklist]
+Usage: ./scripts/launch/run_readiness_gate.sh [--smoke|--full] [--include-fuzz] [--check-nightly-fuzz-health] [--nightly-fuzz-branch <name>] [--nightly-fuzz-workflow <name>] [--nightly-fuzz-window-days <n>] [--nightly-fuzz-min-runs <n>] [--nightly-fuzz-max-runs <n>] [--nightly-fuzz-job-pattern <regex>] [--nightly-fuzz-allow-in-progress] [--nightly-fuzz-fail-on-cancelled] [--check-snapshot-supply] [--snapshot-genesis <path>] [--snapshot-txoutsetinfo <path>] [--snapshot-tolerance-sats <n>] [--snapshot-json-out <path>] [--cargo-target-dir <path>] [--skip-issue1-goal-checks] [--require-go] [--skip-checklist]
 
 Modes:
   --smoke         Fast readiness checks (docs + script + benchmark/auth smoke).
@@ -17,7 +17,9 @@ Options:
   --nightly-fuzz-window-days <n> Lookback window in days for nightly fuzz health. Default: 7.
   --nightly-fuzz-min-runs <n> Minimum required runs in lookback window. Default: 1.
   --nightly-fuzz-max-runs <n> Max runs fetched from GitHub API. Default: 200.
+  --nightly-fuzz-job-pattern <regex> Evaluate only matching fuzz jobs (case-insensitive).
   --nightly-fuzz-allow-in-progress Do not fail when in-progress runs are present.
+  --nightly-fuzz-fail-on-cancelled Treat cancelled runs/jobs as failures.
   --check-snapshot-supply Enforce gate #10 snapshot-vs-genesis reconciliation.
   --snapshot-genesis <path> Path to genesis.json used for snapshot reconciliation.
   --snapshot-txoutsetinfo <path> Path to bitcoin-cli gettxoutsetinfo JSON.
@@ -40,7 +42,9 @@ NIGHTLY_FUZZ_WORKFLOW="Nightly Fuzz"
 NIGHTLY_FUZZ_WINDOW_DAYS=7
 NIGHTLY_FUZZ_MIN_RUNS=1
 NIGHTLY_FUZZ_MAX_RUNS=200
+NIGHTLY_FUZZ_JOB_PATTERN=""
 NIGHTLY_FUZZ_ALLOW_IN_PROGRESS=0
+NIGHTLY_FUZZ_FAIL_ON_CANCELLED=0
 CHECK_SNAPSHOT_SUPPLY=0
 SNAPSHOT_GENESIS=""
 SNAPSHOT_TXOUTSETINFO=""
@@ -111,8 +115,20 @@ while [[ $# -gt 0 ]]; do
       NIGHTLY_FUZZ_MAX_RUNS="$2"
       shift 2
       ;;
+    --nightly-fuzz-job-pattern)
+      if [[ $# -lt 2 ]]; then
+        echo "--nightly-fuzz-job-pattern requires a value" >&2
+        exit 1
+      fi
+      NIGHTLY_FUZZ_JOB_PATTERN="$2"
+      shift 2
+      ;;
     --nightly-fuzz-allow-in-progress)
       NIGHTLY_FUZZ_ALLOW_IN_PROGRESS=1
+      shift
+      ;;
+    --nightly-fuzz-fail-on-cancelled)
+      NIGHTLY_FUZZ_FAIL_ON_CANCELLED=1
       shift
       ;;
     --check-snapshot-supply)
@@ -464,8 +480,14 @@ if [[ "$CHECK_NIGHTLY_FUZZ_HEALTH" -eq 1 ]]; then
     --min-runs "$NIGHTLY_FUZZ_MIN_RUNS"
     --max-runs "$NIGHTLY_FUZZ_MAX_RUNS"
   )
+  if [[ -n "$NIGHTLY_FUZZ_JOB_PATTERN" ]]; then
+    nightly_fuzz_cmd+=(--fuzz-job-pattern "$NIGHTLY_FUZZ_JOB_PATTERN")
+  fi
   if [[ "$NIGHTLY_FUZZ_ALLOW_IN_PROGRESS" -eq 1 ]]; then
     nightly_fuzz_cmd+=(--allow-in-progress)
+  fi
+  if [[ "$NIGHTLY_FUZZ_FAIL_ON_CANCELLED" -eq 1 ]]; then
+    nightly_fuzz_cmd+=(--fail-on-cancelled)
   fi
   run_cmd \
     "Nightly fuzz health (7d window)" \
@@ -491,4 +513,4 @@ if [[ "$INCLUDE_FUZZ" -eq 1 ]]; then
 fi
 
 echo
-echo "Launch readiness gate passed: mode=${MODE}, include_fuzz=${INCLUDE_FUZZ}, check_nightly_fuzz_health=${CHECK_NIGHTLY_FUZZ_HEALTH}, nightly_fuzz_branch=${NIGHTLY_FUZZ_BRANCH}, nightly_fuzz_workflow=${NIGHTLY_FUZZ_WORKFLOW}, nightly_fuzz_window_days=${NIGHTLY_FUZZ_WINDOW_DAYS}, nightly_fuzz_min_runs=${NIGHTLY_FUZZ_MIN_RUNS}, nightly_fuzz_max_runs=${NIGHTLY_FUZZ_MAX_RUNS}, nightly_fuzz_allow_in_progress=${NIGHTLY_FUZZ_ALLOW_IN_PROGRESS}, check_snapshot_supply=${CHECK_SNAPSHOT_SUPPLY}, snapshot_tolerance_sats=${SNAPSHOT_TOLERANCE_SATS}, cargo_target_dir=${CARGO_TARGET_DIR}, skip_issue1_goal_checks=${SKIP_ISSUE1_GOAL_CHECKS}, require_go=${REQUIRE_GO}, skip_checklist=${SKIP_CHECKLIST}, at=$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
+echo "Launch readiness gate passed: mode=${MODE}, include_fuzz=${INCLUDE_FUZZ}, check_nightly_fuzz_health=${CHECK_NIGHTLY_FUZZ_HEALTH}, nightly_fuzz_branch=${NIGHTLY_FUZZ_BRANCH}, nightly_fuzz_workflow=${NIGHTLY_FUZZ_WORKFLOW}, nightly_fuzz_window_days=${NIGHTLY_FUZZ_WINDOW_DAYS}, nightly_fuzz_min_runs=${NIGHTLY_FUZZ_MIN_RUNS}, nightly_fuzz_max_runs=${NIGHTLY_FUZZ_MAX_RUNS}, nightly_fuzz_job_pattern=${NIGHTLY_FUZZ_JOB_PATTERN}, nightly_fuzz_allow_in_progress=${NIGHTLY_FUZZ_ALLOW_IN_PROGRESS}, nightly_fuzz_fail_on_cancelled=${NIGHTLY_FUZZ_FAIL_ON_CANCELLED}, check_snapshot_supply=${CHECK_SNAPSHOT_SUPPLY}, snapshot_tolerance_sats=${SNAPSHOT_TOLERANCE_SATS}, cargo_target_dir=${CARGO_TARGET_DIR}, skip_issue1_goal_checks=${SKIP_ISSUE1_GOAL_CHECKS}, require_go=${REQUIRE_GO}, skip_checklist=${SKIP_CHECKLIST}, at=$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
