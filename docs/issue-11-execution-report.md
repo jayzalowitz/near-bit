@@ -3133,3 +3133,29 @@ Verification:
   - `Security Audit`: success
   - `Fuzz (smoke)`: success
   - `Launch Readiness (smoke)`: success
+
+## Continuation (2026-03-09): propagate nightly fuzz job-scoped strictness through launch orchestration
+
+Implemented:
+- Added nightly fuzz pass-through flags to orchestration scripts:
+  - `scripts/launch/run_readiness_gate.sh`
+  - `scripts/launch/generate_evidence_bundle.sh`
+  - `scripts/launch/run_launch_rehearsal.sh`
+- New options:
+  - `--nightly-fuzz-job-pattern <regex>` for fuzz-job scoped health evaluation in broader workflows.
+  - `--nightly-fuzz-fail-on-cancelled` to enforce strict cancelled-run failure behavior.
+- Updated manual launch workflows to expose and pass through matching inputs:
+  - `.github/workflows/launch-evidence.yml`
+  - `.github/workflows/launch-rehearsal.yml`
+- Updated launch docs to reflect new strictness controls:
+  - `docs/nightly-fuzz-health-check.md`
+  - `docs/launch-readiness-gates.md`
+  - `docs/launch-evidence-bundle.md`
+  - `docs/launch-rehearsal.md`
+
+Verification:
+- `bash -n scripts/launch/run_readiness_gate.sh scripts/launch/generate_evidence_bundle.sh scripts/launch/run_launch_rehearsal.sh scripts/launch/check_nightly_fuzz_health.sh` passed.
+- `./scripts/launch/check_nightly_fuzz_health.sh --branch jayzalowitz/btc-near-fork-plan --workflow CI --fuzz-job-pattern "Fuzz" --window-days 7 --min-runs 1 --max-runs 50 --json-out /tmp/nightly-fuzz-ci-branch-50.json` passed (`runs=50`, `failed=0`, `cancelled=13`, `in_progress=0`).
+- `./scripts/launch/check_nightly_fuzz_health.sh --branch jayzalowitz/btc-near-fork-plan --workflow CI --fuzz-job-pattern "Fuzz" --window-days 7 --min-runs 1 --max-runs 50 --fail-on-cancelled --json-out /tmp/nightly-fuzz-ci-branch-50-strict-cancel.json` correctly failed (`cancelled_runs=13`).
+- `./scripts/launch/run_readiness_gate.sh --full --require-go --check-nightly-fuzz-health --nightly-fuzz-branch jayzalowitz/btc-near-fork-plan --nightly-fuzz-workflow CI --nightly-fuzz-window-days 7 --nightly-fuzz-min-runs 1 --nightly-fuzz-max-runs 50 --nightly-fuzz-job-pattern "Fuzz" --cargo-target-dir .context/cargo-target-launch` passed locally at `2026-03-09T23:53:19Z`.
+- `./scripts/launch/run_launch_rehearsal.sh --mode smoke --skip-release-manifest --require-go --check-nightly-fuzz-health --nightly-fuzz-branch jayzalowitz/btc-near-fork-plan --nightly-fuzz-workflow CI --nightly-fuzz-window-days 7 --nightly-fuzz-min-runs 1 --nightly-fuzz-max-runs 50 --nightly-fuzz-job-pattern "Fuzz" --allow-dirty --operator launch-readiness --cargo-target-dir .context/cargo-target-launch` passed locally and produced `artifacts/launch-rehearsals/20260309T235329Z-e376b7f92`.

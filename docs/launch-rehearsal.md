@@ -44,11 +44,17 @@ Local runs default to `.context/cargo-target` so rehearsal builds do not mutate 
 # Enforce nightly fuzz health with explicit workflow/window criteria
 ./scripts/launch/run_launch_rehearsal.sh --check-nightly-fuzz-health --nightly-fuzz-branch main --nightly-fuzz-workflow "Nightly Fuzz" --nightly-fuzz-window-days 7 --nightly-fuzz-min-runs 1 --nightly-fuzz-max-runs 200
 
+# Evaluate only fuzz jobs in a broader workflow
+./scripts/launch/run_launch_rehearsal.sh --check-nightly-fuzz-health --nightly-fuzz-workflow CI --nightly-fuzz-job-pattern "Fuzz"
+
 # Enforce gate #10 snapshot reconciliation during rehearsal readiness checks
 ./scripts/launch/run_launch_rehearsal.sh --mode smoke --check-snapshot-supply --snapshot-genesis /path/to/genesis.json --snapshot-txoutsetinfo /path/to/gettxoutsetinfo.json --snapshot-tolerance-sats 1 --snapshot-json-out /tmp/snapshot-supply-check.json
 
 # Allow in-progress nightly runs during maintenance windows
 ./scripts/launch/run_launch_rehearsal.sh --check-nightly-fuzz-health --nightly-fuzz-allow-in-progress
+
+# Treat cancelled nightly runs/jobs as failures
+./scripts/launch/run_launch_rehearsal.sh --check-nightly-fuzz-health --nightly-fuzz-fail-on-cancelled
 
 # Skip Issue #1 target suites for quick local iteration (not for signoff rehearsals)
 ./scripts/launch/run_launch_rehearsal.sh --skip-issue1-goal-checks
@@ -107,5 +113,5 @@ Operator metadata:
 Use workflow `.github/workflows/launch-rehearsal.yml` (manual dispatch) to run and archive rehearsal artifacts in CI.
 The workflow exposes `release_manifest` (`auto|include|skip`) and `release_manifest_skip_build` inputs to control manifest behavior explicitly.
 CI rehearsals automatically set `--operator` to `${{ github.actor }}` for attribution.
-The workflow also exposes `check_nightly_fuzz_health`, `nightly_fuzz_branch`, `nightly_fuzz_workflow`, `nightly_fuzz_window_days`, `nightly_fuzz_min_runs`, and `nightly_fuzz_max_runs`, and `nightly_fuzz_allow_in_progress` inputs for gate #4 enforcement, plus `skip_issue1_goal_checks` for fast iteration runs.
+The workflow also exposes `check_nightly_fuzz_health`, `nightly_fuzz_branch`, `nightly_fuzz_workflow`, `nightly_fuzz_window_days`, `nightly_fuzz_min_runs`, `nightly_fuzz_max_runs`, `nightly_fuzz_job_pattern`, `nightly_fuzz_allow_in_progress`, and `nightly_fuzz_fail_on_cancelled` inputs for gate #4 enforcement, plus `skip_issue1_goal_checks` for fast iteration runs.
 Use optional `cargo_target_dir` input to override the default CI Cargo output path (`target/`) when needed.

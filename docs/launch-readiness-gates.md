@@ -1,6 +1,6 @@
 # Launch Readiness Gates
 
-Last updated: March 5, 2026.
+Last updated: March 9, 2026.
 
 This document tracks launch-readiness progress for items in [issue #11](https://github.com/jayzalowitz/near-bit/issues/11), with a strict split between:
 
@@ -26,6 +26,9 @@ Use one command path for repeatable local verification:
 
 # Full gate + explicit nightly fuzz criteria
 ./scripts/launch/run_readiness_gate.sh --full --check-nightly-fuzz-health --nightly-fuzz-branch main --nightly-fuzz-workflow "Nightly Fuzz" --nightly-fuzz-window-days 7 --nightly-fuzz-min-runs 1 --nightly-fuzz-max-runs 200
+
+# Full gate + fuzz-job filtered health check within CI workflow
+./scripts/launch/run_readiness_gate.sh --full --check-nightly-fuzz-health --nightly-fuzz-branch main --nightly-fuzz-workflow CI --nightly-fuzz-job-pattern "Fuzz" --nightly-fuzz-window-days 7 --nightly-fuzz-min-runs 1 --nightly-fuzz-max-runs 200 --nightly-fuzz-fail-on-cancelled
 
 # Direct nightly-fuzz health check using fuzz-job filtering inside CI workflow
 ./scripts/launch/check_nightly_fuzz_health.sh --branch jayzalowitz/btc-near-fork-plan --workflow CI --fuzz-job-pattern "Fuzz" --window-days 7 --min-runs 1 --max-runs 50 --allow-in-progress
@@ -234,6 +237,11 @@ By default, local launch-gate commands write Cargo artifacts to `.context/cargo-
 - `2026-03-09`: `./scripts/launch/run_readiness_gate.sh --full --require-go --cargo-target-dir .context/cargo-target-launch` passed locally at `2026-03-09T23:31:13Z` on commit `ed0d567b0`.
 - `2026-03-09`: `./scripts/launch/run_launch_rehearsal.sh --mode full --require-go --include-release-manifest --allow-dirty --operator launch-readiness --cargo-target-dir .context/cargo-target-launch` passed locally and produced `artifacts/launch-rehearsals/20260309T233124Z-ed0d567b0`.
 - `2026-03-09`: CI run `22732088945` completed `success` on commit `ed0d567b0` with all jobs green (`Build`, `Test`, `Clippy`, `Format`, `Security Audit`, `Fuzz (smoke)`, `Launch Readiness (smoke)`).
+- `2026-03-09`: `run_readiness_gate.sh`, `generate_evidence_bundle.sh`, and `run_launch_rehearsal.sh` now support `--nightly-fuzz-job-pattern` and `--nightly-fuzz-fail-on-cancelled` for strict fuzz-job-scoped gate-4 validation through full orchestration pipelines.
+- `2026-03-09`: Manual launch workflows `.github/workflows/launch-evidence.yml` and `.github/workflows/launch-rehearsal.yml` now expose matching dispatch inputs (`nightly_fuzz_job_pattern`, `nightly_fuzz_fail_on_cancelled`) and pass them through to launch scripts.
+- `2026-03-09`: `./scripts/launch/check_nightly_fuzz_health.sh --branch jayzalowitz/btc-near-fork-plan --workflow CI --fuzz-job-pattern "Fuzz" --window-days 7 --min-runs 1 --max-runs 50 --fail-on-cancelled` correctly failed locally (`cancelled_runs=13`) validating strict-cancel behavior.
+- `2026-03-09`: `./scripts/launch/run_readiness_gate.sh --full --require-go --check-nightly-fuzz-health --nightly-fuzz-branch jayzalowitz/btc-near-fork-plan --nightly-fuzz-workflow CI --nightly-fuzz-window-days 7 --nightly-fuzz-min-runs 1 --nightly-fuzz-max-runs 50 --nightly-fuzz-job-pattern "Fuzz" --cargo-target-dir .context/cargo-target-launch` passed locally at `2026-03-09T23:53:19Z`.
+- `2026-03-09`: `./scripts/launch/run_launch_rehearsal.sh --mode smoke --skip-release-manifest --require-go --check-nightly-fuzz-health --nightly-fuzz-branch jayzalowitz/btc-near-fork-plan --nightly-fuzz-workflow CI --nightly-fuzz-window-days 7 --nightly-fuzz-min-runs 1 --nightly-fuzz-max-runs 50 --nightly-fuzz-job-pattern "Fuzz" --allow-dirty --operator launch-readiness --cargo-target-dir .context/cargo-target-launch` passed locally and produced `artifacts/launch-rehearsals/20260309T235329Z-e376b7f92`.
 
 ## External Gates (Launch Window Status)
 
