@@ -28,6 +28,9 @@ The bundle is designed to support launch rehearsal and go/no-go review by captur
 # Enforce nightly fuzz health gate with explicit criteria
 ./scripts/launch/generate_evidence_bundle.sh --mode full --check-nightly-fuzz-health --nightly-fuzz-branch main --nightly-fuzz-workflow "Nightly Fuzz" --nightly-fuzz-window-days 7 --nightly-fuzz-min-runs 1 --nightly-fuzz-max-runs 200
 
+# Evaluate only fuzz jobs in a broader workflow
+./scripts/launch/generate_evidence_bundle.sh --mode full --check-nightly-fuzz-health --nightly-fuzz-workflow CI --nightly-fuzz-job-pattern "Fuzz"
+
 # Enforce gate #10 snapshot reconciliation during readiness execution
 ./scripts/launch/generate_evidence_bundle.sh --mode full --check-snapshot-supply --snapshot-genesis /path/to/genesis.json --snapshot-txoutsetinfo /path/to/gettxoutsetinfo.json --snapshot-tolerance-sats 1 --snapshot-json-out /tmp/snapshot-supply-check.json
 
@@ -132,6 +135,9 @@ Strict checklist totals (including `inconsistent_go_decision`) are embedded in b
 # Permit in-progress nightly runs during active maintenance windows
 ./scripts/launch/generate_evidence_bundle.sh --check-nightly-fuzz-health --nightly-fuzz-allow-in-progress
 
+# Treat cancelled nightly runs/jobs as failures
+./scripts/launch/generate_evidence_bundle.sh --check-nightly-fuzz-health --nightly-fuzz-fail-on-cancelled
+
 # Enforce gate #10 snapshot reconciliation with explicit input files
 ./scripts/launch/generate_evidence_bundle.sh --check-snapshot-supply --snapshot-genesis /path/to/genesis.json --snapshot-txoutsetinfo /path/to/gettxoutsetinfo.json --snapshot-tolerance-sats 1
 
@@ -150,7 +156,7 @@ Use workflow `.github/workflows/launch-evidence.yml` via manual dispatch:
 1. choose `mode` (`smoke` or `full`)
 2. optionally set `include_fuzz=true`
 3. optionally set `check_nightly_fuzz_health=true` and tune:
-   `nightly_fuzz_branch`, `nightly_fuzz_workflow`, `nightly_fuzz_window_days`, `nightly_fuzz_min_runs`, `nightly_fuzz_max_runs`, `nightly_fuzz_allow_in_progress`
+   `nightly_fuzz_branch`, `nightly_fuzz_workflow`, `nightly_fuzz_window_days`, `nightly_fuzz_min_runs`, `nightly_fuzz_max_runs`, `nightly_fuzz_job_pattern`, `nightly_fuzz_allow_in_progress`, `nightly_fuzz_fail_on_cancelled`
 4. optionally set `skip_issue1_goal_checks=true` only for fast iteration runs
 5. optionally set `cargo_target_dir` to override Cargo build output path (default CI behavior remains `target/`)
 6. set `require_go=true` for final signoff runs (will fail until checklist is fully complete)
