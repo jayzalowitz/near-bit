@@ -231,6 +231,9 @@ By default, local launch-gate commands write Cargo artifacts to `.context/cargo-
 - `2026-03-05`: `./scripts/launch/run_readiness_gate.sh --full --require-go --cargo-target-dir .context/cargo-target-launch` passed locally at `2026-03-05T18:56:33Z` on commit `046221edf`.
 - `2026-03-05`: `./scripts/launch/run_launch_rehearsal.sh --mode full --require-go --include-release-manifest --allow-dirty --operator launch-readiness --cargo-target-dir .context/cargo-target-launch` passed locally and produced `artifacts/launch-rehearsals/20260305T185640Z-046221edf`.
 - `2026-03-05`: CI run `22730991050` completed `success` on commit `046221edf` with all jobs green (`Build`, `Test`, `Clippy`, `Format`, `Security Audit`, `Fuzz (smoke)`, `Launch Readiness (smoke)`).
+- `2026-03-09`: `./scripts/launch/run_readiness_gate.sh --full --require-go --cargo-target-dir .context/cargo-target-launch` passed locally at `2026-03-09T23:31:13Z` on commit `ed0d567b0`.
+- `2026-03-09`: `./scripts/launch/run_launch_rehearsal.sh --mode full --require-go --include-release-manifest --allow-dirty --operator launch-readiness --cargo-target-dir .context/cargo-target-launch` passed locally and produced `artifacts/launch-rehearsals/20260309T233124Z-ed0d567b0`.
+- `2026-03-09`: CI run `22732088945` completed `success` on commit `ed0d567b0` with all jobs green (`Build`, `Test`, `Clippy`, `Format`, `Security Audit`, `Fuzz (smoke)`, `Launch Readiness (smoke)`).
 
 ## External Gates (Launch Window Status)
 
