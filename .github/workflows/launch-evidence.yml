@@ -46,8 +46,18 @@ on:
         required: true
         default: "200"
         type: string
+      nightly_fuzz_job_pattern:
+        description: "Optional regex to evaluate only matching fuzz jobs"
+        required: false
+        default: ""
+        type: string
       nightly_fuzz_allow_in_progress:
         description: "Allow in-progress nightly fuzz runs"
+        required: true
+        default: false
+        type: boolean
+      nightly_fuzz_fail_on_cancelled:
+        description: "Treat cancelled nightly fuzz runs/jobs as failures"
         required: true
         default: false
         type: boolean
@@ -110,8 +120,14 @@ jobs:
               --nightly-fuzz-min-runs "${{ inputs.nightly_fuzz_min_runs }}"
               --nightly-fuzz-max-runs "${{ inputs.nightly_fuzz_max_runs }}"
             )
+            if [[ -n "${{ inputs.nightly_fuzz_job_pattern }}" ]]; then
+              EXTRA_ARGS+=(--nightly-fuzz-job-pattern "${{ inputs.nightly_fuzz_job_pattern }}")
+            fi
             if [[ "${{ inputs.nightly_fuzz_allow_in_progress }}" == "true" ]]; then
               EXTRA_ARGS+=(--nightly-fuzz-allow-in-progress)
+            fi
+            if [[ "${{ inputs.nightly_fuzz_fail_on_cancelled }}" == "true" ]]; then
+              EXTRA_ARGS+=(--nightly-fuzz-fail-on-cancelled)
             fi
           fi
           if [[ "${{ inputs.skip_issue1_goal_checks }}" == "true" ]]; then
