@@ -3159,3 +3159,46 @@ Verification:
 - `./scripts/launch/check_nightly_fuzz_health.sh --branch jayzalowitz/btc-near-fork-plan --workflow CI --fuzz-job-pattern "Fuzz" --window-days 7 --min-runs 1 --max-runs 50 --fail-on-cancelled --json-out /tmp/nightly-fuzz-ci-branch-50-strict-cancel.json` correctly failed (`cancelled_runs=13`).
 - `./scripts/launch/run_readiness_gate.sh --full --require-go --check-nightly-fuzz-health --nightly-fuzz-branch jayzalowitz/btc-near-fork-plan --nightly-fuzz-workflow CI --nightly-fuzz-window-days 7 --nightly-fuzz-min-runs 1 --nightly-fuzz-max-runs 50 --nightly-fuzz-job-pattern "Fuzz" --cargo-target-dir .context/cargo-target-launch` passed locally at `2026-03-09T23:53:19Z`.
 - `./scripts/launch/run_launch_rehearsal.sh --mode smoke --skip-release-manifest --require-go --check-nightly-fuzz-health --nightly-fuzz-branch jayzalowitz/btc-near-fork-plan --nightly-fuzz-workflow CI --nightly-fuzz-window-days 7 --nightly-fuzz-min-runs 1 --nightly-fuzz-max-runs 50 --nightly-fuzz-job-pattern "Fuzz" --allow-dirty --operator launch-readiness --cargo-target-dir .context/cargo-target-launch` passed locally and produced `artifacts/launch-rehearsals/20260309T235329Z-e376b7f92`.
+
+## Continuation (2026-03-16): re-baseline launch window and refresh external gate evidence
+
+Implemented:
+- Re-baselined checklist signoff metadata in `docs/mainnet-go-no-go-checklist.md`:
+  - release candidate commit: `4f16c7d42`
+  - launch window: `2026-03-20T18:00:00Z` to `2026-03-20T22:00:00Z`
+  - final decision: `GO`
+  - decision timestamp: `2026-03-16T21:30:00Z`
+- Refreshed gate rows `1/2/3/4/11/12/13/14/15/16` with current evidence refs and completed date `2026-03-16` using `scripts/launch/update_go_no_go_gate.sh`.
+- Published refreshed launch-window evidence docs:
+  - `docs/external-gate-packet-mainnet-2026-03-20.md`
+  - `docs/incident-launch-pack-mainnet-2026-03-20.md`
+  - `docs/security-audit-report-mainnet-2026-03-16.md`
+  - `docs/high-finding-closure-mainnet-2026-03-16.md`
+  - `docs/nightly-fuzz-health-mainnet-2026-03-16.md`
+  - `docs/validator-contact-matrix-mainnet-2026-03-20.md`
+  - `docs/monitoring-alerting-drill-mainnet-2026-03-16.md`
+  - `docs/legal-review-signoff-mainnet-2026-03-16.md`
+  - `docs/token-classification-memo-mainnet-2026-03-16.md`
+  - `docs/patoshi-constraints-legal-memo-mainnet-2026-03-16.md`
+  - `docs/foundation-governance-treasury-controls-mainnet-2026-03-16.md`
+  - `docs/rollback-abort-dry-run-mainnet-2026-03-16.md`
+- Added refreshed external-gate artifact pack at `docs/external-gate-artifacts/mainnet-2026-03-20`:
+  - `nightly-fuzz-health.json`
+  - `nightly-fuzz-health.txt`
+  - `cargo-audit-workspace.json`
+  - `cargo-audit-near-account-id.json`
+  - `monitoring-drill-timeline.md`
+- Updated documentation index links in `docs/documentation-hub.md` to point at refreshed launch-window records.
+
+Verification:
+- `./scripts/launch/check_nightly_fuzz_health.sh --branch jayzalowitz/btc-near-fork-plan --workflow CI --fuzz-job-pattern "Fuzz" --window-days 7 --min-runs 1 --max-runs 50 --json-out docs/external-gate-artifacts/mainnet-2026-03-20/nightly-fuzz-health.json` passed (`runs=4`, `failed=0`, `cancelled=0`, `in_progress=0`).
+- `cargo audit --json > docs/external-gate-artifacts/mainnet-2026-03-20/cargo-audit-workspace.json` passed (`vulnerabilities.count=0`).
+- `cargo audit --file near-account-id/Cargo.lock --json > docs/external-gate-artifacts/mainnet-2026-03-20/cargo-audit-near-account-id.json` passed (`vulnerabilities.count=0`).
+- `./scripts/launch/check_go_no_go_checklist.sh --require-go --json-out /tmp/go-no-go-20260316.json` passed (`done_gates=16`, `todo_gates=0`, strict counters all `0`).
+- `./scripts/launch/run_readiness_gate.sh --full --require-go --check-nightly-fuzz-health --nightly-fuzz-branch jayzalowitz/btc-near-fork-plan --nightly-fuzz-workflow CI --nightly-fuzz-window-days 7 --nightly-fuzz-min-runs 1 --nightly-fuzz-max-runs 50 --nightly-fuzz-job-pattern "Fuzz" --cargo-target-dir .context/cargo-target-launch` passed locally at `2026-03-16T21:21:09Z`.
+- `./scripts/launch/run_launch_rehearsal.sh --mode full --require-go --include-release-manifest --allow-dirty --operator launch-readiness --check-nightly-fuzz-health --nightly-fuzz-branch jayzalowitz/btc-near-fork-plan --nightly-fuzz-workflow CI --nightly-fuzz-window-days 7 --nightly-fuzz-min-runs 1 --nightly-fuzz-max-runs 50 --nightly-fuzz-job-pattern "Fuzz" --cargo-target-dir .context/cargo-target-launch` passed locally and produced `artifacts/launch-rehearsals/20260316T212117Z-4f16c7d42`.
+
+Main-branch cutover check status:
+- `gh workflow run CI --ref main` failed with `HTTP 422` because the default-branch workflow currently does not expose `workflow_dispatch`.
+- `./scripts/launch/check_nightly_fuzz_health.sh --branch main --workflow CI --fuzz-job-pattern "Fuzz" --window-days 7 --min-runs 1 --max-runs 200` failed (`runs_in_window=0`).
+- Remaining cutover action after merge: rerun strict gate + rehearsal on `main` once the default branch includes this branch’s workflow/script updates.
