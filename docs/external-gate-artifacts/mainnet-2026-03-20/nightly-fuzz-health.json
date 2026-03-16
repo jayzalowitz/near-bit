@@ -1,0 +1,102 @@
+{
+  "repo": "infinitoshi/near-bit",
+  "branch": "infinitoshi/btc-near-fork-plan",
+  "workflow": "CI",
+  "window": {
+    "days": 7,
+    "start_iso": "2026-03-09T21:18:42Z"
+  },
+  "criteria": {
+    "min_runs": 1,
+    "fuzz_job_pattern": "Fuzz",
+    "evaluation_mode": "fuzz-job",
+    "allow_in_progress": false,
+    "fail_on_cancelled": false
+  },
+  "totals": {
+    "runs": 4,
+    "successful": 4,
+    "failed": 0,
+    "cancelled": 0,
+    "in_progress": 0
+  },
+  "status": "passed",
+  "runs": [
+    {
+      "conclusion": "success",
+      "createdAt": "2026-03-09T23:55:51Z",
+      "databaseId": 22880368517,
+      "displayTitle": "feat: Bitcoin Infinity (Sydney) — Full Bitcoin Core RPC parity over NEAR Protocol",
+      "event": "pull_request",
+      "status": "completed",
+      "url": "https://github.com/infinitoshi/near-bit/actions/runs/22880368517",
+      "workflowName": "CI",
+      "fuzz_evaluation": "success",
+      "matched_fuzz_job_count": 1,
+      "matched_fuzz_jobs": [
+        {
+          "name": "Fuzz (smoke)",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "conclusion": "success",
+      "createdAt": "2026-03-09T23:55:44Z",
+      "databaseId": 22880364752,
+      "displayTitle": "docs: record March 9 nightly-fuzz orchestration verification",
+      "event": "push",
+      "status": "completed",
+      "url": "https://github.com/infinitoshi/near-bit/actions/runs/22880364752",
+      "workflowName": "CI",
+      "fuzz_evaluation": "success",
+      "matched_fuzz_job_count": 1,
+      "matched_fuzz_jobs": [
+        {
+          "name": "Fuzz (smoke)",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "conclusion": "success",
+      "createdAt": "2026-03-09T23:32:45Z",
+      "databaseId": 22879703092,
+      "displayTitle": "feat: Bitcoin Infinity (Sydney) — Full Bitcoin Core RPC parity over NEAR Protocol",
+      "event": "pull_request",
+      "status": "completed",
+      "url": "https://github.com/infinitoshi/near-bit/actions/runs/22879703092",
+      "workflowName": "CI",
+      "fuzz_evaluation": "success",
+      "matched_fuzz_job_count": 1,
+      "matched_fuzz_jobs": [
+        {
+          "name": "Fuzz (smoke)",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    },
+    {
+      "conclusion": "success",
+      "createdAt": "2026-03-09T23:32:37Z",
+      "databaseId": 22879699271,
+      "displayTitle": "docs: add March 9 strict launch reconfirmation on ed0d567b0",
+      "event": "push",
+      "status": "completed",
+      "url": "https://github.com/infinitoshi/near-bit/actions/runs/22879699271",
+      "workflowName": "CI",
+      "fuzz_evaluation": "success",
+      "matched_fuzz_job_count": 1,
+      "matched_fuzz_jobs": [
+        {
+          "name": "Fuzz (smoke)",
+          "status": "completed",
+          "conclusion": "success"
+        }
+      ]
+    }
+  ]
+}
