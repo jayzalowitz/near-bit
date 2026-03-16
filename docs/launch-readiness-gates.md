@@ -264,9 +264,17 @@ By default, local launch-gate commands write Cargo artifacts to `.context/cargo-
 - `2026-03-16`: `./scripts/launch/check_go_no_go_checklist.sh --require-go` passed locally with refreshed signoff (`done_gates=16`, `todo_gates=0`, strict counters all `0`).
 - `2026-03-16`: `./scripts/launch/run_readiness_gate.sh --full --require-go --check-nightly-fuzz-health --nightly-fuzz-branch jayzalowitz/btc-near-fork-plan --nightly-fuzz-workflow CI --nightly-fuzz-window-days 7 --nightly-fuzz-min-runs 1 --nightly-fuzz-max-runs 50 --nightly-fuzz-job-pattern "Fuzz" --cargo-target-dir .context/cargo-target-launch` passed locally at `2026-03-16T21:21:09Z`.
 - `2026-03-16`: `./scripts/launch/run_launch_rehearsal.sh --mode full --require-go --include-release-manifest --allow-dirty --operator launch-readiness --check-nightly-fuzz-health --nightly-fuzz-branch jayzalowitz/btc-near-fork-plan --nightly-fuzz-workflow CI --nightly-fuzz-window-days 7 --nightly-fuzz-min-runs 1 --nightly-fuzz-max-runs 50 --nightly-fuzz-job-pattern "Fuzz" --cargo-target-dir .context/cargo-target-launch` passed locally and produced `artifacts/launch-rehearsals/20260316T212117Z-4f16c7d42`.
+- `2026-03-16`: Post-refresh reconfirmation reruns passed locally:
+  - `./scripts/launch/check_go_no_go_checklist.sh --require-go --json-out /tmp/go-no-go-20260316-recheck.json`
+  - `./scripts/launch/run_readiness_gate.sh --full --require-go --check-nightly-fuzz-health --nightly-fuzz-branch jayzalowitz/btc-near-fork-plan --nightly-fuzz-workflow CI --nightly-fuzz-window-days 7 --nightly-fuzz-min-runs 1 --nightly-fuzz-max-runs 50 --nightly-fuzz-job-pattern "Fuzz" --cargo-target-dir .context/cargo-target-launch` (passed at `2026-03-16T21:25:17Z`)
+  - `./scripts/launch/run_launch_rehearsal.sh --mode full --require-go --include-release-manifest --allow-dirty --operator launch-readiness --check-nightly-fuzz-health --nightly-fuzz-branch jayzalowitz/btc-near-fork-plan --nightly-fuzz-workflow CI --nightly-fuzz-window-days 7 --nightly-fuzz-min-runs 1 --nightly-fuzz-max-runs 50 --nightly-fuzz-job-pattern "Fuzz" --cargo-target-dir .context/cargo-target-launch` (artifact: `artifacts/launch-rehearsals/20260316T212521Z-4f16c7d42`)
+- `2026-03-16`: CI run `23166692123` completed `success` on commit `dfd30695e` with all jobs green (`Build`, `Test`, `Clippy`, `Format`, `Security Audit`, `Fuzz (smoke)`, `Launch Readiness (smoke)`).
 - `2026-03-16`: Main-branch cutover check remains blocked pre-merge:
   - `gh workflow run CI --ref main` failed (`HTTP 422: Workflow does not have 'workflow_dispatch' trigger`) because default-branch workflow config has not yet picked up this branch’s CI changes.
   - `./scripts/launch/check_nightly_fuzz_health.sh --branch main --workflow CI --fuzz-job-pattern "Fuzz" --window-days 7 --min-runs 1 --max-runs 200` failed (`runs_in_window=0`).
+- `2026-03-16`: Main-branch cutover blocker reconfirmed after push:
+  - `gh workflow run CI --ref main` still fails (`HTTP 422: Workflow does not have 'workflow_dispatch' trigger`).
+  - `./scripts/launch/check_nightly_fuzz_health.sh --branch main --workflow CI --fuzz-job-pattern "Fuzz" --window-days 7 --min-runs 1 --max-runs 200 --json-out /tmp/nightly-fuzz-main-ci-20260316-postpush.json` still fails (`runs_in_window=0`).
 
 ## External Gates (Launch Window Status)
 
