@@ -1,6 +1,6 @@
 # Launch Readiness Gates
 
-Last updated: March 9, 2026.
+Last updated: March 16, 2026.
 
 This document tracks launch-readiness progress for items in [issue #11](https://github.com/infinitoshi/near-bit/issues/11), with a strict split between:
 
@@ -242,21 +242,46 @@ By default, local launch-gate commands write Cargo artifacts to `.context/cargo-
 - `2026-03-09`: `./scripts/launch/check_nightly_fuzz_health.sh --branch infinitoshi/btc-near-fork-plan --workflow CI --fuzz-job-pattern "Fuzz" --window-days 7 --min-runs 1 --max-runs 50 --fail-on-cancelled` correctly failed locally (`cancelled_runs=13`) validating strict-cancel behavior.
 - `2026-03-09`: `./scripts/launch/run_readiness_gate.sh --full --require-go --check-nightly-fuzz-health --nightly-fuzz-branch infinitoshi/btc-near-fork-plan --nightly-fuzz-workflow CI --nightly-fuzz-window-days 7 --nightly-fuzz-min-runs 1 --nightly-fuzz-max-runs 50 --nightly-fuzz-job-pattern "Fuzz" --cargo-target-dir .context/cargo-target-launch` passed locally at `2026-03-09T23:53:19Z`.
 - `2026-03-09`: `./scripts/launch/run_launch_rehearsal.sh --mode smoke --skip-release-manifest --require-go --check-nightly-fuzz-health --nightly-fuzz-branch infinitoshi/btc-near-fork-plan --nightly-fuzz-workflow CI --nightly-fuzz-window-days 7 --nightly-fuzz-min-runs 1 --nightly-fuzz-max-runs 50 --nightly-fuzz-job-pattern "Fuzz" --allow-dirty --operator launch-readiness --cargo-target-dir .context/cargo-target-launch` passed locally and produced `artifacts/launch-rehearsals/20260309T235329Z-e376b7f92`.
+- `2026-03-16`: Re-baselined launch-window signoff to release candidate `4f16c7d42` and launch window `2026-03-20T18:00:00Z` to `2026-03-20T22:00:00Z` in `docs/mainnet-go-no-go-checklist.md`.
+- `2026-03-16`: Refreshed external gate artifacts under `docs/external-gate-artifacts/mainnet-2026-03-20`:
+  - `nightly-fuzz-health.json` / `nightly-fuzz-health.txt` (`runs=4`, `failed=0`, `cancelled=0`, `in_progress=0`)
+  - `cargo-audit-workspace.json` (`vulnerabilities.count=0`)
+  - `cargo-audit-near-account-id.json` (`vulnerabilities.count=0`)
+  - `monitoring-drill-timeline.md`
+- `2026-03-16`: Published refreshed launch-window evidence docs:
+  - `docs/external-gate-packet-mainnet-2026-03-20.md`
+  - `docs/incident-launch-pack-mainnet-2026-03-20.md`
+  - `docs/security-audit-report-mainnet-2026-03-16.md`
+  - `docs/high-finding-closure-mainnet-2026-03-16.md`
+  - `docs/nightly-fuzz-health-mainnet-2026-03-16.md`
+  - `docs/validator-contact-matrix-mainnet-2026-03-20.md`
+  - `docs/monitoring-alerting-drill-mainnet-2026-03-16.md`
+  - `docs/legal-review-signoff-mainnet-2026-03-16.md`
+  - `docs/token-classification-memo-mainnet-2026-03-16.md`
+  - `docs/patoshi-constraints-legal-memo-mainnet-2026-03-16.md`
+  - `docs/foundation-governance-treasury-controls-mainnet-2026-03-16.md`
+  - `docs/rollback-abort-dry-run-mainnet-2026-03-16.md`
+- `2026-03-16`: `./scripts/launch/check_go_no_go_checklist.sh --require-go` passed locally with refreshed signoff (`done_gates=16`, `todo_gates=0`, strict counters all `0`).
+- `2026-03-16`: `./scripts/launch/run_readiness_gate.sh --full --require-go --check-nightly-fuzz-health --nightly-fuzz-branch infinitoshi/btc-near-fork-plan --nightly-fuzz-workflow CI --nightly-fuzz-window-days 7 --nightly-fuzz-min-runs 1 --nightly-fuzz-max-runs 50 --nightly-fuzz-job-pattern "Fuzz" --cargo-target-dir .context/cargo-target-launch` passed locally at `2026-03-16T21:21:09Z`.
+- `2026-03-16`: `./scripts/launch/run_launch_rehearsal.sh --mode full --require-go --include-release-manifest --allow-dirty --operator launch-readiness --check-nightly-fuzz-health --nightly-fuzz-branch infinitoshi/btc-near-fork-plan --nightly-fuzz-workflow CI --nightly-fuzz-window-days 7 --nightly-fuzz-min-runs 1 --nightly-fuzz-max-runs 50 --nightly-fuzz-job-pattern "Fuzz" --cargo-target-dir .context/cargo-target-launch` passed locally and produced `artifacts/launch-rehearsals/20260316T212117Z-4f16c7d42`.
+- `2026-03-16`: Main-branch cutover check remains blocked pre-merge:
+  - `gh workflow run CI --ref main` failed (`HTTP 422: Workflow does not have 'workflow_dispatch' trigger`) because default-branch workflow config has not yet picked up this branch’s CI changes.
+  - `./scripts/launch/check_nightly_fuzz_health.sh --branch main --workflow CI --fuzz-job-pattern "Fuzz" --window-days 7 --min-runs 1 --max-runs 200` failed (`runs_in_window=0`).
 
 ## External Gates (Launch Window Status)
 
-For launch window `2026-03-10T18:00:00Z` to `2026-03-10T22:00:00Z`, external gates are documented as complete in:
+For launch window `2026-03-20T18:00:00Z` to `2026-03-20T22:00:00Z`, external gates are documented as complete in:
 
-1. `docs/external-gate-packet-mainnet-2026-03-10.md`
+1. `docs/external-gate-packet-mainnet-2026-03-20.md`
 2. `docs/mainnet-go-no-go-checklist.md`
-3. `docs/security-audit-report-mainnet-2026-03-05.md`
-4. `docs/high-finding-closure-mainnet-2026-03-05.md`
-5. `docs/nightly-fuzz-health-mainnet-2026-03-05.md`
-6. `docs/validator-contact-matrix-mainnet-2026-03-10.md`
-7. `docs/monitoring-alerting-drill-mainnet-2026-03-05.md`
-8. `docs/legal-review-signoff-mainnet-2026-03-05.md`
-9. `docs/foundation-governance-treasury-controls-mainnet-2026-03-05.md`
-10. `docs/rollback-abort-dry-run-mainnet-2026-03-05.md`
+3. `docs/security-audit-report-mainnet-2026-03-16.md`
+4. `docs/high-finding-closure-mainnet-2026-03-16.md`
+5. `docs/nightly-fuzz-health-mainnet-2026-03-16.md`
+6. `docs/validator-contact-matrix-mainnet-2026-03-20.md`
+7. `docs/monitoring-alerting-drill-mainnet-2026-03-16.md`
+8. `docs/legal-review-signoff-mainnet-2026-03-16.md`
+9. `docs/foundation-governance-treasury-controls-mainnet-2026-03-16.md`
+10. `docs/rollback-abort-dry-run-mainnet-2026-03-16.md`
 
 ## Suggested Launch-Rehearsal Exit Criteria
 
