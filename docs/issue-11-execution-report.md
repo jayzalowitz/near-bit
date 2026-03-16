@@ -3202,3 +3202,29 @@ Main-branch cutover check status:
 - `gh workflow run CI --ref main` failed with `HTTP 422` because the default-branch workflow currently does not expose `workflow_dispatch`.
 - `./scripts/launch/check_nightly_fuzz_health.sh --branch main --workflow CI --fuzz-job-pattern "Fuzz" --window-days 7 --min-runs 1 --max-runs 200` failed (`runs_in_window=0`).
 - Remaining cutover action after merge: rerun strict gate + rehearsal on `main` once the default branch includes this branch’s workflow/script updates.
+
+## Continuation (2026-03-16): finalize refresh commits and reconfirm CI/main-branch blocker
+
+Implemented:
+- Committed refreshed launch-window evidence and docs in logical parts:
+  - `cf3160d8a` (`docs: refresh March 20 external gate evidence packet`)
+  - `bba30ab38` (`docs: rebaseline go-no-go checklist for Mar 20 launch window`)
+  - `dfd30695e` (`docs: log March 16 launch-readiness verification refresh`)
+- Pushed the commits to branch `infinitoshi/btc-near-fork-plan`.
+
+Verification:
+- `./scripts/launch/check_go_no_go_checklist.sh --require-go --json-out /tmp/go-no-go-20260316-recheck.json` passed.
+- `./scripts/launch/run_readiness_gate.sh --full --require-go --check-nightly-fuzz-health --nightly-fuzz-branch infinitoshi/btc-near-fork-plan --nightly-fuzz-workflow CI --nightly-fuzz-window-days 7 --nightly-fuzz-min-runs 1 --nightly-fuzz-max-runs 50 --nightly-fuzz-job-pattern "Fuzz" --cargo-target-dir .context/cargo-target-launch` passed at `2026-03-16T21:25:17Z`.
+- `./scripts/launch/run_launch_rehearsal.sh --mode full --require-go --include-release-manifest --allow-dirty --operator launch-readiness --check-nightly-fuzz-health --nightly-fuzz-branch infinitoshi/btc-near-fork-plan --nightly-fuzz-workflow CI --nightly-fuzz-window-days 7 --nightly-fuzz-min-runs 1 --nightly-fuzz-max-runs 50 --nightly-fuzz-job-pattern "Fuzz" --cargo-target-dir .context/cargo-target-launch` passed and produced `artifacts/launch-rehearsals/20260316T212521Z-4f16c7d42`.
+- CI run `23166692123` on commit `dfd30695e` completed with overall `success`; job conclusions:
+  - `Format`: success
+  - `Build`: success
+  - `Test`: success
+  - `Clippy`: success
+  - `Security Audit`: success
+  - `Fuzz (smoke)`: success
+  - `Launch Readiness (smoke)`: success
+
+Main-branch cutover check status (reconfirmed post-push):
+- `gh workflow run CI --ref main` still fails with `HTTP 422` because default-branch workflow config does not yet expose `workflow_dispatch`.
+- `./scripts/launch/check_nightly_fuzz_health.sh --branch main --workflow CI --fuzz-job-pattern "Fuzz" --window-days 7 --min-runs 1 --max-runs 200 --json-out /tmp/nightly-fuzz-main-ci-20260316-postpush.json` still fails (`runs_in_window=0`).
