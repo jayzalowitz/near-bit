@@ -2,7 +2,7 @@
 
 Generated at (UTC): 2026-03-16T21:25:00Z
 
-- Release version: 4f16c7d42
+- Release version: 94bd80ef1
 - Launch window: 2026-03-20T18:00:00Z to 2026-03-20T22:00:00Z
 - Status page: https://status.bitcoininfinity.io
 - Coordination channel: #validators-bridge

@@ -1,7 +1,7 @@
 # High Finding Closure Record (Launch Window 2026-03-20)
 
 Date (UTC): 2026-03-16
-Release candidate: `4f16c7d42`
+Release candidate: `94bd80ef1`
 Owner: launch-readiness
 
 ## High Finding Status
