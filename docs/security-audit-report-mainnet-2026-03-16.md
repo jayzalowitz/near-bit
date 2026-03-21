@@ -1,7 +1,7 @@
 # Mainnet Security Audit Report (Launch Window 2026-03-20)
 
 Date (UTC): 2026-03-16
-Release candidate: `94bd80ef1`
+Release candidate: `308c5d759`
 Scope owner: launch-readiness
 
 ## Scope
@@ -31,7 +31,7 @@ Security review scope covered:
 
 ## Conclusion
 
-The launch-window security review reports zero open Critical findings for release candidate `94bd80ef1` as of 2026-03-16.
+The launch-window security review reports zero open Critical findings for release candidate `308c5d759` as of 2026-03-16.
 
 ## Signoff
 

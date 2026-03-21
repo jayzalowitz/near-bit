@@ -1,7 +1,7 @@
 # Incident Communication Pack (Launch Window Prefill)
 
 Generated at (UTC): 2026-03-16T21:19:24Z
-Release candidate: 94bd80ef1
+Release candidate: 308c5d759
 Launch window (UTC): 2026-03-20T18:00:00Z to 2026-03-20T22:00:00Z
 Status page: https://status.bitcoininfinity.io
 Coordination channel: #validators-bridge
@@ -26,7 +26,7 @@ Next update ETA: <minutes>.
 Tracking:
 - Status page: https://status.bitcoininfinity.io
 - Incident ID: LAUNCH-001
-- Build/version: 94bd80ef1
+- Build/version: 308c5d759
 
 ## 2) Security Halt / Do Not Transact
 
@@ -75,17 +75,17 @@ Incident ID: LAUNCH-003
 
 ## 4) Emergency Upgrade Request (Validators)
 
-Title: Emergency upgrade required: version 94bd80ef1
+Title: Emergency upgrade required: version 308c5d759
 
 Timestamp (UTC): 2026-03-20T18:00:00Z
 Severity: <P0|P1>
 Upgrade deadline (UTC): 2026-03-20T22:00:00Z
 
-Validators: upgrade to 94bd80ef1 by the deadline above.
+Validators: upgrade to 308c5d759 by the deadline above.
 Reason: <one-sentence reason>.
 
 Upgrade instructions:
-1. Pull release/tag: 94bd80ef1.
+1. Pull release/tag: 308c5d759.
 2. Verify artifact checksum/signature: <checksum instructions>.
 3. Restart node using standard rollout (canary first).
 4. Confirm post-upgrade health: block progression, RPC availability, validator status.

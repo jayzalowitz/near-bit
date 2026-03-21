@@ -3164,7 +3164,7 @@ Verification:
 
 Implemented:
 - Re-baselined checklist signoff metadata in `docs/mainnet-go-no-go-checklist.md`:
-  - release candidate commit: `94bd80ef1`
+  - release candidate commit: `308c5d759`
   - launch window: `2026-03-20T18:00:00Z` to `2026-03-20T22:00:00Z`
   - final decision: `GO`
   - decision timestamp: `2026-03-16T21:30:00Z`
@@ -3196,7 +3196,7 @@ Verification:
 - `cargo audit --file near-account-id/Cargo.lock --json > docs/external-gate-artifacts/mainnet-2026-03-20/cargo-audit-near-account-id.json` passed (`vulnerabilities.count=0`).
 - `./scripts/launch/check_go_no_go_checklist.sh --require-go --json-out /tmp/go-no-go-20260316.json` passed (`done_gates=16`, `todo_gates=0`, strict counters all `0`).
 - `./scripts/launch/run_readiness_gate.sh --full --require-go --check-nightly-fuzz-health --nightly-fuzz-branch infinitoshi/btc-near-fork-plan --nightly-fuzz-workflow CI --nightly-fuzz-window-days 7 --nightly-fuzz-min-runs 1 --nightly-fuzz-max-runs 50 --nightly-fuzz-job-pattern "Fuzz" --cargo-target-dir .context/cargo-target-launch` passed locally at `2026-03-16T21:21:09Z`.
-- `./scripts/launch/run_launch_rehearsal.sh --mode full --require-go --include-release-manifest --allow-dirty --operator launch-readiness --check-nightly-fuzz-health --nightly-fuzz-branch infinitoshi/btc-near-fork-plan --nightly-fuzz-workflow CI --nightly-fuzz-window-days 7 --nightly-fuzz-min-runs 1 --nightly-fuzz-max-runs 50 --nightly-fuzz-job-pattern "Fuzz" --cargo-target-dir .context/cargo-target-launch` passed locally and produced `artifacts/launch-rehearsals/20260316T212117Z-94bd80ef1`.
+- `./scripts/launch/run_launch_rehearsal.sh --mode full --require-go --include-release-manifest --allow-dirty --operator launch-readiness --check-nightly-fuzz-health --nightly-fuzz-branch infinitoshi/btc-near-fork-plan --nightly-fuzz-workflow CI --nightly-fuzz-window-days 7 --nightly-fuzz-min-runs 1 --nightly-fuzz-max-runs 50 --nightly-fuzz-job-pattern "Fuzz" --cargo-target-dir .context/cargo-target-launch` passed locally and produced `artifacts/launch-rehearsals/20260316T212117Z-308c5d759`.
 
 Main-branch cutover check status:
 - `gh workflow run CI --ref main` failed with `HTTP 422` because the default-branch workflow currently does not expose `workflow_dispatch`.
@@ -3215,7 +3215,7 @@ Implemented:
 Verification:
 - `./scripts/launch/check_go_no_go_checklist.sh --require-go --json-out /tmp/go-no-go-20260316-recheck.json` passed.
 - `./scripts/launch/run_readiness_gate.sh --full --require-go --check-nightly-fuzz-health --nightly-fuzz-branch infinitoshi/btc-near-fork-plan --nightly-fuzz-workflow CI --nightly-fuzz-window-days 7 --nightly-fuzz-min-runs 1 --nightly-fuzz-max-runs 50 --nightly-fuzz-job-pattern "Fuzz" --cargo-target-dir .context/cargo-target-launch` passed at `2026-03-16T21:25:17Z`.
-- `./scripts/launch/run_launch_rehearsal.sh --mode full --require-go --include-release-manifest --allow-dirty --operator launch-readiness --check-nightly-fuzz-health --nightly-fuzz-branch infinitoshi/btc-near-fork-plan --nightly-fuzz-workflow CI --nightly-fuzz-window-days 7 --nightly-fuzz-min-runs 1 --nightly-fuzz-max-runs 50 --nightly-fuzz-job-pattern "Fuzz" --cargo-target-dir .context/cargo-target-launch` passed and produced `artifacts/launch-rehearsals/20260316T212521Z-94bd80ef1`.
+- `./scripts/launch/run_launch_rehearsal.sh --mode full --require-go --include-release-manifest --allow-dirty --operator launch-readiness --check-nightly-fuzz-health --nightly-fuzz-branch infinitoshi/btc-near-fork-plan --nightly-fuzz-workflow CI --nightly-fuzz-window-days 7 --nightly-fuzz-min-runs 1 --nightly-fuzz-max-runs 50 --nightly-fuzz-job-pattern "Fuzz" --cargo-target-dir .context/cargo-target-launch` passed and produced `artifacts/launch-rehearsals/20260316T212521Z-308c5d759`.
 - CI run `23166692123` on commit `dfd30695e` completed with overall `success`; job conclusions:
   - `Format`: success
   - `Build`: success

@@ -12,7 +12,7 @@ Tip: use `scripts/launch/generate_external_gate_packet.sh` to prefill external-g
 
 ## Signoff Block
 
-- Release candidate commit: 94bd80ef1
+- Release candidate commit: 308c5d759
 - Proposed genesis hash: 95f3e2600eec0dcd3ca51bf530f46ac963fa3b5286e18c6401efdcae8066aa5d
 - Planned launch window (UTC): 2026-03-20T18:00:00Z to 2026-03-20T22:00:00Z
 - Final decision: GO
