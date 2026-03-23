@@ -1,0 +1,317 @@
+rm -rf /Users/infinitoshi/conductor/workspaces/near-bit/sydney/nearcore/benchmarks/transactions-generator/.near && rm -rf /Users/infinitoshi/conductor/workspaces/near-bit/sydney/nearcore/benchmarks/transactions-generator/user-data
+/Users/infinitoshi/conductor/workspaces/near-bit/sydney/nearcore/benchmarks/transactions-generator/./neard --home /Users/infinitoshi/conductor/workspaces/near-bit/sydney/nearcore/benchmarks/transactions-generator/.near init --chain-id localnet
+2026-03-05T17:09:20.525594Z  INFO neard: version="trunk" build="06f850bc7" commit="06f850bc7cb80460eacd1efd82fffc604272bfe3" latest_protocol=84
+2026-03-05T17:09:20.525946Z  INFO near: using key for account public_key=ed25519:ovzfjoWsCH3c4FTFQHe8kBzQPjDneZzjJ5KyZStQRke account_id=node
+2026-03-05T17:09:20.526128Z  INFO near: using key for account public_key=ed25519:5WyAkUFB3GkgGW1dCgnzDHRfar6P9o1ccy7iAuMXj3Ec account_id=test.near
+2026-03-05T17:09:20.526537Z  INFO config: validating genesis config and records, this could take a few minutes
+2026-03-05T17:09:20.526834Z  INFO near: generated node key, validator key, genesis file dir=/Users/infinitoshi/conductor/workspaces/near-bit/sydney/nearcore/benchmarks/transactions-generator/.near
+jq '.chain_id="benchmarknet"' /Users/infinitoshi/conductor/workspaces/near-bit/sydney/nearcore/benchmarks/transactions-generator/.near/genesis.json > tmp_genesis.json && mv tmp_genesis.json /Users/infinitoshi/conductor/workspaces/near-bit/sydney/nearcore/benchmarks/transactions-generator/.near/genesis.json
+jq '.rpc.addr="0.0.0.0:4040"' /Users/infinitoshi/conductor/workspaces/near-bit/sydney/nearcore/benchmarks/transactions-generator/.near/config.json > tmp_config.json && mv tmp_config.json /Users/infinitoshi/conductor/workspaces/near-bit/sydney/nearcore/benchmarks/transactions-generator/.near/config.json
+2026-03-05T17:09:20.859954Z  INFO neard: version="trunk" build="06f850bc7" commit="06f850bc7cb80460eacd1efd82fffc604272bfe3" latest_protocol=84
+2026-03-05T17:09:20.860799Z  INFO config: validating config, extracted from config.json
+2026-03-05T17:09:20.861385Z  WARN genesis: skipped genesis validation
+2026-03-05T17:09:20.861396Z  INFO config: validating genesis config and records, this could take a few minutes
+2026-03-05T17:09:20.861517Z  INFO config: all validations have passed
+2026-03-05T17:09:20.862571Z  INFO neard: reset the config because the config file doesn't exist err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/infinitoshi/conductor/workspaces/near-bit/sydney/nearcore/benchmarks/transactions-generator/.near/log_config.json"
+2026-03-05T17:09:20.863130Z  INFO config: validating config, extracted from config.json
+2026-03-05T17:09:20.863185Z  INFO neard: hot loading validator key validator_file=/Users/infinitoshi/conductor/workspaces/near-bit/sydney/nearcore/benchmarks/transactions-generator/.near/validator_key.json
+2026-03-05T17:09:20.863208Z  INFO near_o11y::reload: updated the logging layer according to log_config.json
+2026-03-05T17:09:20.863232Z  INFO db_opener: opening node storage path="/Users/infinitoshi/conductor/workspaces/near-bit/sydney/nearcore/benchmarks/transactions-generator/.near/data" cold_path="none"
+2026-03-05T17:09:20.863245Z  INFO db_opener: the database doesn't exist, creating it path=/Users/infinitoshi/conductor/workspaces/near-bit/sydney/nearcore/benchmarks/transactions-generator/.near/data
+2026-03-05T17:09:20.863267Z  INFO db: opened a new rocksdb instance num_instances=1
+2026-03-05T17:09:21.496772Z  INFO db: closed a rocksdb instance num_instances=0
+2026-03-05T17:09:21.496793Z  INFO db: opened a new rocksdb instance num_instances=1
+2026-03-05T17:09:21.541231Z  INFO db_opener: setting the db kind archive=false which="Hot" default_kind=RPC
+2026-03-05T17:09:21.543164Z  INFO db: closed a rocksdb instance num_instances=0
+2026-03-05T17:09:21.543198Z  INFO db: opened a new rocksdb instance num_instances=1
+2026-03-05T17:09:21.544312Z  INFO db: closed a rocksdb instance num_instances=0
+2026-03-05T17:09:21.544330Z  INFO db: opened a new rocksdb instance num_instances=1
+2026-03-05T17:09:21.597332Z  INFO runtime: genesis state has records, computing state roots num_records=4
+2026-03-05T17:09:21.599098Z  INFO store: distributing records to shards
+2026-03-05T17:09:21.599355Z  INFO runtime: processing records… shard_uid=s0.v0
+2026-03-05T17:09:21.599371Z  INFO runtime: processing account storage… shard_uid=s0.v0
+2026-03-05T17:09:21.599376Z  INFO runtime: processing postponed receipts… shard_uid=s0.v0
+2026-03-05T17:09:21.599379Z  INFO runtime: flushing changes shard_uid=s0.v0 state_root=11111111111111111111111111111111 changes=7
+2026-03-05T17:09:21.599528Z  INFO runtime: flushing changes shard_uid=s0.v0 state_root=4Nzi7K14YZUXVyWsGdB4AP41zMeWbXWKLka9Ksnf2uXu changes=0
+2026-03-05T17:09:21.601191Z ERROR metrics: error when exporting postponed receipts count err=DB Not Found Error: FINAL HEAD
+2026-03-05T17:09:21.613314Z  WARN garbage collection: state not initialized yet, head doesn't exist
+2026-03-05T17:09:21.613385Z  INFO chain: genesis has been saved height=0 block_head.last_block_hash=GuXHciaoZWwoKZqLcqekmXGZ9h1U1jdnkBaC8xj2RB4p state_roots=[4Nzi7K14YZUXVyWsGdB4AP41zMeWbXWKLka9Ksnf2uXu]
+2026-03-05T17:09:21.613460Z  INFO memtrie: loading tries to memory for shards shard_uids_to_load=[s0.v0]
+2026-03-05T17:09:21.613486Z  INFO memtrie: loading trie to memory for shard shard_uid=s0.v0
+2026-03-05T17:09:21.614408Z  INFO near_store::trie::mem::parallel_loader: loading subtrees in parallel num_subtrees=0
+2026-03-05T17:09:21.614452Z  INFO memtrie: done loading trie from flat state shard_uid=s0.v0 duration=932.291µs
+2026-03-05T17:09:21.614489Z  INFO memtrie: memtrie loading complete for shard shard_uid=s0.v0
+2026-03-05T17:09:21.614492Z  INFO memtrie: memtries loading complete for shards shard_uids_to_load=[s0.v0]
+2026-03-05T17:09:21.614496Z  INFO chain: initializing chain header_height=0 header_head.last_block_hash=GuXHciaoZWwoKZqLcqekmXGZ9h1U1jdnkBaC8xj2RB4p block_height=0 block_head.last_block_hash=GuXHciaoZWwoKZqLcqekmXGZ9h1U1jdnkBaC8xj2RB4p
+2026-03-05T17:09:21.615045Z  INFO client: starting validator node validator_id=test.near
+2026-03-05T17:09:21.617129Z  INFO network: starting http server addr=0.0.0.0:4040
+2026-03-05T17:09:21.616953Z  INFO config: mutable config field remains the same field_name="expected_shutdown" value=None
+2026-03-05T17:09:21.616973Z  INFO config: mutable config field remains the same field_name="resharding_config" value=ReshardingConfig { batch_size: 500.0 KB, batch_delay: Duration { seconds: 0, nanoseconds: 5000000 }, retry_delay: Duration { seconds: 10, nanoseconds: 0 }, initial_delay: Duration { seconds: 0, nanoseconds: 0 }, max_poll_time: Duration { seconds: 7200, nanoseconds: 0 }, catch_up_blocks: 20 }
+2026-03-05T17:09:21.616984Z  INFO config: mutable config field remains the same field_name="produce_chunk_add_transactions_time_limit" value=Some(Duration { seconds: 0, nanoseconds: 500000000 })
+2026-03-05T17:09:21.616991Z  INFO config: updated client config
+2026-03-05T17:09:21.616992Z  INFO config: mutable config field remains the same field_name="validator_signer" value=Some(InMemory(InMemoryValidatorSigner { account_id: AccountId("test.near"), signer: InMemory(InMemorySigner(account_id: test.near, public_key: ed25519:5WyAkUFB3GkgGW1dCgnzDHRfar6P9o1ccy7iAuMXj3Ec)) }))
+2026-03-05T17:09:21.616998Z  INFO config: updated validator key
+2026-03-05T17:09:21.617689Z  INFO bandwidth: total_bandwidth_used_by_all_peers=0 total_msg_received_count=0
+2026-03-05T17:09:21.618247Z  INFO stats: node_status="#       0 GuXHciaoZWwoKZqLcqekmXGZ9h1U1jdnkBaC8xj2RB4p Validator | 1 validator 0 peers ⬇ 0 B/s ⬆ 0 B/s 0.00 bps 0 gas/s CPU: 0%, Mem: 78.4 MB"
+2026-03-05T17:09:21.622672Z  WARN network: stun lookup failed addr=74.125.250.129:19302 err=io error: Invalid argument (os error 22)
+2026-03-05T17:09:21.623860Z  WARN network: stun lookup failed addr=74.125.250.129:19302 err=io error: Invalid argument (os error 22)
+2026-03-05T17:09:21.638132Z  WARN network: stun lookup failed addr=74.125.250.129:19302 err=io error: Invalid argument (os error 22)
+2026-03-05T17:09:21.642759Z  WARN network: stun lookup failed addr=74.125.250.129:19302 err=io error: Invalid argument (os error 22)
+2026-03-05T17:09:21.644790Z  WARN network: stun lookup failed addr=74.125.250.129:19302 err=io error: Invalid argument (os error 22)
+2026-03-05T17:09:21.644939Z  INFO network: connected to proxies my_proxies=[]
+2026-03-05T17:09:22.223750Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=1 enough_approvals_for=122.5µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 53583 }
+2026-03-05T17:09:22.227583Z  INFO memtrie: keeping memtries for shards current_memtries=[s0.v0] shard_uids=[s0.v0]
+2026-03-05T17:09:22.227592Z  INFO memtrie: memtries retaining complete for shards shard_uids=[s0.v0]
+2026-03-05T17:09:22.824999Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=2 enough_approvals_for=158.083µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 591268916 }
+2026-03-05T17:09:23.431036Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=3 enough_approvals_for=48.166µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 594308083 }
+2026-03-05T17:09:24.035932Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=4 enough_approvals_for=15.042µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 591381667 }
+2026-03-05T17:09:24.037679Z  INFO state_snapshot: make_snapshot_callback sends `CreateSnapshotRequest` to state_snapshot_addr prev_block_hash=5QLuSuzi84qjjz2J8bPcZtjXFQf9BuJYfPhYDvxfTPNY shard_indexes_and_uids=[(0, s0.v0)]
+2026-03-05T17:09:24.642998Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=5 enough_approvals_for=17.458µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 593171083 }
+2026-03-05T17:09:25.244926Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=6 enough_approvals_for=173.25µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 588833500 }
+2026-03-05T17:09:25.634950Z  INFO create_state_snapshot{prev_block_hash=5QLuSuzi84qjjz2J8bPcZtjXFQf9BuJYfPhYDvxfTPNY}:checkpoint_hot_storage_and_cleanup_columns: db_opener: opening node storage path="/Users/infinitoshi/conductor/workspaces/near-bit/sydney/nearcore/benchmarks/transactions-generator/.near/data/state_snapshot/5QLuSuzi84qjjz2J8bPcZtjXFQf9BuJYfPhYDvxfTPNY/data" cold_path="none"
+2026-03-05T17:09:25.635037Z  INFO create_state_snapshot{prev_block_hash=5QLuSuzi84qjjz2J8bPcZtjXFQf9BuJYfPhYDvxfTPNY}:checkpoint_hot_storage_and_cleanup_columns: db: opened a new rocksdb instance num_instances=2
+2026-03-05T17:09:25.636479Z  INFO create_state_snapshot{prev_block_hash=5QLuSuzi84qjjz2J8bPcZtjXFQf9BuJYfPhYDvxfTPNY}:checkpoint_hot_storage_and_cleanup_columns: db: closed a rocksdb instance num_instances=1
+2026-03-05T17:09:25.636499Z  INFO create_state_snapshot{prev_block_hash=5QLuSuzi84qjjz2J8bPcZtjXFQf9BuJYfPhYDvxfTPNY}:checkpoint_hot_storage_and_cleanup_columns: db_opener: the database exists path=/Users/infinitoshi/conductor/workspaces/near-bit/sydney/nearcore/benchmarks/transactions-generator/.near/data/state_snapshot/5QLuSuzi84qjjz2J8bPcZtjXFQf9BuJYfPhYDvxfTPNY/data
+2026-03-05T17:09:25.636504Z  INFO create_state_snapshot{prev_block_hash=5QLuSuzi84qjjz2J8bPcZtjXFQf9BuJYfPhYDvxfTPNY}:checkpoint_hot_storage_and_cleanup_columns: db: opened a new rocksdb instance num_instances=2
+2026-03-05T17:09:25.851838Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=7 enough_approvals_for=16.5µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 594204459 }
+2026-03-05T17:09:26.239802Z  INFO create_state_snapshot{prev_block_hash=5QLuSuzi84qjjz2J8bPcZtjXFQf9BuJYfPhYDvxfTPNY}:checkpoint_hot_storage_and_cleanup_columns: db: closed a rocksdb instance num_instances=1
+2026-03-05T17:09:26.239827Z  INFO create_state_snapshot{prev_block_hash=5QLuSuzi84qjjz2J8bPcZtjXFQf9BuJYfPhYDvxfTPNY}:checkpoint_hot_storage_and_cleanup_columns: db: opened a new rocksdb instance num_instances=2
+2026-03-05T17:09:26.240801Z  INFO create_state_snapshot{prev_block_hash=5QLuSuzi84qjjz2J8bPcZtjXFQf9BuJYfPhYDvxfTPNY}:checkpoint_hot_storage_and_cleanup_columns: db: closed a rocksdb instance num_instances=1
+2026-03-05T17:09:26.240808Z  INFO create_state_snapshot{prev_block_hash=5QLuSuzi84qjjz2J8bPcZtjXFQf9BuJYfPhYDvxfTPNY}:checkpoint_hot_storage_and_cleanup_columns: db: opened a new rocksdb instance num_instances=2
+2026-03-05T17:09:26.288942Z  INFO create_state_snapshot{prev_block_hash=5QLuSuzi84qjjz2J8bPcZtjXFQf9BuJYfPhYDvxfTPNY}: state_snapshot: made a checkpoint prev_block_hash=5QLuSuzi84qjjz2J8bPcZtjXFQf9BuJYfPhYDvxfTPNY
+2026-03-05T17:09:26.458995Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=8 enough_approvals_for=16.167µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 594404083 }
+2026-03-05T17:09:27.059037Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=9 enough_approvals_for=12.625µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 584786500 }
+2026-03-05T17:09:27.668227Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=10 enough_approvals_for=62.208µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 592561083 }
+2026-03-05T17:09:28.269059Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=11 enough_approvals_for=12.416µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 589608125 }
+2026-03-05T17:09:28.375557Z  INFO near_synth_bm::account: sent txs num_sub_accounts=500 elapsed_secs=2.497096208
+2026-03-05T17:09:28.872636Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=12 enough_approvals_for=14.208µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 584249458 }
+2026-03-05T17:09:29.483383Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=13 enough_approvals_for=15.167µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 594204583 }
+2026-03-05T17:09:30.092158Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=14 enough_approvals_for=35.75µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 593914875 }
+2026-03-05T17:09:30.096901Z  INFO near_synth_bm::rpc: received tx responses num_received=500 elapsed_secs=2.417556083
+2026-03-05T17:09:30.096956Z  INFO near_synth_bm::account: querying nonces of newly created sub accounts
+2026-03-05T17:09:30.700433Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=15 enough_approvals_for=15.208µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 597645833 }
+2026-03-05T17:09:31.310529Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=16 enough_approvals_for=13.375µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 598086250 }
+2026-03-05T17:09:31.619378Z  INFO stats: node_status="#      16 5jjPJBhyJknnR9Jc1driUH7fYkqMo46dNfuAyAR3FSHd Validator | 1 validator 0 peers ⬇ 0 B/s ⬆ 0 B/s 1.60 bps 417 Tgas/s CPU: 0%, Mem: 78.4 MB"
+2026-03-05T17:09:31.924001Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=17 enough_approvals_for=7.273125ms enough_chunks_for=Duration { seconds: 0, nanoseconds: 600076291 }
+2026-03-05T17:09:32.516774Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=18 enough_approvals_for=13.458µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 581668791 }
+2026-03-05T17:09:32.760081Z  INFO near_synth_bm::account: written accounts to disk num_accounts=500
+2026-03-05T17:09:32.764014Z  WARN neard: stopping, this may take a few minutes sig=SIGTERM
+2026-03-05T17:09:32.764028Z  INFO near_async: stopping all actors in actor system
+2026-03-05T17:09:32.774476Z  INFO neard: waiting for rocksdb to gracefully shutdown
+2026-03-05T17:09:32.774489Z  INFO db: waiting for remaining rocksdb instances to close num_instances=2
+2026-03-05T17:09:32.778885Z  INFO db: all rocksdb instances closed
+RUST_LOG=info,transaction-generator=info,stats=info /Users/infinitoshi/conductor/workspaces/near-bit/sydney/nearcore/benchmarks/transactions-generator/./neard --home /Users/infinitoshi/conductor/workspaces/near-bit/sydney/nearcore/benchmarks/transactions-generator/.near run
+2026-03-05T17:09:35.951490Z  INFO neard: version="trunk" build="06f850bc7" commit="06f850bc7cb80460eacd1efd82fffc604272bfe3" latest_protocol=84
+2026-03-05T17:09:35.952297Z  INFO config: validating config, extracted from config.json
+2026-03-05T17:09:35.953067Z  WARN genesis: skipped genesis validation
+2026-03-05T17:09:35.953078Z  INFO config: validating genesis config and records, this could take a few minutes
+2026-03-05T17:09:35.953211Z  INFO config: all validations have passed
+2026-03-05T17:09:35.954848Z  INFO neard: reset the config because the config file doesn't exist err=Os { code: 2, kind: NotFound, message: "No such file or directory" } path="/Users/infinitoshi/conductor/workspaces/near-bit/sydney/nearcore/benchmarks/transactions-generator/.near/log_config.json"
+2026-03-05T17:09:35.955323Z  INFO config: validating config, extracted from config.json
+2026-03-05T17:09:35.955573Z  INFO neard: hot loading validator key validator_file=/Users/infinitoshi/conductor/workspaces/near-bit/sydney/nearcore/benchmarks/transactions-generator/.near/validator_key.json
+2026-03-05T17:09:35.955597Z  INFO near_o11y::reload: updated the logging layer according to log_config.json
+2026-03-05T17:09:35.955622Z  INFO db_opener: opening node storage path="/Users/infinitoshi/conductor/workspaces/near-bit/sydney/nearcore/benchmarks/transactions-generator/.near/data" cold_path="none"
+2026-03-05T17:09:35.955650Z  INFO db: opened a new rocksdb instance num_instances=1
+2026-03-05T17:09:35.965087Z  INFO db: closed a rocksdb instance num_instances=0
+2026-03-05T17:09:35.965104Z  INFO db_opener: the database exists path=/Users/infinitoshi/conductor/workspaces/near-bit/sydney/nearcore/benchmarks/transactions-generator/.near/data
+2026-03-05T17:09:35.965112Z  INFO db: opened a new rocksdb instance num_instances=1
+2026-03-05T17:09:36.071370Z  INFO db: closed a rocksdb instance num_instances=0
+2026-03-05T17:09:36.071427Z  INFO db: opened a new rocksdb instance num_instances=1
+2026-03-05T17:09:36.073324Z  INFO db: closed a rocksdb instance num_instances=0
+2026-03-05T17:09:36.073517Z  INFO db_opener: opening node storage path="/Users/infinitoshi/conductor/workspaces/near-bit/sydney/nearcore/benchmarks/transactions-generator/.near/data/state_snapshot/5QLuSuzi84qjjz2J8bPcZtjXFQf9BuJYfPhYDvxfTPNY/data" cold_path="none"
+2026-03-05T17:09:36.073539Z  INFO db: opened a new rocksdb instance num_instances=1
+2026-03-05T17:09:36.075517Z  INFO db: closed a rocksdb instance num_instances=0
+2026-03-05T17:09:36.075522Z  INFO db_opener: the database exists path=/Users/infinitoshi/conductor/workspaces/near-bit/sydney/nearcore/benchmarks/transactions-generator/.near/data/state_snapshot/5QLuSuzi84qjjz2J8bPcZtjXFQf9BuJYfPhYDvxfTPNY/data
+2026-03-05T17:09:36.075525Z  INFO db: opened a new rocksdb instance num_instances=1
+2026-03-05T17:09:36.135020Z  INFO db: closed a rocksdb instance num_instances=0
+2026-03-05T17:09:36.135050Z  INFO db: opened a new rocksdb instance num_instances=1
+2026-03-05T17:09:36.137532Z  INFO db: closed a rocksdb instance num_instances=0
+2026-03-05T17:09:36.137570Z  INFO db: opened a new rocksdb instance num_instances=1
+2026-03-05T17:09:36.223787Z  INFO db: closed a rocksdb instance num_instances=0
+2026-03-05T17:09:36.223812Z  INFO db: opened a new rocksdb instance num_instances=1
+2026-03-05T17:09:36.316155Z  INFO maybe_open_state_snapshot: db_opener: opening node storage path="/Users/infinitoshi/conductor/workspaces/near-bit/sydney/nearcore/benchmarks/transactions-generator/.near/data/state_snapshot/5QLuSuzi84qjjz2J8bPcZtjXFQf9BuJYfPhYDvxfTPNY/data" cold_path="none"
+2026-03-05T17:09:36.316193Z  INFO maybe_open_state_snapshot: db: opened a new rocksdb instance num_instances=2
+2026-03-05T17:09:36.318045Z  INFO maybe_open_state_snapshot: db: closed a rocksdb instance num_instances=1
+2026-03-05T17:09:36.318054Z  INFO maybe_open_state_snapshot: db_opener: the database exists path=/Users/infinitoshi/conductor/workspaces/near-bit/sydney/nearcore/benchmarks/transactions-generator/.near/data/state_snapshot/5QLuSuzi84qjjz2J8bPcZtjXFQf9BuJYfPhYDvxfTPNY/data
+2026-03-05T17:09:36.318058Z  INFO maybe_open_state_snapshot: db: opened a new rocksdb instance num_instances=2
+2026-03-05T17:09:36.368151Z  INFO maybe_open_state_snapshot: db: closed a rocksdb instance num_instances=1
+2026-03-05T17:09:36.368197Z  INFO maybe_open_state_snapshot: db: opened a new rocksdb instance num_instances=2
+2026-03-05T17:09:36.371552Z  INFO maybe_open_state_snapshot: db: closed a rocksdb instance num_instances=1
+2026-03-05T17:09:36.371571Z  INFO maybe_open_state_snapshot: db: opened a new rocksdb instance num_instances=2
+2026-03-05T17:09:36.416080Z  INFO maybe_open_state_snapshot: runtime: detected and opened a state snapshot snapshot_hash=5QLuSuzi84qjjz2J8bPcZtjXFQf9BuJYfPhYDvxfTPNY snapshot_path="/Users/infinitoshi/conductor/workspaces/near-bit/sydney/nearcore/benchmarks/transactions-generator/.near/data/state_snapshot/5QLuSuzi84qjjz2J8bPcZtjXFQf9BuJYfPhYDvxfTPNY"
+2026-03-05T17:09:36.424955Z  INFO memtrie: loading tries to memory for shards shard_uids_to_load=[s0.v0]
+2026-03-05T17:09:36.424976Z  INFO memtrie: loading trie to memory for shard shard_uid=s0.v0
+2026-03-05T17:09:36.429336Z  INFO near_store::trie::mem::parallel_loader: loading subtrees in parallel num_subtrees=1005
+2026-03-05T17:09:36.439439Z  INFO memtrie: done loading trie from flat state shard_uid=s0.v0 duration=14.234334ms
+2026-03-05T17:09:36.440293Z  INFO memtrie: memtrie loading complete for shard shard_uid=s0.v0
+2026-03-05T17:09:36.440303Z  INFO memtrie: memtries loading complete for shards shard_uids_to_load=[s0.v0]
+2026-03-05T17:09:36.440307Z  INFO chain: initializing chain header_height=18 header_head.last_block_hash=4KPpFPYotvxVEmBq7BBRYJzhj81q4qGJcSxz7T1T7kbH block_height=18 block_head.last_block_hash=4KPpFPYotvxVEmBq7BBRYJzhj81q4qGJcSxz7T1T7kbH
+2026-03-05T17:09:36.440730Z  INFO client: starting validator node validator_id=test.near
+2026-03-05T17:09:36.441446Z  INFO config: mutable config field remains the same field_name="expected_shutdown" value=None
+2026-03-05T17:09:36.441474Z  INFO config: mutable config field remains the same field_name="resharding_config" value=ReshardingConfig { batch_size: 500.0 KB, batch_delay: Duration { seconds: 0, nanoseconds: 5000000 }, retry_delay: Duration { seconds: 10, nanoseconds: 0 }, initial_delay: Duration { seconds: 0, nanoseconds: 0 }, max_poll_time: Duration { seconds: 7200, nanoseconds: 0 }, catch_up_blocks: 20 }
+2026-03-05T17:09:36.441489Z  INFO config: mutable config field remains the same field_name="produce_chunk_add_transactions_time_limit" value=Some(Duration { seconds: 0, nanoseconds: 500000000 })
+2026-03-05T17:09:36.441495Z  INFO config: updated client config
+2026-03-05T17:09:36.441497Z  INFO config: mutable config field remains the same field_name="validator_signer" value=Some(InMemory(InMemoryValidatorSigner { account_id: AccountId("test.near"), signer: InMemory(InMemorySigner(account_id: test.near, public_key: ed25519:5WyAkUFB3GkgGW1dCgnzDHRfar6P9o1ccy7iAuMXj3Ec)) }))
+2026-03-05T17:09:36.441502Z  INFO config: updated validator key
+2026-03-05T17:09:36.441881Z  INFO network: starting http server addr=0.0.0.0:4040
+2026-03-05T17:09:36.442498Z  INFO bandwidth: total_bandwidth_used_by_all_peers=0 total_msg_received_count=0
+2026-03-05T17:09:36.443652Z  INFO stats: node_status="#      18 4KPpFPYotvxVEmBq7BBRYJzhj81q4qGJcSxz7T1T7kbH Validator | 1 validator 0 peers ⬇ 0 B/s ⬆ 0 B/s 0.00 bps 0 gas/s CPU: 0%, Mem: 103 MB"
+2026-03-05T17:09:36.448382Z  WARN network: stun lookup failed addr=74.125.250.129:19302 err=io error: Invalid argument (os error 22)
+2026-03-05T17:09:36.449480Z  WARN network: stun lookup failed addr=74.125.250.129:19302 err=io error: Invalid argument (os error 22)
+2026-03-05T17:09:36.450301Z  WARN network: stun lookup failed addr=74.125.250.129:19302 err=io error: Invalid argument (os error 22)
+2026-03-05T17:09:36.451522Z  WARN network: stun lookup failed addr=74.125.250.129:19302 err=io error: Invalid argument (os error 22)
+2026-03-05T17:09:36.453404Z  WARN network: stun lookup failed addr=74.125.250.129:19302 err=io error: Invalid argument (os error 22)
+2026-03-05T17:09:36.453450Z  INFO network: connected to proxies my_proxies=[]
+2026-03-05T17:09:36.466683Z  INFO transaction-generator: loaded source accounts total_accounts=500 path="/Users/infinitoshi/conductor/workspaces/near-bit/sydney/nearcore/benchmarks/transactions-generator/user-data"
+2026-03-05T17:09:36.466702Z  INFO transaction-generator: no receiver accounts path provided, using source accounts as receivers
+2026-03-05T17:09:36.466735Z  INFO transaction-generator: started schedule=[Load { tps: 10000, duration: 20s }]
+2026-03-05T17:09:36.467497Z  INFO transaction-generator: total=StatsLocal { pool_accepted: 0, pool_rejected: 0, included_in_chunk: 0, failed: 0 }
+2026-03-05T17:09:36.467502Z  INFO transaction-generator: diff=StatsLocal { pool_accepted: 0, pool_rejected: 0, included_in_chunk: 0, failed: 0 }
+2026-03-05T17:09:36.486494Z  INFO near_transactions_generator::choice: Created TxAccountsSelector receivers_from_senders_ratio=0.0
+2026-03-05T17:09:36.486532Z  INFO transaction-generator: starting the static load schedule load=Load { tps: 10000, duration: 20s }
+2026-03-05T17:09:37.048526Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=733.319583ms enough_approvals_for=13.75µs
+2026-03-05T17:09:37.060005Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=721.83525ms enough_approvals_for=11.498083ms
+2026-03-05T17:09:37.072737Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=709.104042ms enough_approvals_for=24.229291ms
+2026-03-05T17:09:37.083991Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=697.850292ms enough_approvals_for=35.483041ms
+2026-03-05T17:09:37.096121Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=685.719417ms enough_approvals_for=47.613916ms
+2026-03-05T17:09:37.109072Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=672.769875ms enough_approvals_for=60.563458ms
+2026-03-05T17:09:37.121354Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=660.487375ms enough_approvals_for=72.845958ms
+2026-03-05T17:09:37.133165Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=648.675458ms enough_approvals_for=84.657875ms
+2026-03-05T17:09:37.145700Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=636.143833ms enough_approvals_for=97.1895ms
+2026-03-05T17:09:37.159595Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=622.246583ms enough_approvals_for=111.08675ms
+2026-03-05T17:09:37.172294Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=609.547167ms enough_approvals_for=123.786166ms
+2026-03-05T17:09:37.183630Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=598.211458ms enough_approvals_for=135.121875ms
+2026-03-05T17:09:37.195374Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=586.470417ms enough_approvals_for=146.862916ms
+2026-03-05T17:09:37.207189Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=574.679ms enough_approvals_for=158.654333ms
+2026-03-05T17:09:37.218758Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=563.101333ms enough_approvals_for=170.232ms
+2026-03-05T17:09:37.230975Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=550.86575ms enough_approvals_for=182.467583ms
+2026-03-05T17:09:37.243145Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=538.695875ms enough_approvals_for=194.637458ms
+2026-03-05T17:09:37.254121Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=527.7195ms enough_approvals_for=205.613833ms
+2026-03-05T17:09:37.265140Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=516.701458ms enough_approvals_for=216.631875ms
+2026-03-05T17:09:37.276501Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=505.340083ms enough_approvals_for=227.99325ms
+2026-03-05T17:09:37.291480Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=490.362042ms enough_approvals_for=242.971291ms
+2026-03-05T17:09:37.303136Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=478.706417ms enough_approvals_for=254.626916ms
+2026-03-05T17:09:37.315272Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=466.569ms enough_approvals_for=266.764333ms
+2026-03-05T17:09:37.326504Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=455.337167ms enough_approvals_for=277.996166ms
+2026-03-05T17:09:37.338667Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=443.174208ms enough_approvals_for=290.159125ms
+2026-03-05T17:09:37.350580Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=431.261583ms enough_approvals_for=302.07175ms
+2026-03-05T17:09:37.363803Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=418.039667ms enough_approvals_for=315.293666ms
+2026-03-05T17:09:37.376005Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=405.836583ms enough_approvals_for=327.49675ms
+2026-03-05T17:09:37.388367Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=393.477458ms enough_approvals_for=339.855875ms
+2026-03-05T17:09:37.399638Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=382.203458ms enough_approvals_for=351.129875ms
+2026-03-05T17:09:37.413034Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=368.806875ms enough_approvals_for=364.526458ms
+2026-03-05T17:09:37.424942Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=356.899625ms enough_approvals_for=376.433708ms
+2026-03-05T17:09:37.436113Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=345.727833ms enough_approvals_for=387.6055ms
+2026-03-05T17:09:37.447375Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=334.466083ms enough_approvals_for=398.86725ms
+2026-03-05T17:09:37.459034Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=322.807417ms enough_approvals_for=410.525916ms
+2026-03-05T17:09:37.468212Z  INFO transaction-generator: total=StatsLocal { pool_accepted: 9800, pool_rejected: 0, included_in_chunk: 0, failed: 0 }
+2026-03-05T17:09:37.468222Z  INFO transaction-generator: diff=StatsLocal { pool_accepted: 9800, pool_rejected: 0, included_in_chunk: 0, failed: 0 }
+2026-03-05T17:09:37.470121Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=311.719958ms enough_approvals_for=421.613375ms
+2026-03-05T17:09:37.482706Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=299.134625ms enough_approvals_for=434.198708ms
+2026-03-05T17:09:37.494722Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=287.122667ms enough_approvals_for=446.210666ms
+2026-03-05T17:09:37.506766Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=275.075708ms enough_approvals_for=458.257625ms
+2026-03-05T17:09:37.517965Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=263.876333ms enough_approvals_for=469.457ms
+2026-03-05T17:09:37.530243Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=251.597958ms enough_approvals_for=481.735375ms
+2026-03-05T17:09:37.542499Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=239.351958ms enough_approvals_for=493.981375ms
+2026-03-05T17:09:37.554915Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=226.926833ms enough_approvals_for=506.4065ms
+2026-03-05T17:09:37.566317Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=215.5255ms enough_approvals_for=517.807833ms
+2026-03-05T17:09:37.578686Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=203.155333ms enough_approvals_for=530.178ms
+2026-03-05T17:09:37.591023Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=190.819292ms enough_approvals_for=542.514041ms
+2026-03-05T17:09:37.602513Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=179.335083ms enough_approvals_for=553.99825ms
+2026-03-05T17:09:37.614521Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=167.321833ms enough_approvals_for=566.0115ms
+2026-03-05T17:09:37.626091Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=155.750833ms enough_approvals_for=577.5825ms
+2026-03-05T17:09:37.637984Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=143.858583ms enough_approvals_for=589.47475ms
+2026-03-05T17:09:37.650016Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=131.826208ms enough_approvals_for=601.507125ms
+2026-03-05T17:09:37.661257Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=120.5855ms enough_approvals_for=612.747833ms
+2026-03-05T17:09:37.672173Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=109.67ms enough_approvals_for=623.663333ms
+2026-03-05T17:09:37.684308Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=97.533917ms enough_approvals_for=635.799416ms
+2026-03-05T17:09:37.696566Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=85.277042ms enough_approvals_for=648.056291ms
+2026-03-05T17:09:37.708443Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=73.398833ms enough_approvals_for=659.9345ms
+2026-03-05T17:09:37.719937Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=61.904792ms enough_approvals_for=671.428541ms
+2026-03-05T17:09:37.732191Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=49.651792ms enough_approvals_for=683.681541ms
+2026-03-05T17:09:37.744421Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=37.423542ms enough_approvals_for=695.909791ms
+2026-03-05T17:09:37.756959Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=24.883208ms enough_approvals_for=708.450125ms
+2026-03-05T17:09:37.766989Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=14.856583ms enough_approvals_for=718.47675ms
+2026-03-05T17:09:37.778986Z  INFO doomslug: not ready to produce block, need to wait target_height=19 need_to_wait_for=2.855625ms enough_approvals_for=730.477708ms
+2026-03-05T17:09:37.790070Z  INFO doomslug: ready to produce block, but does not have enough chunks target_height=19 enough_approvals_for=741.555416ms
+2026-03-05T17:09:38.194990Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=20 enough_approvals_for=26.834µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 7084 }
+2026-03-05T17:09:38.196076Z  WARN client: optimistic block was constructed on different block, discarding it height=20 prev_hash=EYwiSyxrf3baZnSxNraZpsoUY3gMdVPS8BhWfD7QJsN3 optimistic_block_prev_hash=4KPpFPYotvxVEmBq7BBRYJzhj81q4qGJcSxz7T1T7kbH
+2026-03-05T17:09:38.479237Z  INFO transaction-generator: total=StatsLocal { pool_accepted: 13931, pool_rejected: 0, included_in_chunk: 13026, failed: 0 }
+2026-03-05T17:09:38.479423Z  INFO transaction-generator: diff=StatsLocal { pool_accepted: 4131, pool_rejected: 0, included_in_chunk: 13026, failed: 0 } rate=1288.1759180976921
+2026-03-05T17:09:39.309375Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=21 enough_approvals_for=16.708µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 2958 }
+2026-03-05T17:09:39.309391Z  WARN client: optimistic block was constructed on different block, discarding it height=21 prev_hash=DJM4qWjWJdkHmmoWDEiEQRR4uLJ7BJ4T7KKiRwDovJDE optimistic_block_prev_hash=4KPpFPYotvxVEmBq7BBRYJzhj81q4qGJcSxz7T1T7kbH
+2026-03-05T17:09:39.467825Z  INFO transaction-generator: total=StatsLocal { pool_accepted: 17948, pool_rejected: 0, included_in_chunk: 15785, failed: 0 }
+2026-03-05T17:09:39.467846Z  INFO transaction-generator: diff=StatsLocal { pool_accepted: 4017, pool_rejected: 0, included_in_chunk: 2759, failed: 0 } rate=1438.4900435271898
+2026-03-05T17:09:39.918774Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=22 enough_approvals_for=25µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 104525125 }
+2026-03-05T17:09:40.468034Z  INFO transaction-generator: total=StatsLocal { pool_accepted: 25883, pool_rejected: 0, included_in_chunk: 23948, failed: 0 }
+2026-03-05T17:09:40.468045Z  INFO transaction-generator: diff=StatsLocal { pool_accepted: 7935, pool_rejected: 0, included_in_chunk: 8163, failed: 0 } rate=2110.7782540778608
+2026-03-05T17:09:40.528621Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=23 enough_approvals_for=11.917µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 264409958 }
+2026-03-05T17:09:41.140692Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=24 enough_approvals_for=13µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 415510375 }
+2026-03-05T17:09:41.469738Z  INFO transaction-generator: total=StatsLocal { pool_accepted: 39700, pool_rejected: 0, included_in_chunk: 35875, failed: 0 }
+2026-03-05T17:09:41.469748Z  INFO transaction-generator: diff=StatsLocal { pool_accepted: 13817, pool_rejected: 0, included_in_chunk: 11927, failed: 0 } rate=3090.374298238468
+2026-03-05T17:09:41.791355Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=25 enough_approvals_for=17.459µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 261059750 }
+2026-03-05T17:09:42.373367Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=26 enough_approvals_for=15.333µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 168115500 }
+2026-03-05T17:09:42.469738Z  INFO transaction-generator: total=StatsLocal { pool_accepted: 53716, pool_rejected: 0, included_in_chunk: 47105, failed: 0 }
+2026-03-05T17:09:42.469750Z  INFO transaction-generator: diff=StatsLocal { pool_accepted: 14016, pool_rejected: 0, included_in_chunk: 11230, failed: 0 } rate=3904.335699372838
+2026-03-05T17:09:43.007866Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=27 enough_approvals_for=20.5µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 2834 }
+2026-03-05T17:09:43.007884Z  WARN client: optimistic block was constructed on different block, discarding it height=27 prev_hash=A4QQmZYhuv9nGMjWVD4x6RWX8fz72G64khNb273u4Ae6 optimistic_block_prev_hash=DzaJJRxZ9Uj17bZuNgPVyispS3zYjD1TG5CUgGqRZsJN
+2026-03-05T17:09:43.468664Z  INFO transaction-generator: total=StatsLocal { pool_accepted: 66055, pool_rejected: 0, included_in_chunk: 57550, failed: 0 }
+2026-03-05T17:09:43.468674Z  INFO transaction-generator: diff=StatsLocal { pool_accepted: 12339, pool_rejected: 0, included_in_chunk: 10445, failed: 0 } rate=4559.528617356666
+2026-03-05T17:09:43.837268Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=28 enough_approvals_for=225.958µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 12916 }
+2026-03-05T17:09:43.837288Z  WARN client: optimistic block was constructed on different block, discarding it height=28 prev_hash=3yYEE1PPj5udV44xBWiWgFg479o4Xv2beZaqDkcAxfVs optimistic_block_prev_hash=DzaJJRxZ9Uj17bZuNgPVyispS3zYjD1TG5CUgGqRZsJN
+2026-03-05T17:09:44.468419Z  INFO transaction-generator: total=StatsLocal { pool_accepted: 75519, pool_rejected: 0, included_in_chunk: 74288, failed: 0 }
+2026-03-05T17:09:44.468440Z  INFO transaction-generator: diff=StatsLocal { pool_accepted: 9464, pool_rejected: 0, included_in_chunk: 16738, failed: 0 } rate=5777.771074990786
+2026-03-05T17:09:44.567945Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=29 enough_approvals_for=14.334µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 2250 }
+2026-03-05T17:09:44.567964Z  WARN client: optimistic block was constructed on different block, discarding it height=29 prev_hash=5aTMLCMSAG9KmPNFeB5NEHUnnsSe6f2RkcEWYVmG6eLH optimistic_block_prev_hash=DzaJJRxZ9Uj17bZuNgPVyispS3zYjD1TG5CUgGqRZsJN
+2026-03-05T17:09:45.467989Z  INFO transaction-generator: total=StatsLocal { pool_accepted: 79099, pool_rejected: 0, included_in_chunk: 74288, failed: 0 }
+2026-03-05T17:09:45.468013Z  INFO transaction-generator: diff=StatsLocal { pool_accepted: 3580, pool_rejected: 0, included_in_chunk: 0, failed: 0 } rate=5199.993967491707
+2026-03-05T17:09:46.502395Z  INFO transaction-generator: total=StatsLocal { pool_accepted: 79519, pool_rejected: 0, included_in_chunk: 74288, failed: 0 }
+2026-03-05T17:09:46.504547Z  INFO transaction-generator: diff=StatsLocal { pool_accepted: 420, pool_rejected: 0, included_in_chunk: 0, failed: 0 } rate=4679.994570742536
+2026-03-05T17:09:47.421635Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=30 enough_approvals_for=27µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 8083 }
+2026-03-05T17:09:47.421657Z  WARN client: optimistic block was constructed on different block, discarding it height=30 prev_hash=EDagtLzmRmVTfunvmzg1Tw1tAxGmPL2V2ej8NjXVcyCj optimistic_block_prev_hash=DzaJJRxZ9Uj17bZuNgPVyispS3zYjD1TG5CUgGqRZsJN
+2026-03-05T17:09:47.467873Z  INFO transaction-generator: total=StatsLocal { pool_accepted: 81595, pool_rejected: 0, included_in_chunk: 80139, failed: 0 }
+2026-03-05T17:09:47.467880Z  INFO transaction-generator: diff=StatsLocal { pool_accepted: 2076, pool_rejected: 0, included_in_chunk: 5851, failed: 0 } rate=4819.363254052791
+2026-03-05T17:09:47.473615Z  INFO stats: node_status="#      29 EDagtLzmRmVTfunvmzg1Tw1tAxGmPL2V2ej8NjXVcyCj Validator | 1 validator 0 peers ⬇ 0 B/s ⬆ 0 B/s 1.00 bps 2.51 Pgas/s CPU: 0%, Mem: 103 MB"
+2026-03-05T17:09:48.071864Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=31 enough_approvals_for=20µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 3083 }
+2026-03-05T17:09:48.071898Z  WARN client: optimistic block was constructed on different block, discarding it height=31 prev_hash=AoCVmkEoWzrxwD2PuBHoRsA8K1tsGPkBHPmvjuyAx6Qq optimistic_block_prev_hash=DzaJJRxZ9Uj17bZuNgPVyispS3zYjD1TG5CUgGqRZsJN
+2026-03-05T17:09:48.469121Z  INFO transaction-generator: total=StatsLocal { pool_accepted: 85372, pool_rejected: 0, included_in_chunk: 85101, failed: 0 }
+2026-03-05T17:09:48.469132Z  INFO transaction-generator: diff=StatsLocal { pool_accepted: 3777, pool_rejected: 0, included_in_chunk: 4962, failed: 0 } rate=4833.007350040043
+2026-03-05T17:09:48.674986Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=32 enough_approvals_for=16.25µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 151838416 }
+2026-03-05T17:09:49.422476Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=33 enough_approvals_for=19.666µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 8166 }
+2026-03-05T17:09:49.422504Z  WARN client: optimistic block was constructed on different block, discarding it height=33 prev_hash=Eb41MZ43Gx8ibmxFrKghew88ZbyXLytSerrpYpZNVAUc optimistic_block_prev_hash=6kE64dQQPjiH5XJqWm8kJqBfqYyM6jWByankWhcURhTG
+2026-03-05T17:09:49.473674Z  INFO transaction-generator: total=StatsLocal { pool_accepted: 87504, pool_rejected: 0, included_in_chunk: 86974, failed: 0 }
+2026-03-05T17:09:49.473887Z  INFO transaction-generator: diff=StatsLocal { pool_accepted: 2132, pool_rejected: 0, included_in_chunk: 1873, failed: 0 } rate=4536.120457873617
+2026-03-05T17:09:50.024236Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=34 enough_approvals_for=13.792µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 231408167 }
+2026-03-05T17:09:50.468424Z  INFO transaction-generator: total=StatsLocal { pool_accepted: 93512, pool_rejected: 0, included_in_chunk: 89581, failed: 0 }
+2026-03-05T17:09:50.468436Z  INFO transaction-generator: diff=StatsLocal { pool_accepted: 6008, pool_rejected: 0, included_in_chunk: 2607, failed: 0 } rate=4344.637649999249
+2026-03-05T17:09:50.629604Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=35 enough_approvals_for=23.333µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 480616958 }
+2026-03-05T17:09:51.234914Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=36 enough_approvals_for=18.125µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 445303958 }
+2026-03-05T17:09:51.468128Z  INFO transaction-generator: total=StatsLocal { pool_accepted: 103878, pool_rejected: 0, included_in_chunk: 95651, failed: 0 }
+2026-03-05T17:09:51.468142Z  INFO transaction-generator: diff=StatsLocal { pool_accepted: 10366, pool_rejected: 0, included_in_chunk: 6070, failed: 0 } rate=4517.353205089465
+2026-03-05T17:09:51.844205Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=37 enough_approvals_for=14.541µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 264594291 }
+2026-03-05T17:09:52.451552Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=38 enough_approvals_for=17.458µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 72041250 }
+2026-03-05T17:09:52.468335Z  INFO transaction-generator: total=StatsLocal { pool_accepted: 111216, pool_rejected: 0, included_in_chunk: 108441, failed: 0 }
+2026-03-05T17:09:52.468349Z  INFO transaction-generator: diff=StatsLocal { pool_accepted: 7338, pool_rejected: 0, included_in_chunk: 12790, failed: 0 } rate=5344.354838159272
+2026-03-05T17:09:53.108401Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=39 enough_approvals_for=17.125µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 3125 }
+2026-03-05T17:09:53.108420Z  WARN client: optimistic block was constructed on different block, discarding it height=39 prev_hash=BNymGJ5e57SERGTmf1mwCnex2cV2tBmLd2GB7zPPkdtf optimistic_block_prev_hash=2aKgijLY2LzGqD8ua84uhst2UsjDXKUmuHiAWiPn7MRm
+2026-03-05T17:09:53.471761Z  INFO transaction-generator: total=StatsLocal { pool_accepted: 117488, pool_rejected: 0, included_in_chunk: 114967, failed: 0 }
+2026-03-05T17:09:53.471783Z  INFO transaction-generator: diff=StatsLocal { pool_accepted: 6272, pool_rejected: 0, included_in_chunk: 6526, failed: 0 } rate=5460.288101763134
+2026-03-05T17:09:53.740151Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=40 enough_approvals_for=13.459µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 96781667 }
+2026-03-05T17:09:54.351259Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=41 enough_approvals_for=14.333µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 321356750 }
+2026-03-05T17:09:54.468930Z  INFO transaction-generator: total=StatsLocal { pool_accepted: 125054, pool_rejected: 0, included_in_chunk: 120064, failed: 0 }
+2026-03-05T17:09:54.468953Z  INFO transaction-generator: diff=StatsLocal { pool_accepted: 7566, pool_rejected: 0, included_in_chunk: 5097, failed: 0 } rate=5425.406092607109
+2026-03-05T17:09:54.960612Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=42 enough_approvals_for=15.5µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 183541000 }
+2026-03-05T17:09:55.468894Z  INFO transaction-generator: total=StatsLocal { pool_accepted: 133006, pool_rejected: 0, included_in_chunk: 128797, failed: 0 }
+2026-03-05T17:09:55.468915Z  INFO transaction-generator: diff=StatsLocal { pool_accepted: 7952, pool_rejected: 0, included_in_chunk: 8733, failed: 0 } rate=5756.198342495223
+2026-03-05T17:09:55.565157Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=43 enough_approvals_for=14.834µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 360974250 }
+2026-03-05T17:09:56.168431Z  INFO doomslug: ready to produce block, has enough approvals, has enough chunks target_height=44 enough_approvals_for=14.459µs enough_chunks_for=Duration { seconds: 0, nanoseconds: 344125625 }
+2026-03-05T17:09:56.468115Z  INFO transaction-generator: total=StatsLocal { pool_accepted: 148238, pool_rejected: 0, included_in_chunk: 145796, failed: 0 }
+2026-03-05T17:09:56.468127Z  INFO transaction-generator: diff=StatsLocal { pool_accepted: 15232, pool_rejected: 0, included_in_chunk: 16999, failed: 0 } rate=6881.821072736592
+2026-03-05T17:09:56.488166Z  INFO transaction-generator: completed running the schedule
+2026-03-05T17:09:56.488182Z  INFO transaction-generator: starting the controlled loop
+2026-03-05T17:09:56.749846Z  WARN neard: stopping, this may take a few minutes sig=SIGTERM
+2026-03-05T17:09:56.749866Z  INFO near_async: stopping all actors in actor system
+2026-03-05T17:09:56.763065Z  INFO neard: waiting for rocksdb to gracefully shutdown
+2026-03-05T17:09:56.763081Z  INFO db: waiting for remaining rocksdb instances to close num_instances=2
+2026-03-05T17:09:56.827949Z  INFO db: all rocksdb instances closed
+error: Interrupted by SIGTERM

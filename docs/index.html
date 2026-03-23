@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bitcoin Infinity</title>
+  <style>
+    :root {
+      --orange: #f7931a;
+      --dark: #0d1117;
+      --darker: #010409;
+      --card: #161b22;
+      --border: #30363d;
+      --text: #e6edf3;
+      --muted: #8b949e;
+      --green: #3fb950;
+      --blue: #58a6ff;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      background: var(--darker);
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    /* Hero */
+    .hero {
+      text-align: center;
+      padding: 80px 24px 60px;
+      background: linear-gradient(180deg, var(--dark) 0%, var(--darker) 100%);
+      border-bottom: 1px solid var(--border);
+    }
+    .hero-logo {
+      font-size: 64px;
+      margin-bottom: 16px;
+    }
+    .hero h1 {
+      font-size: 48px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      margin-bottom: 8px;
+    }
+    .hero h1 span { color: var(--orange); }
+    .hero .tagline {
+      font-size: 22px;
+      color: var(--muted);
+      max-width: 640px;
+      margin: 0 auto 32px;
+    }
+    .hero-badges {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-bottom: 40px;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 14px;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      background: var(--card);
+    }
+    .badge .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+    }
+
+    /* Sections */
+    section {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 64px 24px;
+    }
+    section h2 {
+      font-size: 32px;
+      font-weight: 700;
+      margin-bottom: 12px;
+    }
+    section h2 span { color: var(--orange); }
+    section .subtitle {
+      color: var(--muted);
+      font-size: 18px;
+      margin-bottom: 40px;
+      max-width: 680px;
+    }
+
+    /* Problem/Solution */
+    .two-col {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+    @media (max-width: 900px) {
+      .two-col { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 700px) {
+      .hero { padding: 48px 16px 40px; }
+      .hero-logo { font-size: 48px; }
+      .hero h1 { font-size: 32px; }
+      .hero .tagline { font-size: 17px; }
+      .hero-badges { gap: 8px; }
+      .badge { font-size: 12px; padding: 5px 10px; }
+      section { padding: 40px 16px; }
+      section h2 { font-size: 24px; }
+      section .subtitle { font-size: 16px; margin-bottom: 28px; }
+      .problem-card, .solution-card { padding: 20px; }
+      .problem-card h3, .solution-card h3 { font-size: 17px; }
+      .feature { padding: 20px; }
+      .feature .icon { font-size: 26px; }
+      .feature h3 { font-size: 16px; }
+      .feature p { font-size: 14px; }
+      .step { padding: 24px 16px; }
+      .step .num { width: 40px; height: 40px; font-size: 18px; }
+      .step h3 { font-size: 16px; }
+      .step p { font-size: 14px; }
+      .diagram-wrap { padding: 24px 12px; }
+      .diagram .box { min-width: 120px; padding: 14px 16px; font-size: 13px; }
+      .diagram .arrow { font-size: 20px; padding: 0 6px; }
+      .comparison th, .comparison td { padding: 10px 8px; font-size: 13px; }
+      .cta { padding: 40px 16px 56px; }
+      .cta p { font-size: 16px; }
+      .btn { padding: 12px 20px; font-size: 14px; }
+      .btn-secondary { margin-left: 0; margin-top: 12px; }
+    }
+    @media (max-width: 480px) {
+      .hero h1 { font-size: 26px; }
+      .hero .tagline { font-size: 15px; }
+      section h2 { font-size: 20px; }
+      .diagram { flex-direction: column; }
+      .diagram .arrow { transform: rotate(90deg); padding: 4px 0; }
+      .diagram .box { min-width: 100%; }
+      .cta .btn { display: block; width: 100%; text-align: center; }
+      .cta .btn-secondary { margin-left: 0; }
+    }
+    .problem-card, .solution-card {
+      padding: 32px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--card);
+    }
+    .problem-card h3 { color: #f85149; margin-bottom: 16px; font-size: 20px; }
+    .solution-card h3 { color: var(--green); margin-bottom: 16px; font-size: 20px; }
+    .problem-card ul, .solution-card ul {
+      list-style: none;
+      padding: 0;
+    }
+    .problem-card li, .solution-card li {
+      padding: 8px 0;
+      padding-left: 24px;
+      position: relative;
+      color: var(--muted);
+    }
+    .problem-card li::before {
+      content: "\2717";
+      position: absolute;
+      left: 0;
+      color: #f85149;
+      font-weight: bold;
+    }
+    .solution-card li::before {
+      content: "\2713";
+      position: absolute;
+      left: 0;
+      color: var(--green);
+      font-weight: bold;
+    }
+
+    /* How it works */
+    .steps {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+    @media (max-width: 900px) {
+      .steps { grid-template-columns: 1fr; }
+    }
+    .step {
+      padding: 32px 24px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      text-align: center;
+    }
+    .step .num {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: var(--orange);
+      color: #fff;
+      font-size: 22px;
+      font-weight: 800;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+    }
+    .step h3 { font-size: 18px; margin-bottom: 8px; }
+    .step p { color: var(--muted); font-size: 15px; }
+
+    /* Comparison table */
+    .comparison {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+    }
+    .comparison th, .comparison td {
+      padding: 14px 18px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      font-size: 15px;
+    }
+    .comparison th {
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .comparison td:first-child { font-weight: 600; }
+    .comparison .btc { color: var(--orange); }
+    .comparison .infinity { color: var(--green); }
+    .comparison tr:last-child td { border-bottom: none; }
+
+    /* Features grid */
+    .features {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+    @media (max-width: 700px) {
+      .features { grid-template-columns: 1fr !important; }
+    }
+    .feature {
+      padding: 28px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--card);
+    }
+    .feature .icon { font-size: 32px; margin-bottom: 12px; }
+    .feature h3 { font-size: 18px; margin-bottom: 8px; }
+    .feature p { color: var(--muted); font-size: 15px; }
+
+    /* Documentation links */
+    .docs-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+    @media (max-width: 700px) {
+      .docs-grid { grid-template-columns: 1fr; }
+    }
+    .doc-link {
+      display: block;
+      padding: 18px 20px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--text);
+      text-decoration: none;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .doc-link:hover {
+      border-color: var(--blue);
+      transform: translateY(-1px);
+    }
+    .doc-link strong {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 16px;
+    }
+    .doc-link span {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    /* Diagram */
+    .diagram-wrap {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 40px 24px;
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    .diagram {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      flex-wrap: wrap;
+    }
+    .diagram .box {
+      padding: 20px 28px;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 15px;
+      text-align: center;
+      min-width: 160px;
+    }
+    .diagram .box small {
+      display: block;
+      font-weight: 400;
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 4px;
+    }
+    .diagram .wallet { background: #f7931a22; border: 2px solid var(--orange); color: var(--orange); }
+    .diagram .proxy { background: #58a6ff22; border: 2px solid var(--blue); color: var(--blue); }
+    .diagram .chain { background: #3fb95022; border: 2px solid var(--green); color: var(--green); }
+    .diagram .arrow {
+      font-size: 28px;
+      color: var(--muted);
+      padding: 0 12px;
+    }
+
+    /* CTA */
+    .cta {
+      text-align: center;
+      padding: 64px 24px 80px;
+    }
+    .cta h2 { margin-bottom: 16px; }
+    .cta p { color: var(--muted); font-size: 18px; margin-bottom: 32px; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 28px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: opacity 0.2s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn-primary { background: var(--orange); color: #fff; }
+    .btn-secondary { background: var(--card); color: var(--text); border: 1px solid var(--border); margin-left: 12px; }
+
+    /* Footer */
+    footer {
+      text-align: center;
+      padding: 32px 24px;
+      color: var(--muted);
+      font-size: 14px;
+      border-top: 1px solid var(--border);
+    }
+    footer a { color: var(--blue); text-decoration: none; }
+  </style>
+</head>
+<body>
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-logo">&#8734;</div>
+    <h1>Bitcoin <span>Infinity</span></h1>
+    <p class="tagline">
+      What if Bitcoin was fast, programmable, and still worked with every wallet you already use?
+    </p>
+    <div class="hero-badges">
+      <span class="badge"><span class="dot"></span> 1-second finality</span>
+      <span class="badge"><span class="dot"></span> 204 RPC methods</span>
+      <span class="badge"><span class="dot"></span> Smart contracts</span>
+      <span class="badge"><span class="dot"></span> Same Bitcoin keys</span>
+    </div>
+  </div>
+
+  <!-- Problem / Solution -->
+  <section>
+    <h2>The <span>problem</span> with Bitcoin today</h2>
+    <p class="subtitle">
+      Bitcoin proved that decentralized digital money works. But after 15 years, its limitations are holding it back from what it could be.
+    </p>
+    <div class="two-col">
+      <div class="problem-card">
+        <h3>Bitcoin today</h3>
+        <ul>
+          <li>Transactions take 10&ndash;60 minutes to confirm</li>
+          <li>The network handles about 7 transactions per second</li>
+          <li>No smart contracts &mdash; your coins just sit there</li>
+          <li>High fees during busy periods</li>
+          <li>Enormous energy consumption for mining</li>
+        </ul>
+      </div>
+      <div class="solution-card">
+        <h3>Bitcoin Infinity</h3>
+        <ul>
+          <li>Transactions confirm in about 1 second</li>
+          <li>Measured on Feb 20, 2026: ~858 TPS average and ~1,036 TPS peak on one shard (1k target pilot), with horizontal scaling across shards</li>
+          <li>Full smart contracts &mdash; DeFi, NFTs, anything</li>
+          <li>Predictable, low fees</li>
+          <li>Proof of Stake &mdash; 99.9% less energy</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- The big idea -->
+  <section>
+    <h2>The <span>big idea</span></h2>
+    <p class="subtitle">
+      Bitcoin Infinity keeps everything people love about Bitcoin &mdash; the addresses, the keys, the wallets &mdash; and replaces the slow, limited engine underneath with a modern blockchain.
+    </p>
+    <div class="diagram-wrap">
+      <div class="diagram">
+        <div class="box wallet">
+          Your Bitcoin Wallet
+          <small>Sparrow, Electrum, etc.</small>
+        </div>
+        <div class="arrow">&rarr;</div>
+        <div class="box proxy">
+          Translation Layer
+          <small>Speaks Bitcoin, thinks NEAR</small>
+        </div>
+        <div class="arrow">&rarr;</div>
+        <div class="box chain">
+          Bitcoin Infinity
+          <small>1s blocks, smart contracts</small>
+        </div>
+      </div>
+      <p style="color: var(--muted); margin-top: 20px; font-size: 14px;">
+        Your wallet connects the same way it always does. It has no idea the engine changed.
+      </p>
+    </div>
+  </section>
+
+  <!-- How it works -->
+  <section>
+    <h2>How it <span>works</span></h2>
+    <p class="subtitle">
+      Three steps. No new software to learn. No new seed phrases to write down.
+    </p>
+    <div class="steps">
+      <div class="step">
+        <div class="num">1</div>
+        <h3>Keep your keys</h3>
+        <p>Your existing Bitcoin private keys and addresses work as-is. Your identity on the new chain is your Bitcoin address.</p>
+      </div>
+      <div class="step">
+        <div class="num">2</div>
+        <h3>Connect your wallet</h3>
+        <p>Point any Bitcoin wallet at the Bitcoin Infinity RPC endpoint. It speaks the exact same language as Bitcoin Core &mdash; all 204 commands.</p>
+      </div>
+      <div class="step">
+        <div class="num">3</div>
+        <h3>Do more with your coins</h3>
+        <p>Send in 1 second. Earn yield. Interact with smart contracts. Your coins are no longer limited by Bitcoin's 2009 design.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Comparison -->
+  <section>
+    <h2>Side by <span>side</span></h2>
+    <p class="subtitle">
+      A direct comparison of how Bitcoin works today versus on Bitcoin Infinity.
+    </p>
+    <div style="overflow-x: auto;">
+    <table class="comparison">
+      <thead>
+        <tr>
+          <th></th>
+          <th class="btc">Bitcoin</th>
+          <th class="infinity">Bitcoin Infinity</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Confirmation time</td>
+          <td>~10 minutes (1 block)</td>
+          <td>~1 second</td>
+        </tr>
+        <tr>
+          <td>Throughput</td>
+          <td>~7 transactions/sec</td>
+          <td>Measured pilot: ~858 avg / ~1,036 peak TPS on one shard (1k target); scales with additional shards</td>
+        </tr>
+        <tr>
+          <td>Smart contracts</td>
+          <td>Very limited (Script)</td>
+          <td>Full (WebAssembly)</td>
+        </tr>
+        <tr>
+          <td>Energy usage</td>
+          <td>Proof of Work (high)</td>
+          <td>Proof of Stake (minimal)</td>
+        </tr>
+        <tr>
+          <td>Your keys</td>
+          <td>secp256k1</td>
+          <td>Same secp256k1 keys</td>
+        </tr>
+        <tr>
+          <td>Your address</td>
+          <td>bc1q..., 1..., 3...</td>
+          <td>Same addresses, same formats</td>
+        </tr>
+        <tr>
+          <td>Wallet compatibility</td>
+          <td>Native</td>
+          <td>Native (204 RPC methods)</td>
+        </tr>
+        <tr>
+          <td>DeFi, NFTs, dApps</td>
+          <td>Requires sidechains/L2s</td>
+          <td>Built in</td>
+        </tr>
+        <tr>
+          <td>Smallest unit</td>
+          <td>1 satoshi (10<sup>-8</sup> BTC)</td>
+          <td>1 finney (10<sup>-16</sup> BTC)</td>
+        </tr>
+      </tbody>
+    </table>
+    </div>
+    <p class="subtitle">
+      Throughput numbers are reported using a single-shard baseline and explicit shard-scaling assumptions.
+      See <a href="benchmark-methodology.md" style="color: var(--orange);">benchmark methodology</a>
+      , <a href="rpc-compatibility-matrix.md" style="color: var(--orange);">RPC compatibility matrix</a>,
+      and <a href="rpc-error-codes.md" style="color: var(--orange);">RPC error code reference</a>.
+    </p>
+  </section>
+
+  <!-- Features -->
+  <section>
+    <h2>What you <span>get</span></h2>
+    <p class="subtitle">
+      Everything from Bitcoin, plus everything that modern blockchains offer.
+    </p>
+    <div class="features">
+      <div class="feature">
+        <div class="icon">&#128273;</div>
+        <h3>Your keys, your coins</h3>
+        <p>Your existing Bitcoin private key is your identity. No migration, no new seed phrase, no trust required.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">&#9889;</div>
+        <h3>Instant transfers</h3>
+        <p>Send to any Bitcoin address and it confirms in about one second. No more watching the mempool and waiting.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">&#128221;</div>
+        <h3>Smart contracts</h3>
+        <p>Write programs that run on-chain using WebAssembly. Build DeFi, NFTs, DAOs, or anything else &mdash; all using your Bitcoin address.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">&#128176;</div>
+        <h3>Low, predictable fees</h3>
+        <p>No more fee spikes. Transactions cost a fraction of a cent with predictable gas pricing.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">&#127758;</div>
+        <h3>Wallet compatible</h3>
+        <p>Sparrow, Electrum, Bitcoin Core &mdash; any wallet that speaks Bitcoin RPC connects without changes. All 204 commands are supported.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">&#127793;</div>
+        <h3>Energy efficient</h3>
+        <p>Proof of Stake consensus uses 99.9% less energy than Bitcoin mining. Secure without the waste.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">&#128256;</div>
+        <h3>UTXO snapshot import</h3>
+        <p>Every existing Bitcoin balance can be imported at genesis. If you own BTC today, your balance is already there.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">&#128679;</div>
+        <h3>Open source</h3>
+        <p>The full stack is open source. The translation layer, the modified chain, the genesis tools &mdash; all public and auditable.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">&#128272;</div>
+        <h3>Hardened wallet security</h3>
+        <p>Wallet encryption uses ChaCha20-Poly1305 authenticated encryption with a 100,000-round key derivation. Constant-time auth checks prevent timing attacks. Sensitive files are locked to owner-only permissions.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">&#128301;</div>
+        <h3>Sub-satoshi precision: the finney</h3>
+        <p>Bitcoin's smallest unit is the satoshi. Bitcoin Infinity goes further &mdash; introducing the <strong>finney</strong>, named after <a href="https://en.wikipedia.org/wiki/Hal_Finney_(computer_scientist)" style="color: var(--blue);">Hal Finney</a>, the first person to ever receive a Bitcoin transaction. One satoshi equals 100 million finneys, enabling micropayments that Bitcoin simply can't express.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Technical under the hood -->
+  <section>
+    <h2>Under the <span>hood</span></h2>
+    <p class="subtitle">
+      For the technically curious &mdash; here's what makes this possible.
+    </p>
+    <div class="features">
+      <div class="feature">
+        <h3>Modified NEAR Protocol</h3>
+        <p>Bitcoin Infinity is built on a fork of NEAR Protocol where Bitcoin addresses are first-class account identifiers. When you send coins to a Bitcoin address, the chain creates an account automatically.</p>
+      </div>
+      <div class="feature">
+        <h3>RPC translation proxy</h3>
+        <p>A lightweight Rust service sits between your wallet and the chain. It translates all 204 Bitcoin Core RPC commands into NEAR RPC calls in real time. Your wallet never knows the difference.</p>
+      </div>
+      <div class="feature">
+        <h3>Native signature verification</h3>
+        <p>The chain verifies Bitcoin-format secp256k1 signatures natively. When you sign a transaction with your Bitcoin key, the chain recovers your public key and verifies it matches your address.</p>
+      </div>
+      <div class="feature">
+        <h3>Genesis UTXO import</h3>
+        <p>A genesis builder tool reads Bitcoin's UTXO snapshot and converts every balance into a Bitcoin Infinity account. One satoshi equals 10^16 yoctoBIT, preserving full precision.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Satoshi's coins -->
+  <section>
+    <h2>What happens to <span>Satoshi's coins</span>?</h2>
+    <p class="subtitle">
+      Roughly 1.1 million Bitcoin are believed to belong to Satoshi Nakamoto. On Bitcoin today, they just sit there doing nothing. On Bitcoin Infinity, they secure the entire network &mdash; and fund its future.
+    </p>
+    <div class="features">
+      <div class="feature">
+        <div class="icon">&#128274;</div>
+        <h3>Permanently locked, never lost</h3>
+        <p>Satoshi's original balances are frozen at their exact genesis amount. They can never be spent, transferred, or moved to any regular address. The coins are preserved on-chain, not abandoned.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">&#9879;</div>
+        <h3>Put to work securing the network</h3>
+        <p>Instead of sitting idle, these coins are staked &mdash; actively validating transactions and securing Bitcoin Infinity through Proof of Stake. Over a million BTC worth of security, working for everyone.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">&#127974;</div>
+        <h3>Rewards fund the Bitcoin Infinity Foundation</h3>
+        <p>Staking earns rewards. Since the original balance can't be touched, any excess above the genesis amount goes to a foundation that funds ongoing development, audits, and ecosystem growth. Satoshi's coins become the endowment for Bitcoin's future.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">&#128275;</div>
+        <h3>If Satoshi comes back, they get their coins</h3>
+        <p>There's a built-in unlock mechanism. If Satoshi (or anyone holding the original private keys) signs a cryptographic challenge that could only be produced after Bitcoin Infinity launched, the coins are unlocked after a 7-day public waiting period. Until then, they work for the network.</p>
+      </div>
+    </div>
+    <div class="diagram-wrap" style="margin-top: 32px;">
+      <h3 style="margin-bottom: 16px; font-size: 18px;">Why this matters</h3>
+      <p style="color: var(--muted); font-size: 15px; max-width: 640px; margin: 0 auto;">
+        On Bitcoin today, Satoshi's coins are a black hole &mdash; over 5% of the total supply sitting untouched since 2009. On Bitcoin Infinity, that same wealth actively protects the network and funds its development. No coins are destroyed, no rules are broken. If the owner returns, they get everything back. If they don't, the network and its community benefit instead of no one.
+      </p>
+    </div>
+  </section>
+
+  <!-- 21M supply cap -->
+  <section>
+    <h2>Still only <span>21 million</span></h2>
+    <p class="subtitle">
+      Bitcoin's scarcity is sacred. Bitcoin Infinity keeps the exact same 21 million coin hard cap &mdash; no inflation, no exceptions.
+    </p>
+    <div class="two-col">
+      <div class="solution-card">
+        <h3>Same emission schedule</h3>
+        <ul>
+          <li>Block rewards halve every ~4 years, just like Bitcoin</li>
+          <li>Total supply caps at exactly 21,000,000 BTC</li>
+          <li>Rewards go to stakers instead of miners</li>
+          <li>Time-based halving &mdash; unaffected by variable block speed</li>
+          <li>Once the cap is hit, validators earn only transaction fees</li>
+        </ul>
+      </div>
+      <div class="solution-card">
+        <h3>Smarter emission</h3>
+        <ul>
+          <li>Halving is anchored to wall-clock time, not block count</li>
+          <li>Sub-second blocks don't cause over-emission</li>
+          <li>Per-epoch budgets adapt to actual network speed</li>
+          <li>Existing Bitcoin balances imported at genesis count toward the cap</li>
+          <li>Math is identical &mdash; just adapted for a faster engine</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Quantum resistance -->
+  <section>
+    <h2><span>Quantum</span>-resistant by design</h2>
+    <p class="subtitle">
+      Bitcoin's cryptography won't last forever. Quantum computers will eventually break the math that protects every Bitcoin wallet. Bitcoin Infinity has a plan &mdash; Bitcoin doesn't.
+    </p>
+    <div class="features">
+      <div class="feature">
+        <div class="icon">&#9762;</div>
+        <h3>The quantum threat is real</h3>
+        <p>Bitcoin uses secp256k1 elliptic curve cryptography. A sufficiently powerful quantum computer running Shor's algorithm can reverse it &mdash; recovering private keys from public keys. Every Bitcoin address that has ever spent a transaction is at risk. It's not a question of if, but when.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">&#128737;</div>
+        <h3>Optional quantum-safe keys today</h3>
+        <p>Bitcoin Infinity lets you register a quantum-resistant secondary key alongside your existing Bitcoin key. You don't have to use it now, but it's there when you need it. Supported algorithms include Dilithium, Falcon, and SPHINCS &mdash; all NIST-approved post-quantum standards.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">&#128680;</div>
+        <h3>Emergency activation when the time comes</h3>
+        <p>When quantum computers become a real threat, validators can activate a "Quantum Bit" via supermajority vote. This triggers a 30-day grace period for everyone to migrate to quantum-safe keys. After the grace period, accounts without quantum protection are frozen until they upgrade.</p>
+      </div>
+      <div class="feature">
+        <div class="icon">&#128640;</div>
+        <h3>Bitcoin can't do this</h3>
+        <p>Bitcoin has no upgrade path for quantum resistance. Changing Bitcoin's signature scheme would require a hard fork that the network has never successfully executed for a change this fundamental. Bitcoin Infinity builds the migration path in from day one, so when the threat arrives, the solution is already deployed.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Documentation -->
+  <section>
+    <h2>Read the <span>documentation</span></h2>
+    <p class="subtitle">
+      The docs include technical guides for architecture, integration, operations, security, launch gates, and incident handling.
+    </p>
+    <div class="docs-grid">
+      <a class="doc-link" href="documentation-hub.md">
+        <strong>Documentation Hub</strong>
+        <span>Single entry point linking all major guides.</span>
+      </a>
+      <a class="doc-link" href="technical-whitepaper.md">
+        <strong>Technical Whitepaper</strong>
+        <span>Protocol architecture, economics, launch model, and security assumptions.</span>
+      </a>
+      <a class="doc-link" href="communications-launch-plan.md">
+        <strong>Launch Communications Plan</strong>
+        <span>Prelaunch publication order, owner signoff, and launch-window controls.</span>
+      </a>
+      <a class="doc-link" href="blog-what-is-bitcoin-infinity.md">
+        <strong>Blog Draft - What Bitcoin Infinity Is</strong>
+        <span>Launch-facing technical narrative for users, operators, and integrators.</span>
+      </a>
+      <a class="doc-link" href="blog-utxo-to-genesis-deep-dive.md">
+        <strong>Blog Draft - UTXO to Genesis</strong>
+        <span>How deterministic genesis and supply reconciliation checks work.</span>
+      </a>
+      <a class="doc-link" href="blog-patoshi-balance-floor-explainer.md">
+        <strong>Blog Draft - Patoshi Balance Floor</strong>
+        <span>Technical implementation boundaries and external policy dependencies.</span>
+      </a>
+      <a class="doc-link" href="architecture-overview.md">
+        <strong>Architecture Overview</strong>
+        <span>Component map, trust boundaries, and execution flow.</span>
+      </a>
+      <a class="doc-link" href="rpc-integration-playbook.md">
+        <strong>RPC Integration Playbook</strong>
+        <span>How to integrate wallets and services against the adapter.</span>
+      </a>
+      <a class="doc-link" href="wallet-operations-guide.md">
+        <strong>Wallet Operations Guide</strong>
+        <span>Lifecycle behavior, lock states, and operational guardrails.</span>
+      </a>
+      <a class="doc-link" href="local-dev-and-testing.md">
+        <strong>Local Development and Testing</strong>
+        <span>Build/test/lint/audit/fuzz workflow aligned to CI.</span>
+      </a>
+      <a class="doc-link" href="validator-operations-runbook.md">
+        <strong>Validator Operations Runbook</strong>
+        <span>Node lifecycle, rollout strategy, and incident response.</span>
+      </a>
+      <a class="doc-link" href="security-and-threat-model.md">
+        <strong>Security and Threat Model</strong>
+        <span>Threat classes, mitigations, and assurance pipeline.</span>
+      </a>
+      <a class="doc-link" href="tokenomics-and-governance.md">
+        <strong>Tokenomics and Governance</strong>
+        <span>Supply invariants, emission strategy, and policy controls.</span>
+      </a>
+      <a class="doc-link" href="troubleshooting.md">
+        <strong>Troubleshooting Guide</strong>
+        <span>Fixes for common local, CI, and runtime integration failures.</span>
+      </a>
+      <a class="doc-link" href="benchmark-methodology.md">
+        <strong>Benchmark Methodology</strong>
+        <span>Throughput reporting rules, profile definitions, and artifacts.</span>
+      </a>
+      <a class="doc-link" href="rpc-compatibility-matrix.md">
+        <strong>RPC Compatibility Matrix</strong>
+        <span>Status of Core-like, adapted, and intentionally stubbed methods.</span>
+      </a>
+      <a class="doc-link" href="rpc-error-codes.md">
+        <strong>RPC Error Codes</strong>
+        <span>Operational meaning of adapter JSON-RPC errors.</span>
+      </a>
+      <a class="doc-link" href="incident-communication-templates.md">
+        <strong>Incident Communication Templates</strong>
+        <span>Ready-to-use templates for investigate, halt, recovery, and upgrade events.</span>
+      </a>
+      <a class="doc-link" href="launch-readiness-gates.md">
+        <strong>Launch Readiness Gates</strong>
+        <span>Current launch blockers split into repository and external tracks.</span>
+      </a>
+      <a class="doc-link" href="mainnet-go-no-go-checklist.md">
+        <strong>Mainnet Go / No-Go Checklist</strong>
+        <span>Sixteen required launch decision gates with owner and evidence fields.</span>
+      </a>
+      <a class="doc-link" href="launch-evidence-bundle.md">
+        <strong>Launch Evidence Bundle</strong>
+        <span>How to produce reproducible launch evidence artifacts for review.</span>
+      </a>
+      <a class="doc-link" href="launch-rehearsal.md">
+        <strong>Launch Rehearsal Runner</strong>
+        <span>Single-command launch rehearsal with summary and bundled evidence.</span>
+      </a>
+      <a class="doc-link" href="nightly-fuzz-health-check.md">
+        <strong>Nightly Fuzz Health Check</strong>
+        <span>7-day stability gate for nightly fuzz runs used in launch signoff.</span>
+      </a>
+      <a class="doc-link" href="issue1-core-goal-check.md">
+        <strong>Issue #1 Core-Goal Check</strong>
+        <span>Targeted verification for Bitcoin account-ID and Patoshi/genesis toolchain guarantees.</span>
+      </a>
+      <a class="doc-link" href="genesis-determinism-check.md">
+        <strong>Genesis Determinism Check</strong>
+        <span>Same-input genesis hash verification and supply metadata capture for launch signoff.</span>
+      </a>
+      <a class="doc-link" href="snapshot-supply-reconciliation.md">
+        <strong>Snapshot Supply Reconciliation</strong>
+        <span>Compare genesis supply against Bitcoin snapshot totals from gettxoutsetinfo.</span>
+      </a>
+      <a class="doc-link" href="release-artifact-manifest.md">
+        <strong>Release Artifact Manifest</strong>
+        <span>Checksummed release binaries with machine-readable build metadata.</span>
+      </a>
+    </div>
+  </section>
+
+  <!-- Launch updates -->
+  <section id="launch-updates">
+    <h2>Launch <span>updates</span></h2>
+    <p class="subtitle">
+      Subscribe for milestone announcements, release-candidate notices, and rehearsal status updates.
+    </p>
+    <div class="docs-grid">
+      <a class="doc-link" href="mailto:launch-updates@bitcoininfinity.io?subject=Subscribe%20to%20Bitcoin%20Infinity%20Launch%20Updates">
+        <strong>Join Launch Updates Mailing List</strong>
+        <span>Email <code>launch-updates@bitcoininfinity.io</code> with subject "Subscribe".</span>
+      </a>
+      <a class="doc-link" href="https://github.com/infinitoshi/near-bit">
+        <strong>Follow Development on GitHub</strong>
+        <span>Track commits, release tags, CI checks, and launch artifacts.</span>
+      </a>
+      <a class="doc-link" href="technical-whitepaper.md">
+        <strong>Read the Technical Whitepaper</strong>
+        <span>Architecture, security assumptions, economics, and launch model.</span>
+      </a>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <div class="cta">
+    <h2>Ready to explore?</h2>
+    <p>Bitcoin Infinity is open source. Dive into the code, run a testnet, or build something new.</p>
+    <a href="https://github.com/infinitoshi/near-bit" class="btn btn-primary">
+      View on GitHub
+    </a>
+    <a href="https://github.com/infinitoshi/near-bit/pull/12" class="btn btn-secondary">
+      Read the PR
+    </a>
+  </div>
+
+  <footer>
+    Bitcoin Infinity
+  </footer>
+
+</body>
+</html>

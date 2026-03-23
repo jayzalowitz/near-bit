@@ -1,0 +1,38 @@
+# Archive (phase logs, status reports)
+.archive/
+
+# Build artifacts
+/target/
+**/target/
+/artifacts/benchmarks/
+/artifacts/launch-readiness/
+/artifacts/launch-rehearsals/
+/artifacts/release-manifests/
+
+# Fuzzing runtime outputs
+**/fuzz/artifacts/
+**/fuzz/Cargo.lock
+bitinfinity-tools/fuzz/corpus/
+nearcore/core/crypto/fuzz/corpus/
+**/fuzz/corpus/**/[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]*
+
+# Node data (keep genesis config, ignore runtime data)
+genesis-testnet/data/
+genesis-testnet/node_key.json
+genesis-testnet/validator_key.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Wallet (NEVER commit private keys)
+wallet.json
+tx_cache.json
+.cookie

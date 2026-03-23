@@ -1,0 +1,1 @@
+{"jsonrpc":2,"id":{"x":[1,2]},"method":123,"params":{"amount":"not-a-number"}}

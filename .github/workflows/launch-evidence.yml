@@ -1,0 +1,149 @@
+name: Launch Evidence Bundle
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Readiness gate mode"
+        required: true
+        default: "smoke"
+        type: choice
+        options:
+          - smoke
+          - full
+      include_fuzz:
+        description: "Include fuzz smoke runs in readiness gate"
+        required: true
+        default: false
+        type: boolean
+      check_nightly_fuzz_health:
+        description: "Enforce 7-day nightly fuzz health gate"
+        required: true
+        default: false
+        type: boolean
+      nightly_fuzz_branch:
+        description: "Branch used by nightly fuzz health check"
+        required: true
+        default: "main"
+        type: string
+      nightly_fuzz_workflow:
+        description: "Workflow name used by nightly fuzz health check"
+        required: true
+        default: "Nightly Fuzz"
+        type: string
+      nightly_fuzz_window_days:
+        description: "Lookback window in days for nightly fuzz health"
+        required: true
+        default: "7"
+        type: string
+      nightly_fuzz_min_runs:
+        description: "Minimum required runs in nightly fuzz lookback window"
+        required: true
+        default: "1"
+        type: string
+      nightly_fuzz_max_runs:
+        description: "Max runs fetched from GitHub API for nightly fuzz health"
+        required: true
+        default: "200"
+        type: string
+      nightly_fuzz_job_pattern:
+        description: "Optional regex to evaluate only matching fuzz jobs"
+        required: false
+        default: ""
+        type: string
+      nightly_fuzz_allow_in_progress:
+        description: "Allow in-progress nightly fuzz runs"
+        required: true
+        default: false
+        type: boolean
+      nightly_fuzz_fail_on_cancelled:
+        description: "Treat cancelled nightly fuzz runs/jobs as failures"
+        required: true
+        default: false
+        type: boolean
+      skip_issue1_goal_checks:
+        description: "Skip Issue #1 target suites in readiness gate"
+        required: true
+        default: false
+        type: boolean
+      require_go:
+        description: "Require GO criteria from checklist"
+        required: true
+        default: false
+        type: boolean
+      cargo_target_dir:
+        description: "Optional Cargo target directory override"
+        required: false
+        default: ""
+        type: string
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  bundle:
+    name: Generate launch evidence bundle
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install cargo-audit (full mode only)
+        if: ${{ inputs.mode == 'full' }}
+        run: cargo install cargo-audit --locked
+
+      - name: Install Rust nightly + cargo-fuzz (include_fuzz=true)
+        if: ${{ inputs.include_fuzz }}
+        run: |
+          rustup toolchain install nightly
+          cargo install cargo-fuzz --locked
+
+      - name: Generate launch evidence bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          EXTRA_ARGS=()
+          if [[ "${{ inputs.include_fuzz }}" == "true" ]]; then
+            EXTRA_ARGS+=(--include-fuzz)
+          fi
+          if [[ "${{ inputs.check_nightly_fuzz_health }}" == "true" ]]; then
+            EXTRA_ARGS+=(
+              --check-nightly-fuzz-health
+              --nightly-fuzz-branch "${{ inputs.nightly_fuzz_branch }}"
+              --nightly-fuzz-workflow "${{ inputs.nightly_fuzz_workflow }}"
+              --nightly-fuzz-window-days "${{ inputs.nightly_fuzz_window_days }}"
+              --nightly-fuzz-min-runs "${{ inputs.nightly_fuzz_min_runs }}"
+              --nightly-fuzz-max-runs "${{ inputs.nightly_fuzz_max_runs }}"
+            )
+            if [[ -n "${{ inputs.nightly_fuzz_job_pattern }}" ]]; then
+              EXTRA_ARGS+=(--nightly-fuzz-job-pattern "${{ inputs.nightly_fuzz_job_pattern }}")
+            fi
+            if [[ "${{ inputs.nightly_fuzz_allow_in_progress }}" == "true" ]]; then
+              EXTRA_ARGS+=(--nightly-fuzz-allow-in-progress)
+            fi
+            if [[ "${{ inputs.nightly_fuzz_fail_on_cancelled }}" == "true" ]]; then
+              EXTRA_ARGS+=(--nightly-fuzz-fail-on-cancelled)
+            fi
+          fi
+          if [[ "${{ inputs.skip_issue1_goal_checks }}" == "true" ]]; then
+            EXTRA_ARGS+=(--skip-issue1-goal-checks)
+          fi
+          if [[ "${{ inputs.require_go }}" == "true" ]]; then
+            EXTRA_ARGS+=(--require-go)
+          fi
+          if [[ -n "${{ inputs.cargo_target_dir }}" ]]; then
+            EXTRA_ARGS+=(--cargo-target-dir "${{ inputs.cargo_target_dir }}")
+          fi
+          ./scripts/launch/generate_evidence_bundle.sh --mode "${{ inputs.mode }}" --out-dir "${RUNNER_TEMP}/launch-readiness" "${EXTRA_ARGS[@]}"
+
+      - name: Upload evidence bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: launch-evidence-${{ inputs.mode }}-${{ github.sha }}
+          path: ${{ runner.temp }}/launch-readiness
+          if-no-files-found: error

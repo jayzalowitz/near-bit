@@ -1,0 +1,51 @@
+[package]
+name = "bitinfinity-btcrpc"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+bitcoin = { workspace = true }
+secp256k1 = { workspace = true }
+hex = { workspace = true }
+sha2 = { workspace = true }
+log = { workspace = true }
+env_logger = { workspace = true }
+clap = { workspace = true }
+
+# HTTP server
+axum = "0.7"
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors"] }
+
+# HTTP client for nearcore RPC
+reqwest = { version = "0.12", features = ["json"] }
+
+# Address encoding
+bs58 = { workspace = true }
+ripemd = { workspace = true }
+
+# Random number generation
+rand = "0.8"
+
+# Authenticated encryption for wallet
+chacha20poly1305 = "0.10"
+
+# Base64 encoding for NEAR transaction submission
+base64 = "0.22"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+near-account-id = { path = "../near-account-id" }
+
+# Time
+chrono = "0.4"
+
+[[bin]]
+name = "bitinfinity-btcrpc"
+path = "src/main.rs"

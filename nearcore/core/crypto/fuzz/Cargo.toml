@@ -1,0 +1,23 @@
+[package]
+name = "near-crypto-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+[dependencies.near-crypto]
+path = ".."
+
+[[bin]]
+name = "fuzz_secp256k1_recover"
+path = "fuzz_targets/fuzz_secp256k1_recover.rs"
+test = false
+doc = false
+bench = false
+
+[workspace]
