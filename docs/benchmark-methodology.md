@@ -6,14 +6,14 @@ This document defines how throughput and latency claims are measured for Bitcoin
 
 ## Upstream Reference
 
-The NEAR runtime has been benchmarked at 1,000,000+ TPS across 70 shards using Nightshade 2.0 stateless validation (native token transfers, ~1 hour sustained, Google Cloud C4D at ~$900/month). Per-shard throughput: ~14,800 TPS. Bitcoin Infinity runs the same runtime code — the benchmarks below measure our single-shard testnet configuration independently.
+The upstream runtime has been benchmarked at 1,000,000+ TPS across 70 shards using stateless validation (native token transfers, ~1 hour sustained, Google Cloud C4D at ~$900/month). Per-shard throughput: ~14,800 TPS. Bitcoin Infinity runs the same runtime code — the benchmarks below measure our single-shard testnet configuration independently.
 
 Full protocol parameters: [Protocol Limits](protocol-limits.md)
 
 ## Scope
 
 - Network: private testnet (single shard)
-- Consensus: Proof of Stake (nearcore runtime)
+- Consensus: Proof of Stake
 - Measurement unit: successfully finalized on-chain transactions
 - Finality definition: transaction included and execution outcome available from RPC
 
@@ -66,7 +66,7 @@ The runner will:
 - build benchmark binaries (unless `--skip-build`),
 - write per-profile tx-generator schedules,
 - run `transactions-generator` benchmark workloads,
-- scrape NEAR metrics endpoint while the workload runs,
+- scrape node metrics endpoint while the workload runs,
 - emit per-profile and aggregate summary outputs, including shutdown diagnostics (`schedule_completed_from_log`, `signal_11_from_log`) and normalized status (`effective_run_status`).
 - use controller-enabled schedules by default and gracefully terminate after schedule completion.
 - apply timeout in two phases:

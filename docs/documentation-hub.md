@@ -18,7 +18,7 @@ This hub links all major documentation for building, integrating, operating, and
 
 ## Protocol Reference
 
-- [Protocol Limits and Parameters](protocol-limits.md): gas, transaction, contract, storage, and VM limits inherited from NEAR Protocol v84.
+- [Protocol Limits and Parameters](protocol-limits.md): gas, transaction, contract, storage, and VM limits at protocol version 84.
 
 ## Development and Testing
 

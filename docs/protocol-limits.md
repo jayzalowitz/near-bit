@@ -1,19 +1,18 @@
 # Protocol Limits and Parameters
 
-Bitcoin Infinity runs the NEAR Protocol runtime (protocol version 84). All execution limits, gas parameters, and contract constraints match the published NEAR testnet maximums. This reference collects them in one place.
+Bitcoin Infinity runs a PoS execution runtime (protocol version 84). All execution limits, gas parameters, and contract constraints are documented below.
 
 ## Throughput and Scaling
 
-The underlying NEAR runtime has been benchmarked at 1,000,000+ TPS using Nightshade 2.0 stateless validation across 70 shards (~14,800 TPS per shard). Three independent runs sustained 1M TPS for approximately one hour each, with peaks of 1,029,497 / 1,037,334 / 1,037,495 TPS on Google Cloud C4D hardware at ~$900/month total.
+The underlying runtime has been benchmarked at 1,000,000+ TPS using stateless validation across 70 shards (~14,800 TPS per shard). Three independent runs sustained 1M TPS for approximately one hour each, with peaks of 1,029,497 / 1,037,334 / 1,037,495 TPS on Google Cloud C4D hardware at ~$900/month total.
 
 Key caveats:
 - The 1M TPS benchmark used native token transfers only (no smart contract execution).
-- NEAR mainnet currently operates 9 shards.
 - Bitcoin Infinity testnet currently operates 1 shard.
 - Per-shard throughput for simple transfers: ~14,800 TPS.
 - Bitcoin Infinity measured single-shard throughput is documented separately in [benchmark-methodology.md](benchmark-methodology.md).
 
-Throughput scales approximately linearly with shard count under Nightshade 2.0. The protocol supports dynamic resharding to add shards as demand grows.
+Throughput scales approximately linearly with shard count under the sharding protocol. The protocol supports dynamic resharding to add shards as demand grows.
 
 ## Genesis and Consensus
 
@@ -33,7 +32,7 @@ Throughput scales approximately linearly with shard count under Nightshade 2.0. 
 | Protocol reward rate | 1/10 (10%) | |
 | Max inflation rate | 1/20 (5%) | Annual |
 | Num blocks per year | 31,536,000 | ~1 second block time |
-| Fishermen threshold | 10 NEAR-equivalent | |
+| Fishermen threshold | 10 BIT-equivalent | |
 
 ## Validator Seats
 
@@ -109,7 +108,7 @@ Throughput scales approximately linearly with shard count under Nightshade 2.0. 
 
 | Parameter | Value |
 |---|---|
-| Storage cost per byte | 10^19 yocto (0.00001 NEAR-equivalent) |
+| Storage cost per byte | 10^19 yocto (0.00001 BIT) |
 | Storage bytes per account | 100 bytes |
 | Storage extra bytes per record | 40 bytes |
 

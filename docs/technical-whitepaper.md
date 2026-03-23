@@ -5,7 +5,7 @@ Date: March 4, 2026
 
 ## Abstract
 
-Bitcoin Infinity is a Layer 1 protocol that maps Bitcoin address ownership into a smart-contract-capable execution environment built on the NEAR runtime model. The core objective is operational continuity for Bitcoin holders: the same Bitcoin private keys can authorize transactions on Bitcoin Infinity, while the chain offers fast finality, account-based state, and programmable execution.
+Bitcoin Infinity is a Layer 1 protocol that maps Bitcoin address ownership into a smart-contract-capable execution environment built on a high-performance PoS runtime. The core objective is operational continuity for Bitcoin holders: the same Bitcoin private keys can authorize transactions on Bitcoin Infinity, while the chain offers fast finality, account-based state, and programmable execution.
 
 This whitepaper documents the implemented architecture, launch constraints, and current security/economic controls as represented in the repository.
 
@@ -18,7 +18,7 @@ This whitepaper documents the implemented architecture, launch constraints, and 
 2. Preserve hard-supply invariants.
    - 21M cap model retained in protocol economics.
 3. Add smart contract execution and validator economics.
-   - Account-based state and contract calls via NEAR runtime foundations.
+   - Account-based state and contract calls via the execution runtime.
 4. Keep launch process auditable and reproducible.
    - Deterministic genesis checks.
    - Snapshot-to-genesis supply reconciliation checks.
@@ -28,7 +28,7 @@ This whitepaper documents the implemented architecture, launch constraints, and 
 
 Bitcoin Infinity consists of three principal layers:
 
-1. Runtime and protocol layer (forked NEAR execution model)
+1. Runtime and protocol layer
    - Transaction verification.
    - State transitions.
    - Validator-driven consensus/finality.
@@ -103,7 +103,7 @@ Detailed economics and governance references are maintained in `tokenomics-and-g
 
 ## 7. Protocol Limits
 
-Bitcoin Infinity inherits the NEAR Protocol runtime at protocol version 84. All execution limits — gas, contract size, transaction size, storage costs, and VM constraints — match the published NEAR testnet maximums.
+Bitcoin Infinity inherits execution limits at protocol version 84. All execution limits — gas, contract size, transaction size, storage costs, and VM constraints — are documented in the protocol limits reference.
 
 Key limits:
 
@@ -113,20 +113,20 @@ Key limits:
 - Max contract size: 4 MiB
 - Max transaction size: 1.5 MiB
 - Max actions per receipt: 100
-- Storage cost: 10^19 yocto per byte (~100 KB per 1 NEAR-equivalent)
+- Storage cost: 10^19 yocto per byte (~100 KB per 1 BIT)
 
 Full parameter tables with source references are maintained in [`protocol-limits.md`](protocol-limits.md).
 
 ## 8. Performance and Throughput Positioning
 
-The NEAR runtime that Bitcoin Infinity is built on has been independently benchmarked at over 1,000,000 TPS using 70 shards with Nightshade 2.0 stateless validation (native token transfers, sustained for ~1 hour per run, Google Cloud C4D hardware). Per-shard throughput in that benchmark was ~14,800 TPS.
+The execution runtime has been independently benchmarked at over 1,000,000 TPS using 70 shards with stateless validation (native token transfers, sustained for ~1 hour per run, Google Cloud C4D hardware). Per-shard throughput in that benchmark was ~14,800 TPS.
 
-Bitcoin Infinity testnet currently runs a single shard. Measured single-shard throughput values are published in `benchmark-methodology.md`. Multi-shard scaling is architectural — throughput scales approximately linearly with shard count under Nightshade 2.0, and the protocol supports dynamic resharding.
+Bitcoin Infinity testnet currently runs a single shard. Measured single-shard throughput values are published in `benchmark-methodology.md`. Multi-shard scaling is architectural — throughput scales approximately linearly with shard count, and the protocol supports dynamic resharding.
 
 Throughput claims in this project follow these rules:
 
 - Single-shard measured results are always reported separately from multi-shard projections.
-- The 1M TPS figure is attributed to NEAR's published benchmark, not claimed as a Bitcoin Infinity production metric.
+- The 1M TPS figure is attributed to an upstream runtime benchmark, not claimed as a Bitcoin Infinity production metric.
 - Methodology, command lines, and artifacts are documented in `benchmark-methodology.md`.
 - Full protocol parameters are documented in [`protocol-limits.md`](protocol-limits.md).
 

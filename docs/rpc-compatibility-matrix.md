@@ -4,7 +4,7 @@ This matrix tracks Bitcoin Core RPC compatibility for the Issue #11 Tier 1/2/3 m
 
 Status legend:
 - `Core-like`: behaves close to Bitcoin Core semantics.
-- `Adapted`: implemented, but semantics are adapted for account-based/PoS NEAR internals.
+- `Adapted`: implemented, but semantics are adapted for account-based PoS internals.
 - `Intentional stub`: explicitly unsupported by design, with descriptive error messaging.
 
 ## Tier 1 (wallet-critical)
@@ -12,14 +12,14 @@ Status legend:
 | Method | Status | Notes |
 | --- | --- | --- |
 | `getblockheader` | Core-like | Implemented with header lookup and Bitcoin-like response shape. |
-| `gettransaction` | Adapted | Implemented over tx cache + NEAR status model. |
+| `gettransaction` | Adapted | Implemented over tx cache + chain status model. |
 | `listunspent` | Adapted | Implemented via synthetic UTXO model over account balances. |
 | `lockunspent` / `listlockunspent` | Core-like | Implemented wallet lock-state tracking. |
 | `getaddressinfo` | Adapted | Implemented with Bitcoin-style fields and chain-specific internals. |
 | `scantxoutset` | Adapted | Implemented against address/account state, returns scan summary. |
 | `getrawtransaction` | Adapted | Implemented via cache + decode pathways. |
 | `createrawtransaction` | Adapted | Implemented for Bitcoin-style construction in BIT workflow. |
-| `signrawtransactionwithwallet` | Adapted | Implemented with wallet unlock enforcement and NEAR signing bridge. |
+| `signrawtransactionwithwallet` | Adapted | Implemented with wallet unlock enforcement and chain signing bridge. |
 
 ## Tier 2 (PSBT/HWW workflow)
 
@@ -49,7 +49,7 @@ Status legend:
 
 | Method | Status | Notes |
 | --- | --- | --- |
-| `getblock` | Adapted | Implemented with verbosity options mapped to NEAR-backed data. |
+| `getblock` | Adapted | Implemented with verbosity options mapped to chain-backed data. |
 | `getblockstats` | Adapted | Implemented per-block statistics surface. |
 | `getchaintips` | Adapted | Implemented chain-tip reporting from node status. |
 | `getmempoolentry` | Adapted | Implemented; now pending-only (`-5` for non-pending entries). |
@@ -62,8 +62,8 @@ Status legend:
 | Method(s) | Status | Rationale |
 | --- | --- | --- |
 | `generate`, `generatetoaddress`, `generatetodescriptor` | Intentional stub | Bitcoin Infinity is PoS; no CPU mining RPC support. |
-| `getblocktemplate`, `generateblock`, `submitblock` | Intentional stub | No PoW template/block-mining workflow in NEAR consensus. |
-| `addnode`, `disconnectnode`, `onetry` | Intentional stub | Peer management delegated to nearcore networking. |
+| `getblocktemplate`, `generateblock`, `submitblock` | Intentional stub | No PoW template/block-mining workflow in PoS consensus. |
+| `addnode`, `disconnectnode`, `onetry` | Intentional stub | Peer management delegated to node networking layer. |
 | `getblockfilter` | Intentional stub | Compact block filter support not provided in current architecture. |
 
 ## Current caveats

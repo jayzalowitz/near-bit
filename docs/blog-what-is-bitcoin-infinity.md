@@ -4,7 +4,7 @@ Status: Draft for technical review
 
 ## TL;DR
 
-Bitcoin Infinity is a Bitcoin-address-native chain built on a NEAR-derived execution model. The goal is direct key continuity for Bitcoin holders plus programmable execution, fast finality, and launch controls that are reproducible from source.
+Bitcoin Infinity is a Bitcoin-address-native chain built on a high-performance PoS execution model. The goal is direct key continuity for Bitcoin holders plus programmable execution, fast finality, and launch controls that are reproducible from source.
 
 ## The Problem
 
@@ -30,7 +30,7 @@ This means users do not need a separate address format just to interact with cha
 
 1. Address identity: Bitcoin address strings are first-class account IDs.
 2. Authorization: secp256k1 verification and recovery path is integrated in transaction validation.
-3. Runtime: NEAR-style execution model provides account state transitions and contract execution.
+3. Runtime: account-based execution model provides state transitions and contract execution.
 4. Tooling: genesis, determinism, and launch checks are encoded in scripts for reproducible signoff.
 
 For full technical detail, see `technical-whitepaper.md`.
