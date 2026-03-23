@@ -176,12 +176,15 @@ cargo run -p bitinfinity-neard -- run --home ~/.bitinfinity
 cargo run -p bitinfinity-neard -- config --home ~/.bitinfinity
 ```
 
-### bitinfinity-btcrpc (Coming Soon)
-Bitcoin-compatible JSON-RPC for wallet integration.
+### bitinfinity-btcrpc
+Bitcoin Core-compatible JSON-RPC proxy (204 methods) for wallet integration.
 
 ```bash
-# Existing Bitcoin wallets work by changing endpoint to http://localhost:3030
-bitcoin-cli -rpcconnect=localhost -rpcport=3030 getbalance
+# Start the RPC proxy (needs a running nearcore node)
+cargo run -p bitinfinity-btcrpc
+
+# Existing Bitcoin wallets work by changing endpoint to localhost:8332
+bitcoin-cli -rpcconnect=127.0.0.1 -rpcport=8332 getbalance
 ```
 
 ## FAQ
@@ -196,7 +199,7 @@ Same as Bitcoin - it's gone. Bitcoin Infinity doesn't custodize keys.
 Not directly. Bitcoin Infinity is a separate blockchain. Cross-chain bridges could be built, but they're not in scope for launch.
 
 **Q: When is mainnet?**
-When Bitcoin Core finishes syncing (currently 57.6% complete, ~2-3 hours ETA), we parse the real UTXO set and launch mainnet with Satoshi's coins reassigned.
+When Bitcoin Core finishes syncing, we parse the real UTXO set and launch mainnet with Satoshi's coins reassigned. See `docs/launch-readiness-gates.md` for current gate status.
 
 **Q: How fast is Bitcoin Infinity?**
 1-second block time, instant finality via Doomslug consensus (same as NEAR).
