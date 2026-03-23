@@ -16,6 +16,10 @@ This hub links all major documentation for building, integrating, operating, and
 - [RPC Error Codes](rpc-error-codes.md): operational mapping of JSON-RPC error codes.
 - [Sparrow-Compatible Testnet Walkthrough](sparrow-testnet-walkthrough.md): end-to-end PSBT, signing, send, and receive validation evidence.
 
+## Protocol Reference
+
+- [Protocol Limits and Parameters](protocol-limits.md): gas, transaction, contract, storage, and VM limits inherited from NEAR Protocol v84.
+
 ## Development and Testing
 
 - [Local Development and Testing](local-dev-and-testing.md): build, lint, test, fuzz, benchmark dry-run.
@@ -72,27 +76,28 @@ This hub links all major documentation for building, integrating, operating, and
 2. `QUICKSTART.md`
 3. `technical-whitepaper.md`
 4. `architecture-overview.md`
-5. `rpc-integration-playbook.md`
-6. `sparrow-testnet-walkthrough.md`
-7. `security-and-threat-model.md`
-8. `communications-launch-plan.md`
-9. `blog-what-is-bitcoin-infinity.md`
-10. `blog-utxo-to-genesis-deep-dive.md`
-11. `blog-patoshi-balance-floor-explainer.md`
-12. `index.html#launch-updates`
-13. `validator-operations-runbook.md`
-14. `incident-communication-templates.md`
-15. `incident-launch-pack.md`
-16. `benchmark-methodology.md`
-17. `launch-readiness-gates.md`
-18. `mainnet-go-no-go-checklist.md`
-19. `go-no-go-gate-update.md`
-20. `go-no-go-signoff-prefill.md`
-21. `external-gate-packet.md`
-22. `launch-evidence-bundle.md`
-23. `launch-rehearsal.md`
-24. `nightly-fuzz-health-check.md`
-25. `issue1-core-goal-check.md`
-26. `genesis-determinism-check.md`
-27. `snapshot-supply-reconciliation.md`
-28. `release-artifact-manifest.md`
+5. `protocol-limits.md`
+6. `rpc-integration-playbook.md`
+7. `sparrow-testnet-walkthrough.md`
+8. `security-and-threat-model.md`
+9. `communications-launch-plan.md`
+10. `blog-what-is-bitcoin-infinity.md`
+11. `blog-utxo-to-genesis-deep-dive.md`
+12. `blog-patoshi-balance-floor-explainer.md`
+13. `index.html#launch-updates`
+14. `validator-operations-runbook.md`
+15. `incident-communication-templates.md`
+16. `incident-launch-pack.md`
+17. `benchmark-methodology.md`
+18. `launch-readiness-gates.md`
+19. `mainnet-go-no-go-checklist.md`
+20. `go-no-go-gate-update.md`
+21. `go-no-go-signoff-prefill.md`
+22. `external-gate-packet.md`
+23. `launch-evidence-bundle.md`
+24. `launch-rehearsal.md`
+25. `nightly-fuzz-health-check.md`
+26. `issue1-core-goal-check.md`
+27. `genesis-determinism-check.md`
+28. `snapshot-supply-reconciliation.md`
+29. `release-artifact-manifest.md`
