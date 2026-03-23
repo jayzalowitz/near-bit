@@ -1,17 +1,17 @@
 # Bitcoin Infinity Architecture Overview
 
-Bitcoin Infinity preserves Bitcoin keys and address semantics while running execution on a NEAR-based PoS runtime.
+Bitcoin Infinity preserves Bitcoin keys and address semantics while running execution on a high-throughput PoS runtime.
 
 ## Design Goals
 
 - Keep Bitcoin address/key UX intact.
-- Provide low-latency finality and high throughput (NEAR runtime benchmarked at 1M+ TPS across 70 shards).
+- Provide low-latency finality and high throughput (runtime benchmarked at 1M+ TPS across 70 shards).
 - Preserve a hard 21M supply model.
 - Expose Bitcoin Core-compatible RPC surfaces for existing wallet workflows.
 
 ## System Components
 
-- `bitinfinity-btcrpc`: JSON-RPC adapter that accepts Bitcoin Core-style methods and translates to NEAR-backed behavior.
+- `bitinfinity-btcrpc`: JSON-RPC adapter that accepts Bitcoin Core-style methods and translates to chain-native behavior.
 - `bitinfinity-neard`: node binary and chain runtime entrypoint.
 - `bitinfinity-tools`: genesis generation, UTXO snapshot processing, key tooling, and Patoshi handling.
 - `near-account-id` (fork): account validation layer extended to accept Bitcoin address formats.
@@ -21,7 +21,7 @@ Bitcoin Infinity preserves Bitcoin keys and address semantics while running exec
 
 1. Wallet sends Bitcoin-style RPC request to `bitinfinity-btcrpc`.
 2. RPC adapter validates parameters and wallet state.
-3. Adapter maps request to NEAR-compatible transaction or state query.
+3. Adapter maps request to chain-native transaction or state query.
 4. Runtime verifies signatures and address/account ownership.
 5. Transaction executes under PoS finality.
 6. Adapter returns Bitcoin-compatible response shape to caller.
@@ -54,7 +54,7 @@ See [Tokenomics and Governance](tokenomics-and-governance.md) for details.
 
 ## Protocol Limits
 
-The runtime inherits all NEAR Protocol execution limits at protocol version 84:
+The runtime inherits all execution limits at protocol version 84:
 
 - Gas limit per chunk: 1,000 Tgas
 - Max transaction size: 1.5 MiB
