@@ -5,7 +5,7 @@ Bitcoin Infinity preserves Bitcoin keys and address semantics while running exec
 ## Design Goals
 
 - Keep Bitcoin address/key UX intact.
-- Provide low-latency finality and high throughput.
+- Provide low-latency finality and high throughput (NEAR runtime benchmarked at 1M+ TPS across 70 shards).
 - Preserve a hard 21M supply model.
 - Expose Bitcoin Core-compatible RPC surfaces for existing wallet workflows.
 
@@ -51,6 +51,19 @@ The account validation path is centralized in the `near-account-id` fork and run
 - Patoshi-associated balances are handled under explicit floor and policy constraints.
 
 See [Tokenomics and Governance](tokenomics-and-governance.md) for details.
+
+## Protocol Limits
+
+The runtime inherits all NEAR Protocol execution limits at protocol version 84:
+
+- Gas limit per chunk: 1,000 Tgas
+- Max transaction size: 1.5 MiB
+- Max contract size: 4 MiB
+- Max actions per receipt: 100
+- Epoch length: 500 blocks (testnet)
+- Transaction validity: 100 blocks
+
+Full parameter tables: [Protocol Limits](protocol-limits.md)
 
 ## Compatibility Boundaries
 

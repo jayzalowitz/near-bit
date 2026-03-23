@@ -4,9 +4,15 @@ Status: methodology and runner automation implemented; full-duration and pilot b
 
 This document defines how throughput and latency claims are measured for Bitcoin Infinity.
 
+## Upstream Reference
+
+The NEAR runtime has been benchmarked at 1,000,000+ TPS across 70 shards using Nightshade 2.0 stateless validation (native token transfers, ~1 hour sustained, Google Cloud C4D at ~$900/month). Per-shard throughput: ~14,800 TPS. Bitcoin Infinity runs the same runtime code — the benchmarks below measure our single-shard testnet configuration independently.
+
+Full protocol parameters: [Protocol Limits](protocol-limits.md)
+
 ## Scope
 
-- Network: private testnet
+- Network: private testnet (single shard)
 - Consensus: Proof of Stake (nearcore runtime)
 - Measurement unit: successfully finalized on-chain transactions
 - Finality definition: transaction included and execution outcome available from RPC

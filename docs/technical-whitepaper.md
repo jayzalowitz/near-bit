@@ -101,15 +101,36 @@ Full policy/legal signoff for Patoshi governance remains an external launch depe
 
 Detailed economics and governance references are maintained in `tokenomics-and-governance.md`.
 
-## 7. Performance and Throughput Positioning
+## 7. Protocol Limits
 
-Bitcoin Infinity does not present an unqualified "1M TPS" empirical claim. Published throughput statements are grounded in documented benchmark runs and methodology:
+Bitcoin Infinity inherits the NEAR Protocol runtime at protocol version 84. All execution limits — gas, contract size, transaction size, storage costs, and VM constraints — match the published NEAR testnet maximums.
 
-- Measured single-shard pilot values are published in repository docs.
-- Multi-shard scaling statements are described as architectural scaling, not already-observed aggregate production metrics.
+Key limits:
+
+- Gas limit per chunk: 1,000 Tgas (1 Pgas)
+- Max gas burnt per receipt: 300 Tgas
+- Max total prepaid gas per transaction: 300 Tgas
+- Max contract size: 4 MiB
+- Max transaction size: 1.5 MiB
+- Max actions per receipt: 100
+- Storage cost: 10^19 yocto per byte (~100 KB per 1 NEAR-equivalent)
+
+Full parameter tables with source references are maintained in [`protocol-limits.md`](protocol-limits.md).
+
+## 8. Performance and Throughput Positioning
+
+The NEAR runtime that Bitcoin Infinity is built on has been independently benchmarked at over 1,000,000 TPS using 70 shards with Nightshade 2.0 stateless validation (native token transfers, sustained for ~1 hour per run, Google Cloud C4D hardware). Per-shard throughput in that benchmark was ~14,800 TPS.
+
+Bitcoin Infinity testnet currently runs a single shard. Measured single-shard throughput values are published in `benchmark-methodology.md`. Multi-shard scaling is architectural — throughput scales approximately linearly with shard count under Nightshade 2.0, and the protocol supports dynamic resharding.
+
+Throughput claims in this project follow these rules:
+
+- Single-shard measured results are always reported separately from multi-shard projections.
+- The 1M TPS figure is attributed to NEAR's published benchmark, not claimed as a Bitcoin Infinity production metric.
 - Methodology, command lines, and artifacts are documented in `benchmark-methodology.md`.
+- Full protocol parameters are documented in [`protocol-limits.md`](protocol-limits.md).
 
-## 8. Security Model and Assurance
+## 9. Security Model and Assurance
 
 Security posture is based on layered controls:
 
@@ -126,7 +147,7 @@ Security posture is based on layered controls:
 
 Threat assumptions and mitigations are documented in `security-and-threat-model.md`.
 
-## 9. Launch Control Plane
+## 10. Launch Control Plane
 
 Launch process is encoded into scripts so signoff can be re-run on specific commits:
 
@@ -142,7 +163,7 @@ These scripts support:
 - optional snapshot reconciliation enforcement.
 - machine-readable evidence outputs.
 
-## 10. Governance and Operational Boundaries
+## 11. Governance and Operational Boundaries
 
 Repository code and docs cover technical launch readiness gates. Several critical gates remain external by design:
 
@@ -153,7 +174,7 @@ Repository code and docs cover technical launch readiness gates. Several critica
 
 The separation between repository-verifiable and external dependencies is tracked in `launch-readiness-gates.md`.
 
-## 11. Non-Goals (Current Scope)
+## 12. Non-Goals (Current Scope)
 
 The following are explicitly out of current repository launch scope:
 
@@ -162,34 +183,34 @@ The following are explicitly out of current repository launch scope:
 - broad non-standard Bitcoin script emulation guarantees.
 - consumer wallet UX parity beyond documented tested paths.
 
-## 12. Reproducibility Reference Commands
+## 13. Reproducibility Reference Commands
 
-### 12.1 Core launch smoke gate
+### 13.1 Core launch smoke gate
 
 ```bash
 ./scripts/launch/run_readiness_gate.sh --smoke
 ```
 
-### 12.2 Deterministic genesis check
+### 13.2 Deterministic genesis check
 
 ```bash
 ./scripts/launch/check_genesis_determinism.sh --testnet --expected-hash 95f3e2600eec0dcd3ca51bf530f46ac963fa3b5286e18c6401efdcae8066aa5d
 ```
 
-### 12.3 Snapshot supply reconciliation
+### 13.3 Snapshot supply reconciliation
 
 ```bash
 ./scripts/launch/check_snapshot_supply_reconciliation.sh --genesis /path/to/genesis.json --txoutsetinfo /path/to/gettxoutsetinfo.json --tolerance-sats 1
 ```
 
-### 12.4 Evidence and rehearsal generation
+### 13.4 Evidence and rehearsal generation
 
 ```bash
 ./scripts/launch/generate_evidence_bundle.sh --mode smoke
 ./scripts/launch/run_launch_rehearsal.sh --mode smoke
 ```
 
-## 13. Document Control
+## 14. Document Control
 
 This whitepaper is a repository-controlled technical baseline document. It should be updated when any of the following change:
 
