@@ -76,27 +76,31 @@ struct Cli {
 /// Generates a random cookie file at the given path and returns the cookie string.
 /// Format: `__cookie__:<random_hex>` (same as Bitcoin Core)
 fn generate_cookie_file(path: &std::path::Path) -> String {
+    use rand::RngCore;
     use std::io::Write;
     let mut rng_bytes = [0u8; 32];
-    // Use /dev/urandom via std for randomness
-    if let Ok(mut f) = std::fs::File::open("/dev/urandom") {
-        use std::io::Read;
-        let _ = f.read_exact(&mut rng_bytes);
-    } else {
-        // Fallback: use process id + time as entropy
-        let seed = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map(|d| d.as_nanos())
-            .unwrap_or(0)
-            ^ (std::process::id() as u128);
-        for (i, b) in rng_bytes.iter_mut().enumerate() {
-            *b = ((seed >> (i % 16 * 8)) & 0xff) as u8;
-        }
-    }
+    rand::rngs::OsRng.fill_bytes(&mut rng_bytes);
     let hex_str: String = rng_bytes.iter().map(|b| format!("{:02x}", b)).collect();
     let cookie = format!("__cookie__:{}", hex_str);
-    if let Ok(mut file) = std::fs::File::create(path) {
-        let _ = file.write_all(cookie.as_bytes());
+    // Create cookie file with restrictive permissions (owner-only read/write)
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        if let Ok(mut file) = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .mode(0o600)
+            .open(path)
+        {
+            let _ = file.write_all(cookie.as_bytes());
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        if let Ok(mut file) = std::fs::File::create(path) {
+            let _ = file.write_all(cookie.as_bytes());
+        }
     }
     cookie
 }
@@ -158,7 +162,24 @@ impl RpcAuth {
             Err(_) => return false,
         };
 
-        decoded == self.credentials
+        // Constant-time comparison to prevent timing attacks on auth credentials.
+        // Both sides must be the same length for byte-by-byte XOR comparison;
+        // if lengths differ, we still iterate to avoid leaking length info.
+        let a = decoded.as_bytes();
+        let b = self.credentials.as_bytes();
+        if a.len() != b.len() {
+            // Iterate over b to keep constant time even on length mismatch
+            let mut _acc = 0u8;
+            for &byte in b.iter() {
+                _acc |= byte;
+            }
+            return false;
+        }
+        let mut diff = 0u8;
+        for (x, y) in a.iter().zip(b.iter()) {
+            diff |= x ^ y;
+        }
+        diff == 0
     }
 }
 
@@ -2183,11 +2204,16 @@ async fn handle_sendrawtransaction(state: &RpcState, request: &JsonRpcRequest) -
             }
         };
 
-        let sender = payload
-            .get("sender")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string();
+        let sender = match payload.get("sender").and_then(|v| v.as_str()) {
+            Some(s) if !s.is_empty() => s.to_string(),
+            _ => {
+                return err_response(
+                    &request.id,
+                    -22,
+                    "Invalid signed intent: missing or empty sender field".to_string(),
+                )
+            }
+        };
         let btc_txid = payload
             .get("btc_txid")
             .and_then(|v| v.as_str())

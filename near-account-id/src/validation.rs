@@ -171,6 +171,11 @@ fn has_valid_base58check_address(account_id: &str) -> bool {
     matches!(payload[0], 0x00 | 0x05 | 0x6f | 0xc4)
 }
 
+/// Validates SegWit (bech32/bech32m) Bitcoin addresses.
+///
+/// SECURITY NOTE: Currently accepts mainnet (bc1), testnet (tb1), and regtest (bcrt1)
+/// addresses. For mainnet deployment, consider restricting to `bech32::hrp::BC` only
+/// and gating testnet/regtest acceptance behind a configuration flag.
 fn has_valid_segwit_address(account_id: &str) -> bool {
     match bech32::segwit::decode(account_id) {
         Ok((hrp, _, _)) => {
