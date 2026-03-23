@@ -4,6 +4,8 @@
 
 Your existing Bitcoin private key is your Bitcoin Infinity private key. No migration. No claiming. No new wallet software required.
 
+**[Documentation Site](https://jayzalowitz.github.io/near-bit/)** · [Quick Start](QUICKSTART.md) · [Architecture](docs/architecture-overview.md)
+
 ```
 Bitcoin address:  1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa
 Bitcoin Infinity: same address, same key, now with smart contracts
