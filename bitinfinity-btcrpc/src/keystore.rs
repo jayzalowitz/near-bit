@@ -235,11 +235,7 @@ impl Keystore {
     }
 
     /// Decrypt using ChaCha20-Poly1305 (authenticated encryption).
-    fn decrypt_aead(
-        key: &[u8; 32],
-        nonce_hex: &str,
-        ciphertext: &[u8],
-    ) -> Result<Vec<u8>, String> {
+    fn decrypt_aead(key: &[u8; 32], nonce_hex: &str, ciphertext: &[u8]) -> Result<Vec<u8>, String> {
         use chacha20poly1305::aead::{Aead, KeyInit};
         use chacha20poly1305::{ChaCha20Poly1305, Nonce};
 
